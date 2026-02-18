@@ -96,7 +96,7 @@ To ensure accountability and maintain harmony, a point-based system will track r
 - Blindly agreeing → **0.25 points**  
 
 **Consequences:**  
-- **1 point** → The person has to sing a song during a public karaoke session.
+- **4 point** → The person has to sing a song during a public karaoke session.
 
 ### Tracking System
 - Points will be tracked and managed in the main **FigJam page on Figma**.  
@@ -107,7 +107,6 @@ To ensure accountability and maintain harmony, a point-based system will track r
 | Name                       | Signature                                                | Date       |
 |----------------------------|----------------------------------------------------------|------------|
 | Guillermo Sanchez Martinez | Guillermo Sánchez                                        | 18.02.2026 |
-| Hamsa        | Hamsa                                             | 18.02.2026 |
-| Waqar        | Waqar                  | 18.02.2026 |
-| Alexandru Savin            | ![](Signatures/Alexnadru_Savin.png)                      | 18.02.2026 |
-| Eduard Fekete              | ![](Signatures/Eduard_Fekete.png)                        | 18.02.2026 |
+| Hamsa                      | Hamsa                                                    | 18.02.2026 |
+| Waqar                      | Waqar                                                    | 18.02.2026 |
+| Felipe                     | Felipe                                                   | 18.02.2026 |
