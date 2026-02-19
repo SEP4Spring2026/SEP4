@@ -12,6 +12,8 @@
 - Hamsa  
 - Waqar  
 - Felipe  
+- Christos Artemisios
+- Rebeca Proskovcova
 
 ## 1. Core Values and Priorities
 
@@ -106,9 +108,11 @@ To ensure accountability and maintain harmony, a point-based system will track r
 
 ## Signatures
 
-| Name                       | Signature                                                | Date       |
-|----------------------------|----------------------------------------------------------|------------|
-| Guillermo Sanchez Martinez | Guillermo Sánchez                                        | 18.02.2026 |
-| Hamsa                      | Hamsa Sheikhdon                                          | 18.02.2026 |
-| Waqar                      |                                                          | 18.02.2026 |
-| Felipe                     |                                                          | 18.02.2026 |
+| Name                       | Signature           | Date       |
+|----------------------------|---------------------|------------|
+| Guillermo Sanchez Martinez | Guillermo Sánchez   | 18.02.2026 |
+| Hamsa                      | Hamsa Sheikhdon     | 18.02.2026 |
+| Waqar                      |                     | 18.02.2026 |
+| Felipe                     |                     | 18.02.2026 |
+| Christos Artemisios        | Christos Artemisios | 18.02.2026 |
+| Rebeca Proskovcova         | Rebeca Proskovcova  | 18.02.2026 |
