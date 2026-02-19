@@ -111,7 +111,7 @@ To ensure accountability and maintain harmony, a point-based system will track r
 | Name                       | Signature           | Date       |
 |----------------------------|---------------------|------------|
 | Guillermo Sanchez Martinez | Guillermo Sánchez   | 18.02.2026 |
-| Hamsa                      | Hamsa Sheikhdon     | 18.02.2026 |
+| Hamsa Sheikhdon            | Hamsa Sheikhdon     | 18.02.2026 |
 | Waqar                      |                     | 18.02.2026 |
 | Felipe                     |                     | 18.02.2026 |
 | Christos Artemisios        | Christos Artemisios | 18.02.2026 |
