@@ -9,7 +9,7 @@
 
 **Group Members (GMs):**  
 - Guillermo Sánchez Martínez  
-- Hamsa  
+- Hamsa Sheikhdon
 - Waqar  
 - Felipe  
 - Christos Artemisios
