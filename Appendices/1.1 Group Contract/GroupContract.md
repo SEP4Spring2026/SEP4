@@ -33,7 +33,8 @@ The objectives are as follows:
 - Facilitate learning about group dynamics and project-specific competencies for all members.  
 
 ### Decision-Making
-- Amendments to this contract or significant group decisions must be approved by at least **80% of the members**.  
+- Amendments to this contract or significant group decisions must be approved by at least **9 of the members**.
+- 
 - All other decisions need to be approved by a **simple majority (>50%)**.  
 - All members are entitled to voice their opinions before voting or decision-making occurs.  
 
@@ -57,10 +58,11 @@ The objectives are as follows:
      - Within **2 hours** if it is about an upcoming hand-in (48 hours before).  
        *(excluding 20:00–10:00, or work-related gaps in schedules)*  
    - Attend all scheduled meetings or inform the team at least **2 hours in advance** of absence.  
-   - Join the meeting at the agreed time or inform of delay.  
-     - Being delayed without notification = **0.5 missed attendance**.  
-     - Not attending = **1 missed attendance**.  
+     - Being delayed without notification = **0.5 points**.  
+     - Not attending without valid notified reason = **1.5 point**.
+         *(a valid reason can be a doctor appointment, illness or work)*
    - GMs can join before the meeting and continue with private matters, but at the agreed time, everyone must be **actively present**.  
+   - After calling sick twice a doctor receipt will be required to not miss any attendance, the lack of the receipt will result in getting **1 point**.
 
 2. **Workload**  
    - Equitably distribute tasks among all members.  
@@ -90,13 +92,15 @@ To ensure accountability and maintain harmony, a point-based system will track r
 **Violations:**  
 - Knowingly lying → **1 point**  
 - 1 missed attendance → **1 point**  
+- Being more than 5 min late to an online meeting → **1 point**  
+- Being more than 15 min late to a meeting on campus (without counting train delays) → **1 point**
 - Incomplete work without valid reason → **0.5 points**  
 - Failure to respond to messages → **0.25 points**  
 - Missed deadline → **1 point**  
 - Blindly agreeing → **0.25 points**  
 
 **Consequences:**  
-- **4 point** → The person has to sing a song during a public karaoke session.
+- **3 points** → The person will be expelled from the group.
 
 ### Tracking System
 - Points will be tracked and managed in the main **FigJam page on Figma**.  
@@ -106,7 +110,7 @@ To ensure accountability and maintain harmony, a point-based system will track r
 
 | Name                       | Signature                                                | Date       |
 |----------------------------|----------------------------------------------------------|------------|
-| Guillermo Sanchez Martinez | Guillermo Sánchez                                        | 18.02.2026 |
-| Hamsa                      |                                                     | 18.02.2026 |
-| Waqar                      |                                                     | 18.02.2026 |
-| Felipe                     |                                                    | 18.02.2026 |
+| Guillermo Sanchez Martinez | Guillermo Sánchez                                        | 19.02.2026 |
+| Hamsa                      |                                                     | 19.02.2026 |
+| Waqar                      |                                                     | 19.02.2026 |
+| Felipe                     |                                                    | 19.02.2026 |
