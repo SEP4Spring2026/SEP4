@@ -12,7 +12,6 @@
 - Hamsa  
 - Waqar  
 - Felipe  
--   
 
 ## 1. Core Values and Priorities
 
@@ -34,7 +33,6 @@ The objectives are as follows:
 
 ### Decision-Making
 - Amendments to this contract or significant group decisions must be approved by at least **9 of the members**.
-- 
 - All other decisions need to be approved by a **simple majority (>50%)**.  
 - All members are entitled to voice their opinions before voting or decision-making occurs.  
 
@@ -110,7 +108,7 @@ To ensure accountability and maintain harmony, a point-based system will track r
 
 | Name                       | Signature                                                | Date       |
 |----------------------------|----------------------------------------------------------|------------|
-| Guillermo Sanchez Martinez | Guillermo Sánchez                                        | 19.02.2026 |
-| Hamsa                      |                                                     | 19.02.2026 |
-| Waqar                      |                                                     | 19.02.2026 |
-| Felipe                     |                                                    | 19.02.2026 |
+| Guillermo Sanchez Martinez | Guillermo Sánchez                                        | 18.02.2026 |
+| Hamsa                      | Hamsa Sheikhdon                                          | 18.02.2026 |
+| Waqar                      |                                                          | 18.02.2026 |
+| Felipe                     |                                                          | 18.02.2026 |
