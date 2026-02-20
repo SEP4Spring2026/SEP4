@@ -116,3 +116,4 @@ To ensure accountability and maintain harmony, a point-based system will track r
 | Felipe                     | Felipe Figueiredo   | 18.02.2026 |
 | Christos Artemisios        | Christos Artemisios | 18.02.2026 |
 | Rebeca Proskovcova         | Rebeca Proskovcova  | 18.02.2026 |
+| Matteo Saccucci         | Matteo Saccucci  | 20.02.2026 |
