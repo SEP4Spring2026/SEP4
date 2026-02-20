@@ -113,7 +113,9 @@ To ensure accountability and maintain harmony, a point-based system will track r
 | Guillermo Sanchez Martinez | Guillermo Sánchez   | 18.02.2026 |
 | Hamsa Sheikhdon            | Hamsa Sheikhdon     | 18.02.2026 |
 | Waqar                      |                     | 18.02.2026 |
-| Felipe                     | Felipe Figueiredo   | 18.02.2026 |
+| Felipe Figueiredo          | Felipe Figueiredo   | 18.02.2026 |
 | Christos Artemisios        | Christos Artemisios | 18.02.2026 |
 | Rebeca Proskovcova         | Rebeca Proskovcova  | 18.02.2026 |
-| Matteo Saccucci         | Matteo Saccucci  | 20.02.2026 |
+| Matteo De Filippis         | Matteo De Filippis  | 20.02.2026 |
+| Matteo Saccucci            | Matteo Saccucci     | 20.02.2026 |
+| Piotr Gała                 | Piotr Gała          | 20.02.2026 |
