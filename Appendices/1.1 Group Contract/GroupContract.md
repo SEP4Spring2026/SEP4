@@ -124,5 +124,5 @@ To ensure accountability and maintain harmony, a point-based system will track r
 | Matteo Saccucci            | Matteo Saccucci     | 20.02.2026 |
 | Piotr Gała                 | Piotr Gała          | 20.02.2026 |
 | Eliza Bianca Manciu        |                     | 20.02.2026 |
-| Soma Bence Nagy            |                     | 20.02.2026 |
+| Soma Bence Nagy            | Soma Bence Nagy     | 20.02.2026 |
 | Waqar Ahmed Khan           |                     | 18.02.2026 |
