@@ -122,6 +122,15 @@ Each student is expected to contribute a total of 275 hours to meet the 10 ECTS 
 
 | Risk | Likelihood | Severity | Normalized | Preventive Actions |
 |-----------|:--------:|:------:|:---------:|-----------------|
+| Inexperienced team members on the technologies used | 3 | 5 | 15 | Offer help in guidance if needed Such team members might be advised to review the content taught in the semester. |
+| Poor workload estimation during sprints | 2 | 3 | 6 | Prioritize key requirements that are necessary for the project to work. |
+| Technical issues during system development | 4 | 3 | 12 | Set aside moments to check if systems work as they should and fix what does not. |
+| The system has poor visual design | 5 | 2 | 10 | Define and enforce a cohesive design style, conduct user feedback sessions to refine and ensure a user-friendly visual layout.|
+| lack of coordination between sub-groups | 5 |4 | 20 | Be srict with with setting up at least one meeting a week so everyone is updated on the overall project's progress and current state.|
+
+# Summaru of Risk Assessment
+
+This risk assessment highlights several key factors that could disrupt the project. The highest risk score is associated with lack of coordination between sub-groups. 
 
 
 
