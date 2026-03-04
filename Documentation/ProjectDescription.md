@@ -27,6 +27,13 @@ How to provide easily accessible learning platform?
 
 # Delimitation
 
+The project focuses on analyzing different parameters of a room to predict future CO2 levels and the amount of people inside. The system is intended to be free, aligning with our goal of making everyone able to know the quality of the air they are breathing. To ensure high-quality, accurate content, courses will be reviewed by experts and AI.
+
+The project is limited to the development of a simple air quality prediction system for students, teachers, and its administrators. Features such as high-scale performance, complete accessibility, AI-based summaries, and enterprise-level security are not part of it.
+
+Delimitations Related to Sub-questions
+
+Security Security will be guaranteed on a low level (password hashing, simple role-based permissions). Advanced protection (multi-factor authentication) is beyond the project.
 
 ---
 
@@ -128,7 +135,7 @@ Each student is expected to contribute a total of 275 hours to meet the 10 ECTS 
 | The system has poor visual design | 5 | 2 | 10 | Define and enforce a cohesive design style, conduct user feedback sessions to refine and ensure a user-friendly visual layout.|
 | lack of coordination between sub-groups | 5 |4 | 20 | Be srict with with setting up at least one meeting a week so everyone is updated on the overall project's progress and current state.|
 
-# Summaru of Risk Assessment
+# Summary of Risk Assessment
 
 This risk assessment highlights several key factors that could disrupt the project. The highest risk score is associated with lack of coordination between sub-groups. 
 

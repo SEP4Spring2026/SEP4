@@ -1,0 +1,9 @@
+@startuml SSD01 Do Learning Step
+title SSD01 Do learning step
+
+actor Learner
+participant Server
+
+Learner -> Server: Login/register
+Server --> Learner: Auth OK / session
+@enduml

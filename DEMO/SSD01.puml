@@ -1,0 +1,28 @@
+@startuml SSD01 Do Learning Step
+title SSD01 – Do learning step
+!include https://raw.githubusercontent.com/fredoslav2004/MinimalThemePUML/refs/heads/main/minimal-theme.puml
+
+actor Learner
+participant Server
+
+Learner -> Server: Login/register
+Server --> Learner: Auth OK / session
+
+Learner -> Server: Request available courses
+Server --> Learner: Display available courses
+
+Learner -> Server: Select desired course
+Server --> Learner: Course context (learning path)
+
+loop Unless step is done correctly
+  Learner -> Server: Request current learning-path step
+  Server --> Learner: Display current step
+
+  Learner -> Server: Submit step work (answers/actions)
+  Server --> Learner: Evaluate step
+
+  Learner -> Server: Request feedback
+  Server --> Learner: Show feedback (hints/result)
+end
+
+@enduml
