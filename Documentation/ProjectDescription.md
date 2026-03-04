@@ -87,11 +87,11 @@ There are three full-time sprints (Sprints 3–5, Weeks 19–21) for **Construct
 
 The length of the sprint changes from four calendar weeks at part-time intensity during Elaboration to about five working days at full-time intensity during Construction. The overall budget is 3,360 hours, which comes out to 280 hours per student among 12 team members. About 10% of the time will be spent on Inception, 29% on Elaboration, 49% on Construction, and 12% on Transition, which is in line with the usual UP effort distribution.
 
-### Final Deadline
+#### Final Deadline
 
 Date: May 28th 2026
 
-## Project Timeline
+### Project Timeline
 
 | Date / Period            | Milestone / Activity             | Details |
 |-----------------------|-------------------------------|--------------------|
@@ -100,7 +100,7 @@ Date: May 28th 2026
 | End of May 2026      | Completion of Formal Project Part | Finish writing & documentation for review |
 | May 28, 2026         | Final Deadline                   | Submission of full project |
 
-### Milestones
+#### Milestones
 
 1. **Weekly Reporting and Task Assignment**  
    When: Every Monday  
@@ -115,15 +115,11 @@ Date: May 28th 2026
    Target Date: End of May 2026  
    Details: Aim to complete the formal writing and documentation aspect by this date, allowing time for final revisions before the deadline.
 
-## Expected Time Commitment Based on 10 ECTS
-
-Each student is expected to contribute a total of 275 hours to meet the 10 ECTS workload requirement, with increased hours in April and May to reduce the workload in December.
 
 
 ### Total Hours Calculation for 10 ECTS
 
-- Total Hours: 275 hours per student
-- Calculation: Total hours = 10 × 27.5 = 275 hours
+- Total Hours: 280 hours per student
 
 ---
 
