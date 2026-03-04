@@ -71,20 +71,36 @@ To facilitate organized collaboration and progress monitoring:
 
 # Time Schedule
 
-## Final Deadline
+*Piotr, Christos*
 
-Date: June 2th 2026
+The project runs from Weeks 6 to 22 (February 2 to May 28, 2026) and is divided into four Unified Process phases and five Scrum sprints.
 
-# Project Timeline
+**Inception** (Weeks 6–10) is a planning phase with no sprint. It formulates the group contract, the initial backlog, and the project description.
+
+**Elaboration** has two part-time sprints: Sprint 1 (Weeks 11–14) is all about the architecture spike, setting up CI/CD, and getting used to the hardware. Sprint 2 (Weeks 15–18) gives you the interfacing contracts and a working vertical slice from sensor to cloud to frontend.
+
+There are three full-time sprints (Sprints 3–5, Weeks 19–21) for **Construction**. These sprints focus on building features, testing integrations, and making the system more secure.
+
+**Transition** (Weeks 21–22) is for finishing the report, the 30-minute video presentation, and the final deployment verification. The project is due on May 28.
+
+![SEP4 Project Timeline](./Figures/sep4-gantt-timeline.png)
+
+The length of the sprint changes from four calendar weeks at part-time intensity during Elaboration to about five working days at full-time intensity during Construction. The overall budget is 3,360 hours, which comes out to 280 hours per student among 12 team members. About 10% of the time will be spent on Inception, 29% on Elaboration, 49% on Construction, and 12% on Transition, which is in line with the usual UP effort distribution.
+
+### Final Deadline
+
+Date: May 28th 2026
+
+## Project Timeline
 
 | Date / Period            | Milestone / Activity             | Details |
 |-----------------------|-------------------------------|--------------------|
 | Every  Monday             | Weekly Reporting & Task Assignment | Submit progress report + assign new tasks |
 | Weekly                    | Weekly Meeting                   | Checkpoint via Discord or at school |
 | End of May 2026      | Completion of Formal Project Part | Finish writing & documentation for review |
-| June 2, 2026         | Final Deadline                   | Submission of full project |
+| May 28, 2026         | Final Deadline                   | Submission of full project |
 
-## Milestones
+### Milestones
 
 1. **Weekly Reporting and Task Assignment**  
    When: Every Monday  
@@ -103,20 +119,6 @@ Date: June 2th 2026
 
 Each student is expected to contribute a total of 275 hours to meet the 10 ECTS workload requirement, with increased hours in April and May to reduce the workload in December.
 
-### Breakdown of Hours for 10 ECTS
-
-- **April:**
-  - Weekly commitment: 16 hours per student
-  - Total for April: 4 × 16 = 64 hours per student
-
-- **May:**
-  - Weekly commitment: 16 hours per student
-  - Total for May: 4 × 16 = 64 hours per student
-
-- **December (up to December 20):**
-  - Remaining: 147 hours
-  - Weekly commitment: 147 / 3 ≈ 49 hours per student
-  - Total for December: 3 × 49 = 147 hours per student
 
 ### Total Hours Calculation for 10 ECTS
 
