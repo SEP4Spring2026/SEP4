@@ -41,31 +41,46 @@ Security Security will be guaranteed on a low level (password hashing, simple ro
 
 ## Knowledge and Data Collection
 
+Environmental data (CO2, temperature, humidity) will be collected in real time through IoT sensors connected to an ATmega2560 microcontroller. Sensor readings are transmitted to a cloud backend and stored in a relational database for both live monitoring and historical analysis. This directly addresses the main problem of replacing subjective perception of air quality with continuous, objective measurement.
+
+Literature on indoor environmental standards (WHO, 2010; Allen et al., 2016) will inform the thresholds used to classify air quality as "good" or "poor" and to trigger user notifications.
 
 ## Analysis and Modelling
 
-For distributed system planning and design, UML diagrams will be used to model system functionality and interactions.
+UML diagrams (use case, class, sequence, component) will be used to model system functionality and interactions across the IoT, cloud, and frontend layers. Threat modelling will be conducted to identify security risks in authentication and data communication between embedded devices and the cloud.
 
-- Threat modelling will be conducted and potential security threats in authentication and data communication will be analysed.
+Machine learning will be applied to sensor data for pattern detection and air quality prediction. The specific approach (classification, regression, or time series forecasting) will be selected during Elaboration once initial data characteristics are known. Python with standard libraries (pandas, scikit-learn) will be used for the ML pipeline.
 
 ## Design, Construction and Implementation
 
-The system will be developed using standard software development methods:
+The system is developed as four components (to be revised):
 
+| Component | Technology | Responsibility |
+|-----------|-----------|----------------|
+| IoT | Embedded C, ATmega2560 | Sensor reading, data buffering, actuator control, backend communication |
+| Cloud/Backend | REST API, containers, Google Cloud Platform | Data ingestion, storage, business logic, notifications |
+| Frontend | React | Dashboards, historical visualizations, alerts, responsive UI |
+| ML | Python (pandas, scikit-learn) | Data preprocessing, model training, forecasts served via API |
+
+All components communicate through interfacing contracts defined during Elaboration. Version control uses Git with GitHub (feature branching, pull requests). CI/CD pipelines automate building, testing, and deployment.
 
 ## Testing
 
-The testing will be carried out continuously during the project to ensure robustness and functionality:
-
+Unit testing uses JUnit for backend components. API validation and integration testing uses Postman. The strategy combines white-box testing (internal code paths), grey-box testing (API integration points), and black-box testing (functional requirements). ML model performance is evaluated with metrics appropriate to the chosen approach. Automated regression tests run in the CI/CD pipeline via GitHub Actions.
 
 ## Planning and Management
 
-To facilitate organized collaboration and progress monitoring:
+The project follows Agile Unified Process (AUP) combined with Scrum (Schwaber & Sutherland, 2020). AUP provides the phase structure (Inception, Elaboration, Construction, Transition); Scrum provides the sprint-based iteration within those phases.
 
-- Git with GitHub for version control, feature branching, and code reviews.
-- Task distribution and workload management will be done using a Kanban board (Figma/GitHub Projects).
-- Regular meetings to check progress, resolve problems, and plan next steps.
-- Documentation will be written in a formal academic style, with correct referencing and adherence to plagiarism standards.
+![Agile Unified Process Phases](./Figures/sep4-up-phases.png)
+
+
+Each sub-team (IoT, ML, Frontend) operates as an independent Scrum team with its own Product Owner and Scrum Master. Cloud/Backend is a shared responsibility. Each team runs its own ceremonies: Sprint Planning, Daily Scrum, Sprint Review, and Sprint Retrospective. Cross-team coordination follows a Scrum-of-Scrums pattern where the three Scrum Masters meet to sync on blockers, integration status, and shared backlog items.
+
+![Scrum Process Diagram](./Figures/sep4-scrum-process.png)
+
+
+Task management uses a Kanban board (GitHub Projects). Documentation follows formal academic style with correct referencing. The full schedule is detailed in the Time Schedule section.
 
 ---
 
