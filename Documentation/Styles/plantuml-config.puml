@@ -1,0 +1,3 @@
+' Put global PlantUML commands here (e.g., !theme or skinparam)
+!include https://raw.githubusercontent.com/fredoslav2004/MinimalThemePUML/refs/heads/main/minimal-theme.puml
+scale 3

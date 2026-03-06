@@ -1,0 +1,11 @@
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\AtBeginDocument{\let\maketitle\relax} % disable Pandoc’s automatic title page
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{Process Report}
+\rhead{VIA University College}
+\cfoot{\thepage\ of \pageref{LastPage}}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}

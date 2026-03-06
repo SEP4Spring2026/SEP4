@@ -1,0 +1,15 @@
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\DeclareUnicodeCharacter{2248}{$\approx$}
+\DeclareUnicodeCharacter{2003}{\quad}
+
+
+% header.tex
+\usepackage{etoolbox}
+\AtBeginEnvironment{longtable}{\small} % or \footnotesize
+\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{0.95}
+
+\usepackage{makecell}
+\renewcommand\theadfont{\small}

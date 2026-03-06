@@ -1,0 +1,56 @@
+This is LuaTeX, Version 1.18.1 (MiKTeX 24.4) (format=dvilualatex 2025.8.26)  7 SEP 2025 22:22
+ restricted system commands enabled.
+**d:/UltimateStorage/GitSynced/SEP3/Documentation/psr.tex
+(d:/UltimateStorage/GitSynced/SEP3/Documentation/psr.tex
+LaTeX2e <2024-11-01> patch level 2
+L3 programming layer <2025-01-18>
+Lua module: luaotfload 2024-02-14 v3.28 Lua based OpenType font support
+Lua module: lualibs 2023-07-13 v2.76 ConTeXt Lua standard libraries.
+Lua module: lualibs-extended 2023-07-13 v2.76 ConTeXt Lua libraries -- extended 
+collection.
+luaotfload | conf : Root cache directory is "C:/Users/edkof/AppData/Local/MiKTeX
+/luatex-cache/generic/names".
+luaotfload | init : Loading fontloader "fontloader-2023-12-28.lua" from kpse-res
+olved path "C:/Users/edkof/AppData/Local/Programs/MiKTeX/tex/luatex/luaotfload/f
+ontloader-2023-12-28.lua".
+Lua-only attribute luaotfload@noligature = 1
+luaotfload | init : Context OpenType loader version 3.134
+Inserting `luaotfload.node_processor' in `pre_linebreak_filter'.
+Inserting `luaotfload.node_processor' in `hpack_filter'.
+Inserting `luaotfload.glyph_stream' in `glyph_stream_provider'.
+Inserting `luaotfload.define_font' in `define_font'.
+Lua-only attribute luaotfload_color_attribute = 2
+luaotfload | conf : Root cache directory is "C:/Users/edkof/AppData/Local/MiKTeX
+/luatex-cache/generic/names".
+Lua-only attribute luaotfload.letterspace_done = 3
+Inserting `luaotfload.aux.set_sscale_dimens' in `luaotfload.patch_font'.
+Inserting `luaotfload.aux.set_font_index' in `luaotfload.patch_font'.
+Inserting `luaotfload.aux.patch_cambria_domh' in `luaotfload.patch_font'.
+Inserting `luaotfload.aux.fixup_fontdata' in `luaotfload.patch_font_unsafe'.
+Inserting `luaotfload.aux.set_capheight' in `luaotfload.patch_font'.
+Inserting `luaotfload.aux.set_xheight' in `luaotfload.patch_font'.
+Inserting `luaotfload.rewrite_fontname' in `luaotfload.patch_font'.
+Inserting `tracingstacklevels' in `input_level_string'.
+
+! LaTeX Error: Missing \begin{document}.
+
+See the LaTeX manual or LaTeX Companion for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.3 \begin{center}
+                
+
+Here is how much of LuaTeX's memory you used:
+ 19 strings out of 475507
+ 100000,552014 words of node,token memory allocated
+ 392 words of node memory still in use:
+   2 hlist, 1 rule, 1 local_par, 1 dir, 6 glue, 3 kern, 1 penalty, 1 glyph, 3 at
+tribute, 41 glue_spec, 3 attribute_list, 1 temp, 1 if_stack nodes
+   avail lists: 2:4,3:2,4:1,5:1
+ 23141 multiletter control sequences out of 65536+600000
+ 14 fonts using 591679 bytes
+ 19i,0n,18p,107b,24s stack positions out of 10000i,1000n,20000p,200000b,200000s
+!  ==> Fatal error occurred, bad output DVI file produced!
+No pages of output.
+
