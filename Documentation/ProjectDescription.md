@@ -6,19 +6,7 @@ Our client - Kamjatka, is a a student residency that have been accepting student
 
 One of the main catalyst for the need to change the fire detectors at Kamtjatka was the "microwave incident" last week when a fire detector went off  in a apartament where the residence used a microwave to heat up their food for five minutes, the minimal water vapor was enough to set up the alarm. The alarm was not deactivated in time, firefighters came and the resident had to pay 10000 DKK.The resident rightfully appealed it and the manager had to cover full costs. This type of redundacy not only created unecessary financial overhead for residents and /or manager,but also poses a serious life threat since residents are less affected by fire alarms due to its reapeating false alarms. 
 
-The goal of this project is to create a client-server system and a more accurate fire detector for Kamtjatka that is both intuitive and functional. The application is supposed to handle monitoring of all the rooms in Kamtjatka while keeping the UI easy to track
-
-## Air quality problem
-
-
-
-## Current Situation
-
-
-
-## Stakeholders
-
-
+The goal of this project is to create a client-server system and a more accurate fire detector for Kamtjatka that is both intuitive and functional. The application is supposed to handle monitoring of all the rooms in Kamtjatka while keeping the UI easy to track.
 
 ---
 
@@ -26,10 +14,13 @@ The goal of this project is to create a client-server system and a more accurate
 
 ## Main problem:
 
-How to provide easily accessible learning platform?
+How can  Kamtjatka immprove its fire detection system to avoid future problems such as the "Microwave Incident" while making it safer and less costly for the residents and manager?
 
 ## Sub-questions:
-
+What are the biggest problems with using the current fire detectors used by Kamtjatka?
+How can a device more accuretly indentify fire occurrences?
+How can the system support different user roles?
+How can we ensure the manager can monitor the fire situation in all rooms in kamtjatka with ease?
 
 ---
 
