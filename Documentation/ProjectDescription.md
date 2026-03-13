@@ -1,5 +1,13 @@
 # Problem Domain
 
+A study in 2024 done by the Fire Safety Journal found out that after three false alarms, residants' average evacuation time increase by 3.5 minutes. It migh seem harmless, but these extra minutes are often fatal in real fires. This is a long lasting problem in the industry that even though with all the new modern technoloy available it seems to never go away. 
+
+Our client - Kamjatka, is a a student residency that have been accepting students since idk. One of the concerns of the residents is that the fire alarm is easily activated when doing routine actions such cooking, taking a hot shower, smoking. In some times these alarms when activated for a certain time can call the firefigheters without any assurance of real fire occurrence, leading to unecessary costs to both the resident and the resident manager.
+
+One of the main catalyst for the need to change the fire detectors at Kamtjatka was the "microwave incident" last week when a fire detector went off  in a apartament where the residence used a microwave to heat up their food for five minutes, the minimal water vapor was enough to set up the alarm. The alarm was not deactivated in time, firefighters came and the resident had to pay 10000 DKK.The resident rightfully appealed it and the manager had to cover full costs. This type of redundacy not only created unecessary financial overhead for residents and /or manager,but also poses a serious life threat since residents are less affected by fire alarms due to its reapeating false alarms. 
+
+The goal of this project is to create a client-server system and a more accurate fire detector for Kamtjatka that is both intuitive and functional. The application is supposed to handle monitoring of all the rooms in Kamtjatka while keeping the UI easy to track
+
 ## Air quality problem
 
 
