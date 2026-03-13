@@ -1,6 +1,6 @@
 # Problem Domain
 
-A study in 2024 done by the Fire Safety Journal found out that after three false alarms, residants' average evacuation time increase by 3.5 minutes. It migh seem harmless, but these extra minutes are often fatal in real fires. This is a long lasting problem in the industry that even though with all the new modern technoloy available it seems to never go away. 
+A study in 2024 done by the Fire Safety Journal found out that after three false alarms, residants' average evacuation time increase by 3.5 minutes. It migh seem harmless, but these extra minutes are often fatal in real fires. This is a long lasting problem in the industry that even though with all the new modern technoloy available it seems to never go away. (https://www.phscompliance.co.uk/news/how-to-prevent-false-alarms-from-fire-alarm-systems-in-homes-and-offices/)
 
 Our client - Kamjatka, is a a student residency that have been accepting students since idk. One of the concerns of the residents is that the fire alarm is easily activated when doing routine actions such cooking, taking a hot shower, smoking. In some times these alarms when activated for a certain time can call the firefigheters without any assurance of real fire occurrence, leading to unecessary costs to both the resident and the resident manager.
 
