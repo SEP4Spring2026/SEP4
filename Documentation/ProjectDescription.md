@@ -138,15 +138,25 @@ Date: May 28th 2026
 ---
 
 # Risk Assessment
-
-| Risk | Likelihood | Severity | Normalized | Preventive Actions |
-|-----------|:--------:|:------:|:---------:|-----------------|
-| Inexperienced team members on the technologies used | 3 | 5 | 15 | Offer help in guidance if needed Such team members might be advised to review the content taught in the semester. |
-| Poor workload estimation during sprints | 2 | 3 | 6 | Prioritize key requirements that are necessary for the project to work. |
-| Technical issues during system development | 4 | 3 | 12 | Set aside moments to check if systems work as they should and fix what does not. |
-| The system has poor visual design | 5 | 2 | 10 | Define and enforce a cohesive design style, conduct user feedback sessions to refine and ensure a user-friendly visual layout.|
-| lack of coordination between sub-groups | 5 |4 | 20 | Be srict with with setting up at least one meeting a week so everyone is updated on the overall project's progress and current state.|
-
+ 
+| Risk ID | Risk | Probability | Impact | Score | What We'll Do About It | Owner |
+|---------|------|-------------|--------|-------|------------------------|-------|
+| R001 | Team members not familiar with the tech stack | Medium | High | 15 | Pair experienced people with newer team members; do tech workshops early on | Tech Lead |
+| R002 | We estimate tasks wrong and run out of time | Low | Medium | 6 | Look at past sprints to estimate better; focus on must-haves first | Product Owner |
+| R003 | Hardware breaks or sensors stop working | High | High | 12 | Test hardware early; have backups ready; fix bugs as we find them | IoT Team |
+| R004 | Dashboard looks ugly or is hard to use | High | Low | 10 | Design it together with users; get feedback and improve based on what they say | Frontend Lead |
+| R005 | Teams working on different parts don't talk to each other | High | High | 20 | **MOST CRITICAL** - Weekly meetings between all teams; shared task board | Project Manager |
+| R006 | ML model predictions aren't accurate enough | Medium | High | 12 | Collect data early; test the model with real sensor data; improve it as we go | ML Lead |
+| R007 | Security issues or data leaks | Medium | High | 12 | Password protection and access controls; check for vulnerabilities; don't store extra data | Backend Lead |
+| R008 | Cloud service goes down or takes forever to set up | Medium | Medium | 9 | Get cloud stuff running in Week 11; test everything first | Backend Lead |
+| R009 | Database structure doesn't match what we actually need | Low | Medium | 6 | Plan the database carefully early; check it with the team before we start | Backend Lead |
+| R010 | Bugs slip through and break stuff in live system | Medium | High | 12 | Test everything early; use automated tests in the pipeline; catch bugs before deployment | QA Lead |
+| R011 | Client isn't happy with what we're building | Low | High | 8 | Show demos regularly; ask them for feedback; keep them in the loop | Project Manager |
+| R012 | Requirements keep changing and scope grows | Medium | High | 12 | Lock down what we're building in Week 10; say no to new things politely | Product Owner |
+| R013 | Someone gets sick or has to miss sprints | Low | Medium | 6 | Document how everything works; teach multiple people how to do each thing | Scrum Masters |
+| R014 | Sensors don't talk to the cloud properly | High | High | 16 | **CRITICAL** - Test early and often; log everything; fix connection problems fast | IoT + Backend Leads |
+| R015 | Nobody understands how the code works after we're done | Medium | Medium | 9 | Write comments as we code; keep docs up to date; explain the big ideas | Developers |
+ 
 # Summary of Risk Assessment
 
 This risk assessment highlights several key factors that could disrupt the project. The highest risk score is associated with lack of coordination between sub-groups. 
