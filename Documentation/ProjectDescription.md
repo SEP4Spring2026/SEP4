@@ -139,23 +139,49 @@ Date: May 28th 2026
 
 # Risk Assessment
  
+## IoT Team Risks
+ 
 | Risk ID | Risk | Probability | Impact | Score | What We'll Do About It | Owner |
 |---------|------|-------------|--------|-------|------------------------|-------|
-| R001 | Team members not familiar with the tech stack | Medium | High | 15 | Pair experienced people with newer team members; do tech workshops early on | Tech Lead |
-| R002 | We estimate tasks wrong and run out of time | Low | Medium | 6 | Look at past sprints to estimate better; focus on must-haves first | Product Owner |
-| R003 | Hardware breaks or sensors stop working | High | High | 12 | Test hardware early; have backups ready; fix bugs as we find them | IoT Team |
-| R004 | Dashboard looks ugly or is hard to use | High | Low | 10 | Design it together with users; get feedback and improve based on what they say | Frontend Lead |
-| R005 | Teams working on different parts don't talk to each other | High | High | 20 | **MOST CRITICAL** - Weekly meetings between all teams; shared task board | Project Manager |
-| R006 | ML model predictions aren't accurate enough | Medium | High | 12 | Collect data early; test the model with real sensor data; improve it as we go | ML Lead |
-| R007 | Security issues or data leaks | Medium | High | 12 | Password protection and access controls; check for vulnerabilities; don't store extra data | Backend Lead |
-| R008 | Cloud service goes down or takes forever to set up | Medium | Medium | 9 | Get cloud stuff running in Week 11; test everything first | Backend Lead |
-| R009 | Database structure doesn't match what we actually need | Low | Medium | 6 | Plan the database carefully early; check it with the team before we start | Backend Lead |
-| R010 | Bugs slip through and break stuff in live system | Medium | High | 12 | Test everything early; use automated tests in the pipeline; catch bugs before deployment | QA Lead |
-| R011 | Client isn't happy with what we're building | Low | High | 8 | Show demos regularly; ask them for feedback; keep them in the loop | Project Manager |
-| R012 | Requirements keep changing and scope grows | Medium | High | 12 | Lock down what we're building in Week 10; say no to new things politely | Product Owner |
-| R013 | Someone gets sick or has to miss sprints | Low | Medium | 6 | Document how everything works; teach multiple people how to do each thing | Scrum Masters |
-| R014 | Sensors don't talk to the cloud properly | High | High | 16 | **CRITICAL** - Test early and often; log everything; fix connection problems fast | IoT + Backend Leads |
-| R015 | Nobody understands how the code works after we're done | Medium | Medium | 9 | Write comments as we code; keep docs up to date; explain the big ideas | Developers |
+| R001 | Team members not familiar with ATmega2560 and embedded C | Medium | High | 15 | Pair with experienced members; workshops on the hardware early | IoT Lead |
+| R003 | Hardware breaks or sensors stop working | High | High | 12 | Test hardware in Week 11; keep spare sensors; debug issues as they come up | IoT Lead |
+| R014 | Sensors don't talk to the cloud properly | High | High | 16 | **CRITICAL** - Test connection early and often; log all data transfers; work closely with Backend | IoT Lead |
+ 
+---
+ 
+## Backend Team Risks
+ 
+| Risk ID | Risk | Probability | Impact | Score | What We'll Do About It | Owner |
+|---------|------|-------------|--------|-------|------------------------|-------|
+| R006 | ML model predictions aren't accurate enough | Medium | High | 12 | Collect real sensor data early; test predictions; retrain the model if needed | Backend Lead |
+| R007 | Security issues or data leaks | Medium | High | 12 | Add password hashing and access controls; test for vulnerabilities; limit what data we store | Backend Lead |
+| R008 | Cloud service goes down or takes forever to set up | Medium | Medium | 9 | Get GCP running in Week 11; test services before we rely on them | Backend Lead |
+| R009 | Database structure doesn't match what we actually need | Low | Medium | 6 | Plan the database carefully in Elaboration; review with the team before building | Backend Lead |
+| R010 | Bugs slip through and break stuff in live system | Medium | High | 12 | Write tests early; use automated testing in the pipeline; catch bugs before deployment | Backend Lead |
+| R014 | Sensors don't talk to the cloud properly | High | High | 16 | **CRITICAL** - Clear API contract with IoT team; log everything; integrate and test early | Backend Lead |
+ 
+---
+ 
+## Frontend Team Risks
+ 
+| Risk ID | Risk | Probability | Impact | Score | What We'll Do About It | Owner |
+|---------|------|-------------|--------|-------|------------------------|-------|
+| R001 | Team members not familiar with React | Medium | High | 15 | Pair with experienced React devs; do workshops early; use tutorials if needed | Frontend Lead |
+| R004 | Dashboard looks ugly or is hard to use | High | Low | 10 | Design with users in mind; get feedback from residents and managers; iterate | Frontend Lead |
+| R010 | Bugs slip through and break stuff in live system | Medium | High | 12 | Test the UI thoroughly; use automated tests; catch bugs early | Frontend Lead |
+ 
+---
+ 
+## Shared / Project-Wide Risks
+ 
+| Risk ID | Risk | Probability | Impact | Score | What We'll Do About It | Owner |
+|---------|------|-------------|--------|-------|------------------------|-------|
+| R002 | We estimate tasks wrong and run out of time | Low | Medium | 6 | Use past sprint data to estimate better; focus on must-haves first | - |
+| R005 | Teams working on different parts don't talk to each other | High | High | 20 | **MOST CRITICAL** - Weekly meetings between teams every Monday; shared task board | - |
+| R011 | Client isn't happy with what we're building | Low | High | 8 | Show demos regularly; ask for feedback; keep them updated | - |
+| R012 | Requirements keep changing and scope grows | Medium | High | 12 | Lock down scope in Week 10; manage feature requests carefully | - |
+| R013 | Someone gets sick or has to miss sprints | Low | Medium | 6 | Document everything; cross-train team members | - |
+| R015 | Nobody understands how the code works after we're done | Medium | Medium | 9 | Write comments while coding; keep docs updated; explain decisions | - |
  
 # Summary of Risk Assessment
 
