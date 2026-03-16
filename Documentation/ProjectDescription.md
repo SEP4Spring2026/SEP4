@@ -99,7 +99,7 @@ There are three full-time sprints (Sprints 3–5, Weeks 19–21) for **Construct
 
 ![SEP4 Project Timeline](./Figures/sep4-gantt-timeline.png)
 
-The length of the sprint changes from four calendar weeks at part-time intensity during Elaboration to about five working days at full-time intensity during Construction. The overall budget is 3,360 hours, which comes out to 280 hours per student among 12 team members. About 10% of the time will be spent on Inception, 29% on Elaboration, 49% on Construction, and 12% on Transition, which is in line with the usual UP effort distribution.
+The length of the sprint changes from four calendar weeks at part-time intensity during Elaboration to about five working days at full-time intensity during Construction. The overall budget is 2,800 hours, which comes out to 280 hours per student among 10 team members. About 10% of the time will be spent on Inception, 29% on Elaboration, 49% on Construction, and 12% on Transition, which is in line with the usual UP effort distribution.
 
 #### Final Deadline
 
