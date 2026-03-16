@@ -28,7 +28,7 @@ How can we ensure the manager can monitor the fire situation in all rooms in kam
 
 This project focuses on designing and implementing a prototype fire monitoring and false-alarm detection system for the Kamtjatka student residence.
 
-The system will collect environmental data using IoT sensors connected to an ATmega2560 microcontroller. Sensor data such as temperature, humidity, smoke indicators, or other environmental signals will be transmitted to a cloud backend for storage and analysis.
+The system will collect environmental data using IoT sensors connected to an ATmega2560 microcontroller. Sensor data such as CO2, temperature, humidity indicators, or other environmental signals will be transmitted to a cloud backend for storage and analysis.
 
 Machine learning will be applied to historical sensor data to identify patterns that may help distinguish between real fire events and common false alarm triggers such as cooking or steam.
 
