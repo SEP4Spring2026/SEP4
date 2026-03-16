@@ -26,13 +26,30 @@ How can we ensure the manager can monitor the fire situation in all rooms in kam
 
 # Delimitation
 
-The project focuses on analyzing different parameters of a room to predict future CO2 levels and the amount of people inside. The system is intended to be free, aligning with our goal of making everyone able to know the quality of the air they are breathing. To ensure high-quality, accurate content, courses will be reviewed by experts and AI.
+This project focuses on designing and implementing a prototype fire monitoring and false-alarm detection system for the Kamtjatka student residence.
 
-The project is limited to the development of a simple air quality prediction system for students, teachers, and its administrators. Features such as high-scale performance, complete accessibility, AI-based summaries, and enterprise-level security are not part of it.
+The system will collect environmental data using IoT sensors connected to an ATmega2560 microcontroller. Sensor data such as temperature, humidity, smoke indicators, or other environmental signals will be transmitted to a cloud backend for storage and analysis.
 
-Delimitations Related to Sub-questions
+Machine learning will be applied to historical sensor data to identify patterns that may help distinguish between real fire events and common false alarm triggers such as cooking or steam.
 
-Security Security will be guaranteed on a low level (password hashing, simple role-based permissions). Advanced protection (multi-factor authentication) is beyond the project.
+However, the scope of this project is limited in several ways.
+
+The system will function as a monitoring and decision-support prototype and will not replace the certified fire alarm infrastructure used in the building. 
+
+The project will also be limited to a small number of sensors and test environments, rather than a full building-scale deployment.
+
+The focus of the project is on system architecture, data collection, and monitoring capabilities, rather than building a fully certified fire alarm solution suitable for real-world deployment.
+
+## Delimitations Related to Sub-questions
+
+### Fire detection accuracy
+The project will explore how sensor data and machine learning can improve detection of potential fire events. However, the system will not attempt to achieve the level of reliability required for certified commercial fire alarm systems.
+
+### User roles and monitoring
+The system will support basic user roles such as resident and residence manager. Advanced building management integration or large-scale system administration is outside the scope of this project.
+
+### Security
+Basic security mechanisms will be implemented, including password hashing and simple role-based access control. Advanced security features such as multi-factor authentication or enterprise-level infrastructure are outside the scope of the project.
 
 ---
 
