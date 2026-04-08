@@ -1,6 +1,6 @@
 ## - How should we split the responsibilities between the teams?
 
-#### 
+#### The team responsabilities are splited based on the porpuse of each team. The IoT team is responsible of creating the IoT device and share relevant data with the ML team. The ML team is responsible of providing the business logic, accurate predictions and sending the processed data to the frontend team. The frontend team is responsible of providing a user friendly app experience and display the processed data to the user.
 
 ## - What data is send between the various parts of the system?
 
@@ -12,7 +12,7 @@
 
 ## - How frequently is the data updated?
 
-#### The data must be updated every 2 min, since a fire can take a few minutes to became hazardous.
+#### The data must be updated every 2 minutes, since a fire can take a few minutes to become life threatening.
 
 ## - Do you need to mock parts of the system early on or will real data be available?
 
