@@ -1,0 +1,146 @@
+' =========================
+' Initial domain model for Kamtjatka Fire Detection System
+' This model captures the key entities and relationships in the system, including: (Derived from the project description and requirements)
+' - Residences and Rooms
+' - Users (Residents and Managers)
+' - Sensor Devices and their Readings
+' - Predictions and Fire Events
+' - Alerts and Incident Reports
+' The model is designed to be extensible, allowing for future additions and modifications as the system evolves.
+' I am still not sure if i should keep them in pacakages or not, but for now it helps to keep the model organized and clear.
+' ========================= 
+
+
+@startuml
+title Kamtjatka Fire Detection System - Domain Model
+
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam monochrome true
+skinparam linetype ortho
+skinparam nodesep 90
+skinparam ranksep 90
+skinparam packageStyle rectangle
+
+left to right direction
+
+package "Building" {
+  class Residence {
+    residenceId : int
+    name : String
+    address : String
+  }
+
+  class Room {
+    roomId : int
+    roomNumber : String
+    floor : int
+    roomType : String
+    occupancyStatus : String
+  }
+}
+
+package "Users" {
+  abstract class User {
+    userId : int
+    fullName : String
+    email : String
+    passwordHash : String
+    phoneNumber : String
+  }
+
+  class Resident {
+    studentId : String
+  }
+
+  class Manager {
+    employeeId : String
+    officeLocation : String
+  }
+}
+
+package "Monitoring" {
+  class SensorDevice {
+    sensorId : int
+    serialNumber : String
+    sensorType : String
+    installedAt : DateTime
+    status : String
+    firmwareVersion : String
+  }
+
+  class SensorReading {
+    readingId : int
+    timestamp : DateTime
+    temperature : double
+    humidity : double
+    co2Level : double
+    smokeLevel : double
+  }
+
+  class Prediction {
+    predictionId : int
+    predictionTime : DateTime
+    predictedCategory : String
+    confidenceScore : double
+    riskLevel : String
+  }
+
+  class FireEvent {
+    eventId : int
+    startTime : DateTime
+    endTime : DateTime
+    eventStatus : String
+    severityLevel : String
+    detectedAs : String
+  }
+
+  class Alert {
+    alertId : int
+    createdAt : DateTime
+    alertType : String
+    message : String
+    priority : String
+    status : String
+  }
+
+  class IncidentReport {
+    reportId : int
+    createdAt : DateTime
+    description : String
+    outcome : String
+    costAmount : double
+  }
+}
+
+Residence -[hidden]down- Room
+User -[hidden]down- Resident
+Resident -[hidden]right- Manager
+SensorDevice -[hidden]down- SensorReading
+SensorReading -[hidden]down- Prediction
+FireEvent -[hidden]down- Alert
+Alert -[hidden]right- IncidentReport
+
+User <|-- Resident
+User <|-- Manager
+
+Residence "1" --> "1..*" Room : contains
+Residence "1" --> "1..*" Manager : managed by
+
+Room "1" --> "0..1" Resident : occupied by
+Room "1" --> "1..*" SensorDevice : equipped with
+Room "1" --> "0..*" FireEvent : has
+
+SensorDevice "1" --> "0..*" SensorReading : produces
+SensorReading "1" --> "0..1" Prediction : analyzed as
+
+FireEvent "1" --> "1..*" SensorReading : based on
+FireEvent "1" --> "0..1" Prediction : supported by
+FireEvent "1" --> "0..*" Alert : triggers
+FireEvent "1" --> "0..1" IncidentReport : documented in
+
+Manager "1" --> "0..*" Alert : monitors
+Manager "1" --> "0..*" IncidentReport : reviews
+Resident "1" --> "0..*" IncidentReport : involved in
+
+@enduml
