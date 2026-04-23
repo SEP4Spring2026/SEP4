@@ -2,7 +2,7 @@
 #include "dht11.h"
 #include <stdio.h>
 
-#define CO2_SENSOR_ENABLED 0
+#define CO2_SENSOR_ENABLED 1
 
 #if CO2_SENSOR_ENABLED
 #include "co2.h"

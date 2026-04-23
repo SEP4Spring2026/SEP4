@@ -66,7 +66,7 @@ int main(void)
     // Main loop
     while (1)
     {
-        // read_co2(); // Disabled: CO2 sensor not connected
+        read_co2();
         read_temperature();
         read_humidity();
         build_payload(payload_buffer);
@@ -79,14 +79,14 @@ int main(void)
     sensors_init();
     printf("Development mode started (WiFi disabled)\n");
     printf("Serial baud: %lu\n", (unsigned long)APP_SERIAL_BAUDRATE);
-    printf("CO2 sensor disabled in this build\n");
+    printf("CO2 sensor enabled in this build\n");
     printf("Sampling every 5000 ms\n");
 
     uint32_t sample_count = 0;
     while (1)
     {
         sample_count++;
-        // int co2 = read_co2(); // Disabled: CO2 sensor not connected
+        int co2 = read_co2();
         float temp = read_temperature();
         float hum = read_humidity();
         build_payload(payload_buffer);
@@ -101,7 +101,7 @@ int main(void)
                sensors_last_dht_temperature_decimal(),
                sensors_last_dht_humidity_integer(),
                sensors_last_dht_humidity_decimal());
-        printf("Temp=%.1f C, Hum=%.1f %%\n", temp, hum);
+        printf("CO2=%d ppm, Temp=%.1f C, Hum=%.1f %%\n", co2, temp, hum);
         printf("Payload length: %u\n", (unsigned)strlen(payload_buffer));
         printf("Payload: %s\n", payload_buffer);
         app_delay_ms(5000);
