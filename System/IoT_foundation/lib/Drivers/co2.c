@@ -10,10 +10,22 @@
 #include "uart.h"
 #include <stddef.h>
 
+#if defined(__has_include)
+#if __has_include(<util/delay.h>)
+#include <util/delay.h>
+#define CO2_HAVE_DELAY_HEADER 1
+#endif
+#endif
+
+#ifndef CO2_HAVE_DELAY_HEADER
+#define CO2_HAVE_DELAY_HEADER 0
+#endif
+
 #define MHZ19B_BAUD_RATE              9600U
 #define MHZ19B_UART_RX_BUFFER_SIZE    32U
 #define MHZ19B_FRAME_SIZE             9U
-#define MHZ19B_RESPONSE_TIMEOUT_CYCLES 50000U
+#define MHZ19B_RESPONSE_TIMEOUT_MS     5000U
+#define MHZ19B_POLL_DELAY_US           100U
 #define MHZ19B_CMD_PREFIX             0xFFU
 #define MHZ19B_CMD_SENSOR             0x01U
 
@@ -71,7 +83,7 @@ static void mhz19b_flush_rx(void)
 static co2_status_t mhz19b_read_response(uint8_t *response)
 {
     uint8_t byte = 0;
-    uint32_t retries = 0;
+    uint32_t waited_us = 0;
     uint8_t index = 0;
 
     if (response == NULL)
@@ -79,14 +91,17 @@ static co2_status_t mhz19b_read_response(uint8_t *response)
         return CO2_INVALID_ARG;
     }
 
-    while ((retries < MHZ19B_RESPONSE_TIMEOUT_CYCLES) && (index < MHZ19B_FRAME_SIZE))
+    while ((waited_us < (MHZ19B_RESPONSE_TIMEOUT_MS * 1000UL)) && (index < MHZ19B_FRAME_SIZE))
     {
         if (uart_read_byte(co2_uart_id, &byte) == UART_OK)
         {
             response[index++] = byte;
             continue;
         }
-        retries++;
+#if CO2_HAVE_DELAY_HEADER
+        _delay_us((double)MHZ19B_POLL_DELAY_US);
+#endif
+        waited_us += MHZ19B_POLL_DELAY_US;
     }
 
     if (index < MHZ19B_FRAME_SIZE)
