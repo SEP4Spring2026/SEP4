@@ -101,29 +101,31 @@ int main(void)
     printf("Serial baud: %lu\n", (unsigned long)APP_SERIAL_BAUDRATE);
     printf("CO2 sensor enabled in this build\n");
     printf("Sampling every 5000 ms\n");
+    printf("========================================\n");
 
     uint32_t sample_count = 0;
     while (1)
     {
         sample_count++;
         int co2 = read_co2();
-        float temp = read_temperature();
-        float hum = read_humidity();
+        (void)read_temperature();
+        (void)read_humidity();
         build_payload(payload_buffer);
 
-        printf("\n[Sample %lu]\n", (unsigned long)sample_count);
-        printf("DHT status: %s (ok=%lu, fail=%lu)\n",
+        printf("\n========== Sample %lu ==========\n", (unsigned long)sample_count);
+        printf("DHT status     : %s (ok=%lu, fail=%lu)\n",
                sensors_last_dht_ok() ? "OK" : "FAIL",
                (unsigned long)sensors_dht_success_count(),
                (unsigned long)sensors_dht_fail_count());
-        printf("DHT raw -> T=%u.%u C, H=%u.%u %%\n",
+        printf("DHT raw        : T=%u.%u C, H=%u.%u %%\n",
                sensors_last_dht_temperature_integer(),
                sensors_last_dht_temperature_decimal(),
                sensors_last_dht_humidity_integer(),
                sensors_last_dht_humidity_decimal());
-        printf("CO2=%d ppm, Temp=%.1f C, Hum=%.1f %%\n", co2, temp, hum);
-        printf("Payload length: %u\n", (unsigned)strlen(payload_buffer));
-        printf("Payload: %s\n", payload_buffer);
+        printf("CO2            : %d ppm\n", co2);
+        printf("Payload length : %u\n", (unsigned)strlen(payload_buffer));
+        printf("Payload        : %s\n", payload_buffer);
+        printf("================================\n");
         app_delay_ms(5000);
     }
 #else
