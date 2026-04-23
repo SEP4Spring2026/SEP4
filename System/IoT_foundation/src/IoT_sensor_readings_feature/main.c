@@ -138,7 +138,7 @@ int main(void)
             sensors_last_dht_humidity_integer(),
             sensors_last_dht_humidity_decimal());
         
-        // CO2 Reading
+        // CO2 Reading (ppm)
         printf("CO2              : %d ppm\n", co2);
 
         // JSON Payload Script (For communication with main WebAPI via RabbitMQ)
