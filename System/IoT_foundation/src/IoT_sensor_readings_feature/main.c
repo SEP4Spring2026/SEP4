@@ -71,6 +71,8 @@ static void app_delay_ms(uint16_t ms)
 int main(void)
 {
 #if APP_MODE == APP_MODE_PRODUCTION
+    
+// This is for testing connection with WIFI Module
     wifi_init();
     wifi_command_AT();
     wifi_command_disable_echo();
@@ -92,6 +94,7 @@ int main(void)
         wifi_send(payload_buffer);
         app_delay_ms(5000);
     }
+
 #elif APP_MODE == APP_MODE_DEVELOPMENT
     (void)uart_stdio_init(APP_SERIAL_BAUDRATE);
     buzzer_init_silent();
@@ -151,6 +154,7 @@ int main(void)
 
         app_delay_ms(5000);
     }
+    
 #else
 #error "APP_MODE is invalid. Use APP_MODE_PRODUCTION or APP_MODE_DEVELOPMENT."
 #endif
