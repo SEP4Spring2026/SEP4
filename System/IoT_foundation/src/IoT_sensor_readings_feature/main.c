@@ -1,7 +1,9 @@
 #include "../../lib/Drivers/sensors.h"
+#include "../../lib/Drivers/buzzer.h"
 #include "../../lib/Drivers/uart_stdio.h"
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 
 #define WIFI_SSID "TestWifi"
 #define WIFI_PASSWORD "testpwd"
@@ -64,7 +66,7 @@ int main(void)
     // Main loop
     while (1)
     {
-        read_co2();
+        // read_co2(); // Disabled: CO2 sensor not connected
         read_temperature();
         read_humidity();
         build_payload(payload_buffer);
@@ -73,17 +75,34 @@ int main(void)
     }
 #elif APP_MODE == APP_MODE_DEVELOPMENT
     (void)uart_stdio_init(APP_SERIAL_BAUDRATE);
+    buzzer_init_silent();
     sensors_init();
     printf("Development mode started (WiFi disabled)\n");
+    printf("Serial baud: %lu\n", (unsigned long)APP_SERIAL_BAUDRATE);
+    printf("CO2 sensor disabled in this build\n");
+    printf("Sampling every 5000 ms\n");
 
+    uint32_t sample_count = 0;
     while (1)
     {
-        int co2 = read_co2();
+        sample_count++;
+        // int co2 = read_co2(); // Disabled: CO2 sensor not connected
         float temp = read_temperature();
         float hum = read_humidity();
         build_payload(payload_buffer);
 
-        printf("CO2=%d ppm, Temp=%.1f C, Hum=%.1f %%\n", co2, temp, hum);
+        printf("\n[Sample %lu]\n", (unsigned long)sample_count);
+        printf("DHT status: %s (ok=%lu, fail=%lu)\n",
+               sensors_last_dht_ok() ? "OK" : "FAIL",
+               (unsigned long)sensors_dht_success_count(),
+               (unsigned long)sensors_dht_fail_count());
+        printf("DHT raw -> T=%u.%u C, H=%u.%u %%\n",
+               sensors_last_dht_temperature_integer(),
+               sensors_last_dht_temperature_decimal(),
+               sensors_last_dht_humidity_integer(),
+               sensors_last_dht_humidity_decimal());
+        printf("Temp=%.1f C, Hum=%.1f %%\n", temp, hum);
+        printf("Payload length: %u\n", (unsigned)strlen(payload_buffer));
         printf("Payload: %s\n", payload_buffer);
         app_delay_ms(5000);
     }
