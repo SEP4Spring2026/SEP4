@@ -18,9 +18,15 @@
 #define BUZ_DDR DDRE
 #define BUZ_PORT PORTE
 
+void buzzer_init_silent(void)
+{
+    BUZ_DDR |= (1 << BUZ_BIT);  // Configure as output.
+    BUZ_PORT |= (1 << BUZ_BIT); // OFF for active-low buzzer.
+}
+
 void buzzer_beep(){
 
-    BUZ_DDR |= (1<<BUZ_BIT); //init to be an output
+    buzzer_init_silent();
     BUZ_PORT&=~(1<<BUZ_BIT); //Turn On (Active low)
     _delay_ms(25);
     BUZ_PORT|=(1<<BUZ_BIT); //Turn Off (Active low)
