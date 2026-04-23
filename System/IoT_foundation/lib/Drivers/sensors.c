@@ -6,6 +6,7 @@
 
 #if CO2_SENSOR_ENABLED
 #include "co2.h"
+#include "uart.h"
 #endif
 
 static int co2_value = -1;
@@ -22,7 +23,7 @@ static uint32_t dht_fail_count = 0U;
 void sensors_init(void)
 {
 #if CO2_SENSOR_ENABLED
-    co2_init(3); // Use UART3 (Mega pins: RX3=15, TX3=14) to match current wiring.
+    co2_init(UART3_ID); // Use UART3 (Mega pins: RX3=15, TX3=14) to match current wiring.
 #endif
 }
 
@@ -30,9 +31,14 @@ int read_co2(void)
 {
 #if CO2_SENSOR_ENABLED
     uint16_t ppm = 0;
-    if (co2_read_ppm(&ppm) == CO2_OK)
+    co2_status_t status = co2_read_ppm(&ppm);
+    if (status == CO2_OK)
     {
         co2_value = (int)ppm;
+    }
+    else
+    {
+        printf("CO2 read error: %d\n", (int)status);
     }
 #endif
     return co2_value;
