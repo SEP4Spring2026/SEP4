@@ -14,7 +14,6 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <util/delay.h>
 #include "uart.h"
 
 #define WIFI_DATABUFFERSIZE 128
@@ -24,6 +23,7 @@ static uint32_t wifi_baudrate;
 static void (*_callback)(uint8_t byte);
 
 static void wifi_TCP_callback(uint8_t byte);
+static void wifi_delay_ms(uint16_t ms);
 
 static void wifi_callback(uint8_t received_byte)
 {
@@ -42,11 +42,29 @@ void wifi_init()
     uart_init(UART2_ID, wifi_baudrate, wifi_callback, 0);
 }
 
+void wifi_send(const char *data)
+{
+    if (data == NULL)
+        return;
+    wifi_command_TCP_transmit((uint8_t *)data, (uint16_t)strlen(data));
+}
+
 void static wifi_clear_databuffer_and_index()
 {
     for (uint16_t i = 0; i < WIFI_DATABUFFERSIZE; i++)
         wifi_dataBuffer[i] = 0;
     wifi_dataBufferIndex = 0;
+}
+
+static void wifi_delay_ms(uint16_t ms)
+{
+    volatile uint32_t i = 0;
+    for (uint16_t m = 0; m < ms; m++)
+    {
+        for (i = 0; i < 2000U; i++)
+        {
+        }
+    }
 }
 
 WIFI_ERROR_MESSAGE_t wifi_command(const char *str, uint16_t timeOut_s)
@@ -61,7 +79,7 @@ WIFI_ERROR_MESSAGE_t wifi_command(const char *str, uint16_t timeOut_s)
 
     for (uint16_t i = 0; i < timeOut_s * 100UL; i++) // timeout after 20 sec
     {
-        _delay_ms(10);
+        wifi_delay_ms(10);
         if (strstr((char *)wifi_dataBuffer, "OK\r\n") != NULL)
             break;
     }
@@ -125,7 +143,7 @@ WIFI_ERROR_MESSAGE_t wifi_command_get_ip_from_URL(char * url, char *ip_address){
 
     for (uint16_t i = 0; i < timeOut_s * 100UL; i++) // timeout after 20 sec
     {
-        _delay_ms(10);
+        wifi_delay_ms(10);
         if (strstr((char *)wifi_dataBuffer, "OK\r\n") != NULL)
             break;
     }
