@@ -68,7 +68,17 @@ float read_humidity(void)
 
 void build_payload(char *buffer)
 {
-    snprintf(buffer, 96, "{\"co2\":%d,\"temp\":%.1f,\"hum\":%.1f}", co2_value, temperature_value, humidity_value);
+    // Avoid float formatting for stable output on embedded printf implementations.
+    snprintf(
+        buffer,
+        96,
+        "{\"co2\":%d,\"temp\":%u.%u,\"hum\":%u.%u}",
+        co2_value,
+        dht_t_i,
+        dht_t_d,
+        dht_h_i,
+        dht_h_d
+    );
 }
 
 uint8_t sensors_last_dht_ok(void)
