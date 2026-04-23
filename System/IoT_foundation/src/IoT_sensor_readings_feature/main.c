@@ -122,7 +122,7 @@ int main(void)
         printf("CO2 status       : %s\n", co2 >= 0 ? "OK" : "FAIL");
 
         // Raw DHT Reading (both temperature and humidity)
-        printf("DHT (Raw) : T=%u.%u C, H=%u.%u %%\n",
+        printf("DHT (Raw)        : T=%u.%u C, H=%u.%u %%\n",
             sensors_last_dht_temperature_integer(),
             sensors_last_dht_temperature_decimal(),
             sensors_last_dht_humidity_integer(),
