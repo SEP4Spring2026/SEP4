@@ -5,6 +5,17 @@
 #include <stdint.h>
 #include <string.h>
 
+#if defined(__has_include)
+#if __has_include(<avr/interrupt.h>)
+#include <avr/interrupt.h>
+#define APP_HAVE_AVR_INTERRUPTS 1
+#endif
+#endif
+
+#ifndef APP_HAVE_AVR_INTERRUPTS
+#define APP_HAVE_AVR_INTERRUPTS 0
+#endif
+
 #define WIFI_SSID "TestWifi"
 #define WIFI_PASSWORD "testpwd"
 #define WIFI_HOST_IP "192.168.1.10"
@@ -18,6 +29,13 @@
 #define APP_MODE APP_MODE_DEVELOPMENT
 
 static char payload_buffer[96];
+
+static void app_enable_global_interrupts(void)
+{
+#if APP_HAVE_AVR_INTERRUPTS
+    sei();
+#endif
+}
 
 #if APP_MODE == APP_MODE_PRODUCTION
 #include "../../lib/Drivers/wifi.h"
@@ -62,6 +80,7 @@ int main(void)
     wifi_command_create_TCP_connection(WIFI_HOST_IP, WIFI_PORT, wifi_rx_callback, wifi_rx_buffer);
 
     sensors_init();
+    app_enable_global_interrupts();
 
     // Main loop
     while (1)
@@ -77,6 +96,7 @@ int main(void)
     (void)uart_stdio_init(APP_SERIAL_BAUDRATE);
     buzzer_init_silent();
     sensors_init();
+    app_enable_global_interrupts();
     printf("Development mode started (WiFi disabled)\n");
     printf("Serial baud: %lu\n", (unsigned long)APP_SERIAL_BAUDRATE);
     printf("CO2 sensor enabled in this build\n");
