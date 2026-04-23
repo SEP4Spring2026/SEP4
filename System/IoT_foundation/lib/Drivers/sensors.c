@@ -22,7 +22,7 @@ static uint32_t dht_fail_count = 0U;
 void sensors_init(void)
 {
 #if CO2_SENSOR_ENABLED
-    co2_init(1);
+    co2_init(3); // Use UART3 (Mega pins: RX3=15, TX3=14) to match current wiring.
 #endif
 }
 
