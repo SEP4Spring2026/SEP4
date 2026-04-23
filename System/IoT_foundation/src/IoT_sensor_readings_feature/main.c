@@ -113,19 +113,42 @@ int main(void)
         build_payload(payload_buffer);
 
         printf("\n========== Sample %lu ==========\n", (unsigned long)sample_count);
-        printf("DHT status     : %s (ok=%lu, fail=%lu)\n",
-               sensors_last_dht_ok() ? "OK" : "FAIL",
-               (unsigned long)sensors_dht_success_count(),
-               (unsigned long)sensors_dht_fail_count());
-        printf("DHT raw        : T=%u.%u C, H=%u.%u %%\n",
-               sensors_last_dht_temperature_integer(),
-               sensors_last_dht_temperature_decimal(),
-               sensors_last_dht_humidity_integer(),
-               sensors_last_dht_humidity_decimal());
-        printf("CO2            : %d ppm\n", co2);
-        printf("Payload length : %u\n", (unsigned)strlen(payload_buffer));
-        printf("Payload        : %s\n", payload_buffer);
+        
+        // DHT Status (if it works or not)
+        printf("DHT status       : %s\n",
+        sensors_last_dht_ok() ? "OK" : "FAIL");
+
+        // CO2 Status (if it works or not)
+        printf("CO2 status       : %s\n", co2 >= 0 ? "OK" : "FAIL");
+
+        // Raw DHT Reading (both temperature and humidity)
+        printf("DHT (Raw) : T=%u.%u C, H=%u.%u %%\n",
+            sensors_last_dht_temperature_integer(),
+            sensors_last_dht_temperature_decimal(),
+            sensors_last_dht_humidity_integer(),
+            sensors_last_dht_humidity_decimal());
+
+        // Temperature Reading (Only temperature reading from DHT)
+        printf("DHT (Temp)       : %u.%u C\n",
+            sensors_last_dht_temperature_integer(),
+            sensors_last_dht_temperature_decimal());
+
+        // Humidity Reading (Only humidity reading from DHT)
+        printf("DHT (Hum)        : %u.%u %%\n",
+            sensors_last_dht_humidity_integer(),
+            sensors_last_dht_humidity_decimal());
+        
+        // CO2 Reading
+        printf("CO2              : %d ppm\n", co2);
+
+        // JSON Payload Script (For communication with main WebAPI via RabbitMQ)
+        printf("Payload          : %s\n", payload_buffer);
+
+        // Payload length (Keep only for debugging, for the Proof of Concept)
+        printf("Payload length   : %u\n", (unsigned)strlen(payload_buffer));
+
         printf("================================\n");
+
         app_delay_ms(5000);
     }
 #else
