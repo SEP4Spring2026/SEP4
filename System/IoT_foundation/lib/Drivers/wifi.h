@@ -40,6 +40,7 @@ typedef void (*WIFI_TCP_Callback_t)();
  * 
  */
 void wifi_init();
+void wifi_send(const char *data);
 
 /**
  * @brief Send an AT command to the WiFi module to check if it's responsive.
