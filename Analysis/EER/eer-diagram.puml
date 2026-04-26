@@ -1,0 +1,168 @@
+@startuml
+title Kamtjatka Fire Detection System - EER Diagram
+
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam linetype ortho
+skinparam nodesep 90
+skinparam ranksep 90
+skinparam packageStyle rectangle
+
+left to right direction
+
+class Residence <<table>> {
+  residence_id : int <<PK>>
+  name : varchar(100)
+  address : varchar(255)
+}
+
+class Room <<table>> {
+  room_id : int <<PK>>
+  room_number : varchar(50)
+  floor : int
+  room_type : varchar(50)
+  occupancy_status : varchar(50)
+  residence_id : int <<FK>>
+}
+
+class User <<table>> {
+  user_id : int <<PK>>
+  full_name : varchar(150)
+  email : varchar(150)
+  password_hash : varchar(255)
+  phone_number : varchar(50)
+  user_role : varchar(50)
+}
+
+class Resident <<table>> {
+  user_id : int <<PK, FK>>
+  student_id : varchar(100)
+  room_id : int <<FK>>
+}
+
+class BuildingAdministrator <<table>> {
+  user_id : int <<PK, FK>>
+  employee_id : varchar(100)
+  office_location : varchar(100)
+  residence_id : int <<FK>>
+}
+
+class SystemAdmin <<table>> {
+  +user_id : int <<PK, FK>>
+  admin_id : varchar(100)
+}
+
+class SensorDevice <<table>> {
+  sensor_id : int <<PK>>
+  serial_number : varchar(100)
+  sensor_type : varchar(100)
+  installed_at : datetime
+  device_status : varchar(50)
+  connection_status : varchar(50)
+  firmware_version : varchar(50)
+  room_id : int <<FK>>
+}
+
+class SensorReading <<table>> {
+  reading_id : int <<PK>>
+  timestamp : datetime
+  temperature : decimal(6,2)
+  humidity : decimal(6,2)
+  co2_level : decimal(8,2)
+  smoke_level : decimal(8,2)
+  sensor_id : int <<FK>>
+}
+
+class Prediction <<table>> {
+  prediction_id : int <<PK>>
+  prediction_time : datetime
+  prediction_type : varchar(50)
+  predicted_category : varchar(100)
+  confidence_score : decimal(5,2)
+  risk_level : varchar(50)
+}
+
+class PredictionReading <<junction table>> {
+  prediction_id : int <<PK, FK>>
+  reading_id : int <<PK, FK>>
+}
+
+class FireEvent <<table>> {
+  event_id : int <<PK>>
+  start_time : datetime
+  end_time : datetime
+  event_status : varchar(50)
+  severity_level : varchar(50)
+  classification : varchar(100)
+  room_id : int <<FK>>
+  prediction_id : int <<FK nullable>>
+}
+
+class Alert <<table>> {
+  alert_id : int <<PK>>
+  created_at : datetime
+  alert_type : varchar(50)
+  message : varchar(500)
+  priority : varchar(50)
+  status : varchar(50)
+  fire_event_id : int <<FK>>
+}
+
+class Recommendation <<table>> {
+  recommendation_id : int <<PK>>
+  created_at : datetime
+  message : varchar(500)
+  recommendation_type : varchar(100)
+  status : varchar(50)
+  prediction_id : int <<FK>>
+  resident_id : int <<FK>>
+}
+
+class IncidentReport <<table>> {
+  report_id : int <<PK>>
+  created_at : datetime
+  description : varchar(1000)
+  outcome : varchar(255)
+  cost_amount : decimal(10,2)
+  fire_event_id : int <<FK>>
+  resident_id : int <<FK nullable>>
+  reviewed_by_id : int <<FK nullable>>
+}
+
+class SystemLog <<table>> {
+  log_id : int <<PK>>
+  timestamp : datetime
+  log_level : varchar(50)
+  message : varchar(1000)
+  source : varchar(100)
+  system_admin_id : int <<FK nullable>>
+}
+
+Residence "1" -- "1..*" Room
+Residence "1" -- "0..*" BuildingAdministrator
+
+User "1" -- "0..1" Resident
+User "1" -- "0..1" BuildingAdministrator
+User "1" -- "0..1" SystemAdmin
+
+Room "1" -- "0..1" Resident
+Room "1" -- "1..*" SensorDevice
+Room "1" -- "0..*" FireEvent
+
+SensorDevice "1" -- "0..*" SensorReading
+
+Prediction "1" -- "1..*" PredictionReading
+SensorReading "1" -- "0..*" PredictionReading
+
+Prediction "1" -- "0..*" FireEvent
+FireEvent "1" -- "0..*" Alert
+Prediction "1" -- "0..*" Recommendation
+
+Resident "1" -- "0..*" Recommendation
+FireEvent "1" -- "0..1" IncidentReport
+Resident "1" -- "0..*" IncidentReport
+BuildingAdministrator "1" -- "0..*" IncidentReport
+
+SystemAdmin "1" -- "0..*" SystemLog
+
+@enduml
