@@ -1,0 +1,36 @@
+# -------- IDE --------
+.idea/
+.vscode/
+
+# VS Code task/user settings
+*.code-workspace
+
+# -------- JetBrains --------
+*.iml
+out/
+
+# -------- Java / Maven --------
+target/
+*.class
+*.jar
+*.war
+*.log
+
+# -------- .NET --------
+bin/
+obj/
+.vs/
+
+# -------- OS junk --------
+.DS_Store
+Thumbs.db
+
+# -------- Generated docs --------
+Documentation/Styles/*.log
+
+# -------- Secrets / env --------
+.env
+.env.*
+
+# -------- Docker volumes / temp --------
+mysql_data/
