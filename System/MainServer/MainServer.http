@@ -1,0 +1,37 @@
+@host = http://localhost:5080
+
+### Normal reading — should classify as Normal/Low
+POST {{host}}/api/readings
+Content-Type: application/json
+
+{
+  "sensorId": 101,
+  "temperature": 24,
+  "humidity": 45,
+  "co2Level": 600
+}
+
+### Warning reading — high CO2 (>=1000) should classify as Warning/Medium
+POST {{host}}/api/readings
+Content-Type: application/json
+
+{
+  "sensorId": 102,
+  "temperature": 25,
+  "humidity": 50,
+  "co2Level": 1200
+}
+
+### Fire reading — high temp (>=60) and danger CO2 (>=2000) should classify as Fire/High
+POST {{host}}/api/readings
+Content-Type: application/json
+
+{
+  "sensorId": 101,
+  "temperature": 65,
+  "humidity": 15,
+  "co2Level": 2500
+}
+
+### Get latest 50 readings with their predictions
+GET {{host}}/api/readings

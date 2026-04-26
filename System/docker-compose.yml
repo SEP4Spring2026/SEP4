@@ -1,0 +1,36 @@
+services:
+  mysql:
+    image: mysql:8
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: kamtjatka
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+  ml-server:
+    build: ./MlServer
+    ports:
+      - "8000:8000"
+
+  main-server:
+    build: ./MainServer
+    ports:
+      - "8080:8080"
+    environment:
+      ConnectionStrings__Default: "Server=mysql;Port=3306;Database=kamtjatka;User=root;Password=root"
+      MlServer__Url: "http://ml-server:8000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      ml-server:
+        condition: service_started
+
+volumes:
+  mysql-data:
