@@ -1,36 +1,73 @@
 services:
   mysql:
     image: mysql:8
+    container_name: kamtjatka-mysql
+    restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: kamtjatka
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
-      - "3306:3306"
+      # Bind only to loopback so the DB is not exposed publicly on a VPS.
+      - "127.0.0.1:${MYSQL_HOST_PORT}:3306"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 5s
       timeout: 5s
       retries: 20
     volumes:
       - mysql-data:/var/lib/mysql
+    networks:
+      - kamtjatka-net
 
   ml-server:
+    # Only started when the `local` profile is active. In normal operation the
+    # ML server is hosted in the cloud and reached via ML_SERVER_URL.
+    #   docker compose --profile local up --build -d
+    profiles: ["local"]
     build: ./MlServer
+    image: kamtjatka/ml-server:latest
+    container_name: kamtjatka-ml
+    restart: unless-stopped
+    expose:
+      - "8000"
     ports:
-      - "8000:8000"
+      - "127.0.0.1:${ML_SERVER_PORT}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=2).status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - kamtjatka-net
 
   main-server:
     build: ./MainServer
+    image: kamtjatka/main-server:latest
+    container_name: kamtjatka-main
+    restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "${MAIN_SERVER_PORT}:8080"
     environment:
-      ConnectionStrings__Default: "Server=mysql;Port=3306;Database=kamtjatka;User=root;Password=root"
-      MlServer__Url: "http://ml-server:8000"
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
+      ConnectionStrings__Default: "Server=mysql;Port=3306;Database=${MYSQL_DATABASE};User=${MYSQL_USER};Password=${MYSQL_PASSWORD}"
+      MlServer__Url: ${ML_SERVER_URL}
     depends_on:
       mysql:
         condition: service_healthy
+      # ml-server is only present when the `local` profile is active; this
+      # condition is silently skipped otherwise.
       ml-server:
-        condition: service_started
+        condition: service_healthy
+        required: false
+    networks:
+      - kamtjatka-net
+
+networks:
+  kamtjatka-net:
+    driver: bridge
 
 volumes:
   mysql-data:
