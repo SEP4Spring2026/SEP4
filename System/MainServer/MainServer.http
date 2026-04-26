@@ -1,4 +1,4 @@
-@host = http://localhost:5080
+@host = http://localhost:8080
 
 ### Normal reading — should classify as Normal/Low
 POST {{host}}/api/readings
