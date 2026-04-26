@@ -28,33 +28,34 @@ class Room <<table>> {
 class User <<table>> {
   user_id : int <<PK>>
   full_name : varchar(150)
-  email : varchar(150)
+  email : varchar(150) <<UNIQUE>>
   password_hash : varchar(255)
   phone_number : varchar(50)
-  user_role : varchar(50)
+  role : varchar(50)
+  created_at : datetime
 }
 
 class Resident <<table>> {
   user_id : int <<PK, FK>>
-  student_id : varchar(100)
+  student_id : varchar(100) <<UNIQUE>>
   room_id : int <<FK>>
 }
 
-class BuildingAdministrator <<table>> {
+class BuildingManager <<table>> {
   user_id : int <<PK, FK>>
-  employee_id : varchar(100)
+  employee_id : varchar(100) <<UNIQUE>>
   office_location : varchar(100)
   residence_id : int <<FK>>
 }
 
 class SystemAdmin <<table>> {
-  +user_id : int <<PK, FK>>
-  admin_id : varchar(100)
+  user_id : int <<PK, FK>>
+  admin_id : varchar(100) <<UNIQUE>>
 }
 
 class SensorDevice <<table>> {
   sensor_id : int <<PK>>
-  serial_number : varchar(100)
+  serial_number : varchar(100) <<UNIQUE>>
   sensor_type : varchar(100)
   installed_at : datetime
   device_status : varchar(50)
@@ -75,16 +76,12 @@ class SensorReading <<table>> {
 
 class Prediction <<table>> {
   prediction_id : int <<PK>>
+  reading_id : int <<FK>>
   prediction_time : datetime
   prediction_type : varchar(50)
   predicted_category : varchar(100)
   confidence_score : decimal(5,2)
   risk_level : varchar(50)
-}
-
-class PredictionReading <<junction table>> {
-  prediction_id : int <<PK, FK>>
-  reading_id : int <<PK, FK>>
 }
 
 class FireEvent <<table>> {
@@ -129,20 +126,31 @@ class IncidentReport <<table>> {
   reviewed_by_id : int <<FK nullable>>
 }
 
+class DeviceCommand <<table>> {
+  command_id : int <<PK>>
+  command_type : varchar(100)
+  payload : varchar(1000)
+  status : varchar(50)
+  created_at : datetime
+  sent_at : datetime
+  sensor_id : int <<FK>>
+  created_by_id : int <<FK nullable>>
+}
+
 class SystemLog <<table>> {
   log_id : int <<PK>>
   timestamp : datetime
   log_level : varchar(50)
   message : varchar(1000)
   source : varchar(100)
-  system_admin_id : int <<FK nullable>>
+  user_id : int <<FK nullable>>
 }
 
 Residence "1" -- "1..*" Room
-Residence "1" -- "0..*" BuildingAdministrator
+Residence "1" -- "0..*" BuildingManager
 
 User "1" -- "0..1" Resident
-User "1" -- "0..1" BuildingAdministrator
+User "1" -- "0..1" BuildingManager
 User "1" -- "0..1" SystemAdmin
 
 Room "1" -- "0..1" Resident
@@ -150,19 +158,22 @@ Room "1" -- "1..*" SensorDevice
 Room "1" -- "0..*" FireEvent
 
 SensorDevice "1" -- "0..*" SensorReading
+SensorDevice "1" -- "0..*" DeviceCommand
 
-Prediction "1" -- "1..*" PredictionReading
-SensorReading "1" -- "0..*" PredictionReading
+SensorReading "1" -- "0..*" Prediction
 
 Prediction "1" -- "0..*" FireEvent
-FireEvent "1" -- "0..*" Alert
 Prediction "1" -- "0..*" Recommendation
 
-Resident "1" -- "0..*" Recommendation
+FireEvent "1" -- "0..*" Alert
 FireEvent "1" -- "0..1" IncidentReport
-Resident "1" -- "0..*" IncidentReport
-BuildingAdministrator "1" -- "0..*" IncidentReport
 
-SystemAdmin "1" -- "0..*" SystemLog
+Resident "1" -- "0..*" Recommendation
+Resident "1" -- "0..*" IncidentReport
+
+BuildingManager "1" -- "0..*" IncidentReport
+BuildingManager "1" -- "0..*" DeviceCommand
+
+User "1" -- "0..*" SystemLog
 
 @enduml
