@@ -1,0 +1,38 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.userprefs
+appsettings.Development.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+
+# IDE
+.vs/
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+.idea/
+
+# Env / secrets
+.env
+*.env
+!.env.example
+
+# AI tooling artifacts
+.claude/
+.codex-temp/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

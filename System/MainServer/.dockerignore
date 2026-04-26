@@ -2,3 +2,9 @@ bin/
 obj/
 *.user
 appsettings.Development.json
+.vs/
+.vscode/
+.idea/
+**/.DS_Store
+Dockerfile
+.dockerignore
