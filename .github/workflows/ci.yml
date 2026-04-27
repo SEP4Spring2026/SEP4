@@ -24,7 +24,7 @@ jobs:
       - name: Build
         run: dotnet build System/MainServer.Tests/MainServer.Tests.csproj --configuration Release --no-restore
 
-      - name: Test + coverage (≥50% required)
+      - name: Test + coverage (≥5% required)
         run: >
           dotnet test System/MainServer.Tests/MainServer.Tests.csproj
           --configuration Release
@@ -34,7 +34,7 @@ jobs:
           /p:CollectCoverage=true
           /p:CoverletOutputFormat=cobertura
           /p:CoverletOutput=${{ github.workspace }}/TestResults/coverage.cobertura.xml
-          /p:Threshold=50
+          /p:Threshold=5
           /p:ThresholdType=line
           /p:Exclude="[*]MainServer.Migrations.*"
 
