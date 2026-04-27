@@ -1,14 +1,9 @@
 name: Deploy to VPS
 
-# Optional CD job: SSHes into the VPS, pulls latest, and rebuilds the
-# shared MySQL + ML server stack. Disabled until the secrets below are
-# set under Settings -> Secrets and variables -> Actions:
-#
+# Requires these repo secrets (Settings -> Secrets and variables -> Actions):
 #   VPS_HOST         (e.g. 159.195.147.132)
 #   VPS_USER         (e.g. root)
-#   VPS_SSH_KEY      (contents of an OpenSSH private key — see README)
-#
-# Once secrets exist, change the `if:` below to `true`.
+#   VPS_SSH_KEY      contents of an OpenSSH private key
 
 on:
   push:
@@ -17,9 +12,7 @@ on:
 
 jobs:
   deploy:
-    if: true
     runs-on: ubuntu-latest
-    needs: []
     steps:
       - uses: actions/checkout@v4
 
