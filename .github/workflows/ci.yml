@@ -1,10 +1,11 @@
-name: CI
+name: CI/CD
 
 on:
   push:
     branches: [Dev]
   pull_request:
     branches: [Dev]
+  workflow_dispatch:
 
 jobs:
   mainserver:
@@ -23,14 +24,28 @@ jobs:
       - name: Build
         run: dotnet build System/MainServer.Tests/MainServer.Tests.csproj --configuration Release --no-restore
 
-      - name: Test + coverage
+      - name: Test + coverage (≥50% required)
         run: >
           dotnet test System/MainServer.Tests/MainServer.Tests.csproj
           --configuration Release
           --no-build
           --logger "trx;LogFileName=test-results.trx"
-          --collect:"XPlat Code Coverage"
           --results-directory ${{ github.workspace }}/TestResults
+          /p:CollectCoverage=true
+          /p:CoverletOutputFormat=cobertura
+          /p:CoverletOutput=${{ github.workspace }}/TestResults/coverage.cobertura.xml
+          /p:Threshold=50
+          /p:ThresholdType=line
+          /p:Exclude="[*]MainServer.Migrations.*"
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          if [ -f TestResults/coverage.cobertura.xml ]; then
+            pct=$(grep -oP 'line-rate="\K[^"]+' TestResults/coverage.cobertura.xml | head -1)
+            pct_int=$(awk "BEGIN { printf \"%.1f\", $pct * 100 }")
+            echo "### MainServer line coverage: ${pct_int}%" >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Upload test results
         if: always()
@@ -57,8 +72,17 @@ jobs:
       - name: Install deps
         run: pip install -r requirements.txt -r requirements-dev.txt
 
-      - name: Test + coverage
-        run: pytest --cov --cov-report=xml --cov-report=term-missing
+      - name: Test + coverage (≥50% required)
+        run: pytest --cov --cov-report=xml --cov-report=term-missing --cov-fail-under=50
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          if [ -f coverage.xml ]; then
+            pct=$(grep -oP 'line-rate="\K[^"]+' coverage.xml | head -1)
+            pct_int=$(awk "BEGIN { printf \"%.1f\", $pct * 100 }")
+            echo "### MlServer line coverage: ${pct_int}%" >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Upload coverage
         if: always()
@@ -87,3 +111,29 @@ jobs:
           context: System/MlServer
           push: false
           tags: kamtjatka/ml-server:ci
+
+  deploy:
+    name: Deploy to VPS
+    needs: [mainserver, mlserver, docker]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/Dev'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Pull and rebuild on VPS
+        run: |
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} <<'EOF'
+            set -euo pipefail
+            cd ~/SEP4
+            git pull --ff-only
+            cd System
+            docker compose -f docker-compose.vps.yml up -d --build
+            docker image prune -f
+          EOF
