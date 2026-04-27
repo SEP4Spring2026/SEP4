@@ -1,0 +1,47 @@
+# VPS-side deployment: shared MySQL + shared ML server.
+# Deploy on the VPS:
+#   docker compose -f docker-compose.vps.yml up -d --build
+#
+# Dev laptops do NOT use this file — they run the default
+# docker-compose.yml (main-server only) and connect here via the
+# public IP set in DB_HOST / ML_SERVER_URL.
+
+services:
+  mysql:
+    image: mysql:8
+    container_name: kamtjatka-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    ports:
+      # Public: dev laptops connect over the internet. The strong
+      # DB_PASSWORD is the primary defense — keep it secret and
+      # rotate it if it ever leaks.
+      - "${DB_PORT}:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+  ml-server:
+    build: ./MlServer
+    image: kamtjatka/ml-server:latest
+    container_name: kamtjatka-ml
+    restart: unless-stopped
+    ports:
+      - "${ML_SERVER_PORT}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=2).status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  mysql-data:
