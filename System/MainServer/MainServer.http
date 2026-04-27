@@ -11,7 +11,7 @@ Content-Type: application/json
   "co2Level": 600
 }
 
-### Warning reading — high CO2 (>=1000) should classify as Warning/Medium
+### Warning reading — high CO2 (>=1000) should classify as Warning/Medium, testing CI/CD
 POST {{host}}/api/readings
 Content-Type: application/json
 
