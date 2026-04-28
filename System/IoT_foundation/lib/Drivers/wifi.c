@@ -49,6 +49,40 @@ void wifi_send(const char *data)
     wifi_command_TCP_transmit((uint8_t *)data, (uint16_t)strlen(data));
 }
 
+WIFI_ERROR_MESSAGE_t wifi_send_http_post(const char *host, const char *path, const char *json_body)
+{
+    char request[320];
+    int written = 0;
+
+    if ((host == NULL) || (path == NULL) || (json_body == NULL))
+    {
+        return WIFI_FAIL;
+    }
+
+    written = snprintf(
+        request,
+        sizeof(request),
+        "POST %s HTTP/1.1\r\n"
+        "Host: %s\r\n"
+        "Content-Type: application/json\r\n"
+        "Connection: keep-alive\r\n"
+        "Content-Length: %u\r\n"
+        "\r\n"
+        "%s",
+        path,
+        host,
+        (unsigned)strlen(json_body),
+        json_body
+    );
+
+    if ((written <= 0) || (written >= (int)sizeof(request)))
+    {
+        return WIFI_FAIL;
+    }
+
+    return wifi_command_TCP_transmit((uint8_t *)request, (uint16_t)written);
+}
+
 void static wifi_clear_databuffer_and_index()
 {
     for (uint16_t i = 0; i < WIFI_DATABUFFERSIZE; i++)
