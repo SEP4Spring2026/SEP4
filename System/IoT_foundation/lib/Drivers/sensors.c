@@ -66,18 +66,19 @@ float read_humidity(void)
     return humidity_value;
 }
 
-void build_payload(char *buffer)
+void build_payload(char *buffer, uint16_t sensor_id)
 {
-    // Avoid float formatting for stable output on embedded printf implementations.
+    // Match MainServer SensorReadingDto shape for POST /api/readings.
     snprintf(
         buffer,
         96,
-        "{\"co2\":%d,\"temp\":%u.%u,\"hum\":%u.%u}",
-        co2_value,
+        "{\"sensorId\":%u,\"temperature\":%u.%u,\"humidity\":%u.%u,\"co2Level\":%d}",
+        sensor_id,
         dht_t_i,
         dht_t_d,
         dht_h_i,
-        dht_h_d
+        dht_h_d,
+        co2_value
     );
 }
 

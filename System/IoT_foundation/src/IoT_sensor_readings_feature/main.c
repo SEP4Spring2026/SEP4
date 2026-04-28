@@ -18,15 +18,17 @@
 
 #define WIFI_SSID "TestWifi"
 #define WIFI_PASSWORD "testpwd"
-#define WIFI_HOST_IP "192.168.1.10"
-#define WIFI_PORT 5672
+#define REMOTE_SERVER_IP "159.195.147.132"
+#define REMOTE_SERVER_PORT 8080
+#define REMOTE_SERVER_READINGS_PATH "/api/readings"
+#define LOCAL_DEVICE_ID 101U
 #define APP_SERIAL_BAUDRATE 115200UL
 
 #define APP_MODE_PRODUCTION 1
 #define APP_MODE_DEVELOPMENT 2
 
 /* Change this define when switching between deployment and debugging. */
-#define APP_MODE APP_MODE_DEVELOPMENT
+#define APP_MODE APP_MODE_PRODUCTION
 
 static char payload_buffer[96];
 
@@ -79,7 +81,7 @@ int main(void)
     wifi_command_set_mode_to_1();
     wifi_command_set_to_single_Connection();
     wifi_command_join_AP(WIFI_SSID, WIFI_PASSWORD);
-    wifi_command_create_TCP_connection(WIFI_HOST_IP, WIFI_PORT, wifi_rx_callback, wifi_rx_buffer);
+    wifi_command_create_TCP_connection(REMOTE_SERVER_IP, REMOTE_SERVER_PORT, wifi_rx_callback, wifi_rx_buffer);
 
     sensors_init();
     app_enable_global_interrupts();
@@ -90,8 +92,8 @@ int main(void)
         read_co2();
         read_temperature();
         read_humidity();
-        build_payload(payload_buffer);
-        wifi_send(payload_buffer);
+        build_payload(payload_buffer, LOCAL_DEVICE_ID);
+        wifi_send_http_post(REMOTE_SERVER_IP, REMOTE_SERVER_READINGS_PATH, payload_buffer);
         app_delay_ms(5000);
     }
 
@@ -113,7 +115,7 @@ int main(void)
         int co2 = read_co2();
         (void)read_temperature();
         (void)read_humidity();
-        build_payload(payload_buffer);
+        build_payload(payload_buffer, LOCAL_DEVICE_ID);
 
         printf("\n========== Sample %lu ==========\n", (unsigned long)sample_count);
         
