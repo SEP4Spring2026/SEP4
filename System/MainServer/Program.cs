@@ -52,7 +52,7 @@ using (var scope = app.Services.CreateScope())
     db.Database.EnsureCreated();
 }
 
-app.MapControllers();
-
 app.UseCors("AllowFrontend");
+
+app.MapControllers();
 app.Run();

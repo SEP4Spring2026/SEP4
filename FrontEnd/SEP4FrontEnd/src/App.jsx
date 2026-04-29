@@ -43,7 +43,7 @@ function App() {
     return <div>Loading...</div>;
   }
 
-  const latestSample = samples[samples.length - 1];
+  const latestSample = samples[0];
 
   const summary = {
     temp: latestSample.temp,
