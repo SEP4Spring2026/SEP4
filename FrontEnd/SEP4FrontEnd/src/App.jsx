@@ -9,16 +9,14 @@ import { SampleCard } from "./components/SampleCard.jsx";
 function App() {
   const [activeView, setActiveView] = useState("Home");
   const [samples, setSamples] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     async function load() {
       try {
-        console.log("FETCH START");
-
         const res = await fetch("http://localhost:8080/api/readings");
         const data = await res.json();
-
-        console.log("RAW DATA:", data);
 
         const mappedSamples = data.map((r) => ({
           name: `Sample ${r.readingId}`,
@@ -33,15 +31,18 @@ function App() {
         setSamples(mappedSamples);
       } catch (err) {
         console.error("API error:", err);
+        setError(err);
+      } finally {
+        setLoading(false);
       }
     }
 
     load();
   }, []);
 
-  if (!samples.length) {
-    return <div>Loading...</div>;
-  }
+  if (loading) return <div style={{ padding: 24 }}>Loading...</div>;
+  if (error) return <div style={{ padding: 24 }}>Failed to reach the API at http://localhost:8080. Is the main server running?</div>;
+  if (!samples.length) return <div style={{ padding: 24 }}>No readings in the database yet. POST one to /api/readings, then refresh.</div>;
 
   const latestSample = samples[0];
 
