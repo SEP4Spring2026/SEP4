@@ -106,10 +106,16 @@ WIFI_ERROR_MESSAGE_t wifi_command(const char *str, uint16_t timeOut_s)
     void* callback_state = _callback;
     _callback = wifi_command_callback;
 
-    char sendbuffer[128];
-    strcpy(sendbuffer, str);
+    char sendbuffer[256];
+    int written = snprintf(sendbuffer, sizeof(sendbuffer), "%s\r\n", str);
+    if ((written <= 0) || (written >= (int)sizeof(sendbuffer)))
+    {
+        _callback = callback_state;
+        wifi_clear_databuffer_and_index();
+        return WIFI_FAIL;
+    }
 
-    uart_send_string_blocking(UART2_ID, strcat(sendbuffer, "\r\n"));
+    uart_send_string_blocking(UART2_ID, sendbuffer);
 
     for (uint16_t i = 0; i < timeOut_s * 100UL; i++) // timeout after 20 sec
     {
@@ -134,6 +140,88 @@ WIFI_ERROR_MESSAGE_t wifi_command(const char *str, uint16_t timeOut_s)
     wifi_clear_databuffer_and_index();
     _callback = callback_state;
     return error; 
+}
+
+WIFI_ERROR_MESSAGE_t wifi_command_mqtt_user_config(const char *client_id, const char *username, const char *password)
+{
+    char sendbuffer[192];
+    const char *safe_client_id = (client_id != NULL) ? client_id : "";
+    const char *safe_username = (username != NULL) ? username : "";
+    const char *safe_password = (password != NULL) ? password : "";
+    int written = snprintf(
+        sendbuffer,
+        sizeof(sendbuffer),
+        "AT+MQTTUSERCFG=0,1,\"%s\",\"%s\",\"%s\",0,0,\"\"",
+        safe_client_id,
+        safe_username,
+        safe_password
+    );
+
+    if ((written <= 0) || (written >= (int)sizeof(sendbuffer)))
+    {
+        return WIFI_FAIL;
+    }
+
+    return wifi_command(sendbuffer, 5);
+}
+
+WIFI_ERROR_MESSAGE_t wifi_command_mqtt_connect(const char *broker_host, uint16_t broker_port)
+{
+    char sendbuffer[160];
+    int written = 0;
+
+    if (broker_host == NULL)
+    {
+        return WIFI_FAIL;
+    }
+
+    written = snprintf(
+        sendbuffer,
+        sizeof(sendbuffer),
+        "AT+MQTTCONN=0,\"%s\",%u,0",
+        broker_host,
+        broker_port
+    );
+
+    if ((written <= 0) || (written >= (int)sizeof(sendbuffer)))
+    {
+        return WIFI_FAIL;
+    }
+
+    return wifi_command(sendbuffer, 20);
+}
+
+WIFI_ERROR_MESSAGE_t wifi_command_mqtt_publish(const char *topic, const char *payload, uint8_t qos, uint8_t retain)
+{
+    char sendbuffer[220];
+    int written = 0;
+
+    if ((topic == NULL) || (payload == NULL))
+    {
+        return WIFI_FAIL;
+    }
+
+    if ((qos > 2U) || (retain > 1U))
+    {
+        return WIFI_FAIL;
+    }
+
+    written = snprintf(
+        sendbuffer,
+        sizeof(sendbuffer),
+        "AT+MQTTPUB=0,\"%s\",\"%s\",%u,%u",
+        topic,
+        payload,
+        (unsigned)qos,
+        (unsigned)retain
+    );
+
+    if ((written <= 0) || (written >= (int)sizeof(sendbuffer)))
+    {
+        return WIFI_FAIL;
+    }
+
+    return wifi_command(sendbuffer, 10);
 }
 
 WIFI_ERROR_MESSAGE_t wifi_command_AT()

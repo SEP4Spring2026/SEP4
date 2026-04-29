@@ -1,0 +1,27 @@
+services:
+  mqtt-broker:
+    image: eclipse-mosquitto:2
+    container_name: sep4-mqtt-broker
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mqtt-data:/mosquitto/data
+      - mqtt-log:/mosquitto/log
+
+  mqtt-debug-subscriber:
+    image: eclipse-mosquitto:2
+    container_name: sep4-mqtt-debug-subscriber
+    restart: unless-stopped
+    depends_on:
+      - mqtt-broker
+    command: >
+      sh -c "
+      sleep 2 &&
+      mosquitto_sub -h mqtt-broker -p 1883 -t 'iot/readings' -v
+      "
+
+volumes:
+  mqtt-data:
+  mqtt-log:
