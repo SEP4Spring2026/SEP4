@@ -18,6 +18,19 @@ services:
       - mqtt-data:/mosquitto/data
       - mqtt-log:/mosquitto/log
 
+  mqtt-http-bridge:
+    build: ./IoT_foundation/devops/mqtt_http_bridge
+    container_name: kamtjatka-mqtt-http-bridge
+    restart: unless-stopped
+    depends_on:
+      - mqtt-broker
+      - main-server
+    environment:
+      MQTT_HOST: mqtt-broker
+      MQTT_PORT: 1883
+      MQTT_TOPIC: iot/readings
+      BACKEND_URL: http://main-server:8080/api/readings
+
   main-server:
     build: ./MainServer
     image: kamtjatka/main-server:latest
