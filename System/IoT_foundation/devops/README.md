@@ -4,6 +4,7 @@ This folder contains a small containerized stack for the IoT side:
 
 - `mqtt-broker`: local MQTT broker (Mosquitto) on port `1883`
 - `mqtt-debug-subscriber`: prints all payloads from `iot/readings`
+- `mqtt-http-bridge`: forwards `iot/readings` payloads to backend `POST /api/readings`
 
 ## Run
 
@@ -17,6 +18,12 @@ To view incoming payloads:
 
 ```bash
 docker logs -f sep4-mqtt-debug-subscriber
+```
+
+To view forwarding to backend:
+
+```bash
+docker logs -f sep4-mqtt-http-bridge
 ```
 
 ## Stop
@@ -34,3 +41,10 @@ In `src/IoT_sensor_readings_feature/main.c` keep:
 
 For local testing, set `MQTT_BROKER_HOST` to the machine running Docker
 (for example your laptop LAN IP).
+
+## End-to-end local flow
+
+- IoT publishes to `mqtt-broker` topic `iot/readings`
+- `mqtt-http-bridge` consumes that topic
+- bridge forwards JSON to `http://host.docker.internal:8080/api/readings`
+- backend stores reading, frontend then shows updates
