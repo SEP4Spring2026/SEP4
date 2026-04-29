@@ -54,6 +54,16 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       ML_SERVER_URL: http://ml-server:8000
 
+  frontend:
+    build: ../FrontEnd/SEP4FrontEnd
+    image: kamtjatka/frontend:latest
+    container_name: kamtjatka-frontend
+    restart: unless-stopped
+    depends_on:
+      - main-server
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+
 
   mysql:
     image: mysql:8
