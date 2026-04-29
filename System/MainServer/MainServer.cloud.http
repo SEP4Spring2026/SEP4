@@ -1,4 +1,5 @@
-@host = http://localhost:8080
+### Targets the main server deployed on the VPS (CI/CD-managed).
+@host = http://159.195.147.132:8080
 
 ### Normal reading — should classify as Normal/Low
 POST {{host}}/api/readings
@@ -11,7 +12,7 @@ Content-Type: application/json
   "co2Level": 600
 }
 
-### Warning reading — high CO2 (>=1000) should classify as Warning/Medium, testing CI/CD again
+### Warning reading — high CO2 (>=1000) should classify as Warning/Medium
 POST {{host}}/api/readings
 Content-Type: application/json
 
