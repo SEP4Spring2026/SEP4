@@ -22,6 +22,18 @@ services:
       mosquitto_sub -h mqtt-broker -p 1883 -t 'iot/readings' -v
       "
 
+  mqtt-http-bridge:
+    build: ./mqtt_http_bridge
+    container_name: sep4-mqtt-http-bridge
+    restart: unless-stopped
+    depends_on:
+      - mqtt-broker
+    environment:
+      MQTT_HOST: mqtt-broker NEED TO CHANGE THIS TOO
+      MQTT_PORT: 1883
+      MQTT_TOPIC: iot/readings
+      BACKEND_URL: http://host.docker.internal:8080/api/readings
+
 volumes:
   mqtt-data:
   mqtt-log:
