@@ -4,11 +4,22 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+DotNetEnv.Env.Load();
+
 builder.Services.AddControllers();
 
-var connectionString = builder.Configuration.GetConnectionString("Default");
-var mlUrl = builder.Configuration["MlServer:Url"]!;
-var dbHost = System.Text.RegularExpressions.Regex.Match(connectionString ?? "", @"Server=([^;]+)").Groups[1].Value;
+var dbHost = Environment.GetEnvironmentVariable("DB_HOST");
+var dbPort = Environment.GetEnvironmentVariable("DB_PORT");
+var dbName = Environment.GetEnvironmentVariable("DB_NAME");
+var dbUser = Environment.GetEnvironmentVariable("DB_USER");
+var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD");
+
+var mlUrl = Environment.GetEnvironmentVariable("ML_SERVER_URL");
+
+var connectionString =
+    $"Server={dbHost};Port={dbPort};Database={dbName};User={dbUser};Password={dbPassword};";
+
+var parsedDbHost = System.Text.RegularExpressions.Regex.Match(connectionString ?? "", @"Server=([^;]+)").Groups[1].Value;
 Console.WriteLine($"[startup] DB host: {dbHost}");
 Console.WriteLine($"[startup] ML URL : {mlUrl}");
 
@@ -21,6 +32,18 @@ builder.Services.AddHttpClient<MlClient>(client =>
     client.BaseAddress = new Uri(mlUrl);
 });
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials()
+            .SetIsOriginAllowed(_ => true); // DEV ONLY (important)
+    });
+});
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
@@ -30,4 +53,6 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.MapControllers();
+
+app.UseCors("AllowFrontend");
 app.Run();
