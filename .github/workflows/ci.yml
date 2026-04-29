@@ -132,7 +132,9 @@ jobs:
           ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} <<'EOF'
             set -euo pipefail
             cd ~/SEP4
-            git pull --ff-only
+            git fetch origin
+            git checkout Dev
+            git reset --hard origin/Dev
             cd System
             docker compose -f docker-compose.vps.yml up -d --build
             docker image prune -f
