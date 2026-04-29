@@ -1,0 +1,36 @@
+# IoT DevOps (MQTT local stack)
+
+This folder contains a small containerized stack for the IoT side:
+
+- `mqtt-broker`: local MQTT broker (Mosquitto) on port `1883`
+- `mqtt-debug-subscriber`: prints all payloads from `iot/readings`
+
+## Run
+
+From `System/IoT_foundation/devops`:
+
+```bash
+docker compose -f docker-compose.iot.yml up -d
+```
+
+To view incoming payloads:
+
+```bash
+docker logs -f sep4-mqtt-debug-subscriber
+```
+
+## Stop
+
+```bash
+docker compose -f docker-compose.iot.yml down
+```
+
+## Firmware alignment
+
+In `src/IoT_sensor_readings_feature/main.c` keep:
+
+- `MQTT_BROKER_PORT` as `1883`
+- `MQTT_TOPIC` as `iot/readings`
+
+For local testing, set `MQTT_BROKER_HOST` to the machine running Docker
+(for example your laptop LAN IP).

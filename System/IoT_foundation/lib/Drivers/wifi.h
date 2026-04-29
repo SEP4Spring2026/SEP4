@@ -42,6 +42,9 @@ typedef void (*WIFI_TCP_Callback_t)();
 void wifi_init();
 void wifi_send(const char *data);
 WIFI_ERROR_MESSAGE_t wifi_send_http_post(const char *host, const char *path, const char *json_body);
+WIFI_ERROR_MESSAGE_t wifi_command_mqtt_user_config(const char *client_id, const char *username, const char *password);
+WIFI_ERROR_MESSAGE_t wifi_command_mqtt_connect(const char *broker_host, uint16_t broker_port);
+WIFI_ERROR_MESSAGE_t wifi_command_mqtt_publish(const char *topic, const char *payload, uint8_t qos, uint8_t retain);
 
 /**
  * @brief Send an AT command to the WiFi module to check if it's responsive.
