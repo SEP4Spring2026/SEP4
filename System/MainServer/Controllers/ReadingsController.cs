@@ -23,6 +23,9 @@ public class ReadingsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<PredictionDto>> Post(SensorReadingDto dto)
     {
+        var romeTz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Rome");
+        var nowRome = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, romeTz);
+
         var device = await _db.Sensors.FirstOrDefaultAsync(s => s.SensorId == dto.SensorId);
         if (device == null)
         {
@@ -38,7 +41,7 @@ public class ReadingsController : ControllerBase
         var reading = new SensorReading
         {
             SensorId = device.SensorId,
-            Timestamp = dto.Timestamp == default ? DateTime.UtcNow : dto.Timestamp,
+            Timestamp = dto.Timestamp == default ? nowRome : dto.Timestamp,
             Temperature = dto.Temperature,
             Humidity = dto.Humidity,
             Co2Level = dto.Co2Level
