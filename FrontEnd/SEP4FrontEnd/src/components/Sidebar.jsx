@@ -1,8 +1,13 @@
-import { useState } from "react";
-
 const menuItems = ["Home", "Sensors", "Samples", "Charts", "Payload", "Settings"];
 
-export function Sidebar({ activeView, latestSample, onViewChange }) {
+export function Sidebar({
+  activeView,
+  latestSample,
+  devices,
+  selectedSensorId,
+  onViewChange,
+  onSensorChange,
+}) {
   return (
     <aside className="sidebar">
       <div className="logo">
@@ -24,6 +29,31 @@ export function Sidebar({ activeView, latestSample, onViewChange }) {
       <div className="status-card">
         <p className="muted">DHT status</p>
         <strong>{latestSample.dhtStatus}</strong>
+      </div>
+
+      <div className="status-card device-card">
+        <p className="muted">Device filter</p>
+        <label className="device-select-label" htmlFor="device-select">
+          Show readings from
+        </label>
+        <select
+          id="device-select"
+          className="device-select"
+          value={selectedSensorId}
+          onChange={(event) => onSensorChange(event.target.value)}
+        >
+          <option value="all">All devices</option>
+          {devices.map((device) => (
+            <option key={device.sensorId} value={device.sensorId}>
+              Device {device.sensorId}
+            </option>
+          ))}
+        </select>
+        <p className="device-meta">
+          {selectedSensorId === "all"
+            ? `${devices.length} device${devices.length === 1 ? "" : "s"} available`
+            : `sensorId ${selectedSensorId}`}
+        </p>
       </div>
     </aside>
   );

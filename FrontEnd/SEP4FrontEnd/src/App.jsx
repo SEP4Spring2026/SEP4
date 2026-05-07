@@ -10,17 +10,45 @@ import { LineChart } from "./components/LineChart.jsx";
 function App() {
   const [activeView, setActiveView] = useState("Home");
   const [samples, setSamples] = useState([]);
+  const [devices, setDevices] = useState([]);
+  const [selectedSensorId, setSelectedSensorId] = useState("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    async function load() {
+    async function loadDevices() {
       try {
-        const res = await fetch("/api/readings");
+        const res = await fetch("/api/readings/devices");
+        if (!res.ok) {
+          throw new Error(`Devices request failed with ${res.status}`);
+        }
         const data = await res.json();
+        setDevices(data);
+      } catch (err) {
+        console.error("Device API error:", err);
+      }
+    }
 
+    loadDevices();
+  }, []);
+
+  useEffect(() => {
+    async function loadReadings() {
+      try {
+        setLoading(true);
+        setError(null);
+        const query =
+          selectedSensorId === "all"
+            ? ""
+            : `?sensorId=${encodeURIComponent(selectedSensorId)}`;
+        const res = await fetch(`/api/readings${query}`);
+        if (!res.ok) {
+          throw new Error(`Readings request failed with ${res.status}`);
+        }
+        const data = await res.json();
         const mappedSamples = data.map((r) => ({
           name: `Sample ${r.readingId}`,
+          sensorId: r.sensorId,
           timestamp: r.timestamp,
           temp: r.temperature,
           hum: r.humidity,
@@ -39,12 +67,12 @@ function App() {
       }
     }
 
-    load();
-  }, []);
+    loadReadings();
+  }, [selectedSensorId]);
 
   if (loading) return <div style={{ padding: 24 }}>Loading...</div>;
   if (error) return <div style={{ padding: 24 }}>Failed to reach the API. Is the main server running?</div>;
-  if (!samples.length) return <div style={{ padding: 24 }}>No readings in the database yet. POST one to /api/readings, then refresh.</div>;
+  if (!samples.length) return <div style={{ padding: 24 }}>No readings found for this device selection.</div>;
 
   const latestSample = samples[0];
 
@@ -52,6 +80,7 @@ function App() {
     temp: latestSample.temp,
     hum: latestSample.hum,
     co2: latestSample.co2,
+    sensorId: latestSample.sensorId,
     payloadLength: latestSample.payloadLength
   };
 
@@ -73,10 +102,10 @@ function App() {
         </section>
 
         <section className="grid stats-grid">
+          <StatCard title="Device ID" value={summary.sensorId} status="selected" statusType="success" />
           <StatCard title="Temperature" value={summary.temp} status="stable" statusType="success" />
           <StatCard title="Humidity" value={summary.hum} status="stable" statusType="success" />
           <StatCard title="CO2" value={summary.co2} status="watch" statusType="danger" />
-          <StatCard title="Payload length" value={summary.payloadLength} status="bytes" statusType="success" />
         </section>
       </>
     );
@@ -85,10 +114,10 @@ function App() {
   function SensorsView() {
     return (
       <section className="grid stats-grid">
+        <StatCard title="Device ID" value={summary.sensorId} status="sensorId" statusType="success" />
         <StatCard title="Temperature" value={summary.temp} status="DHT sensor" statusType="success" />
         <StatCard title="Humidity" value={summary.hum} status="DHT sensor" statusType="success" />
         <StatCard title="CO2" value={summary.co2} status="air quality" statusType="danger" />
-        <StatCard title="DHT status" value={latestSample.dhtStatus} status="online" statusType="success" />
       </section>
     );
   }
@@ -109,6 +138,10 @@ function App() {
         <PayloadCard payload={latestSample.payload} />
         <article className="card">
           <h3>Payload Details</h3>
+          <div className="summary-row">
+            <span>Device ID</span>
+            <strong>{latestSample.sensorId}</strong>
+          </div>
           <div className="summary-row">
             <span>Length</span>
             <strong>{latestSample.payloadLength}</strong>
@@ -295,7 +328,10 @@ function App() {
       <Sidebar
         activeView={activeView}
         latestSample={latestSample}
+        devices={devices}
+        selectedSensorId={selectedSensorId}
         onViewChange={setActiveView}
+        onSensorChange={setSelectedSensorId}
       />
 
       <main className="content">

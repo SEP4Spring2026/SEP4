@@ -36,3 +36,9 @@ Content-Type: application/json
 
 ### Get latest 50 readings with their predictions
 GET {{host}}/api/readings
+
+### Get latest 50 readings for one device
+GET {{host}}/api/readings?sensorId=101
+
+### Get known sensor devices
+GET {{host}}/api/readings/devices
