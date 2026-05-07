@@ -5,6 +5,7 @@ using MainServer.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace MainServer.Controllers;
 
@@ -14,11 +15,13 @@ public class ReadingsController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly MlClient _ml;
+    private readonly ReadingsStreamHub _streamHub;
 
-    public ReadingsController(AppDbContext db, MlClient ml)
+    public ReadingsController(AppDbContext db, MlClient ml, ReadingsStreamHub streamHub)
     {
         _db = db;
         _ml = ml;
+        _streamHub = streamHub;
     }
 
     [HttpPost]
@@ -75,7 +78,64 @@ public class ReadingsController : ControllerBase
         _db.Predictions.Add(prediction);
         await _db.SaveChangesAsync(cancellationToken);
 
+        _streamHub.Publish(new ReadingStreamEvent(
+            reading.ReadingId,
+            reading.Timestamp,
+            reading.Temperature,
+            reading.Humidity,
+            reading.Co2Level,
+            reading.SensorId,
+            new
+            {
+                prediction.PredictedCategory,
+                prediction.RiskLevel,
+                prediction.ConfidenceScore
+            }));
+
         return Ok(predictionDto);
+    }
+
+    [HttpGet("stream")]
+    public async Task Stream([FromQuery] int? sensorId, CancellationToken cancellationToken)
+    {
+        Response.Headers.CacheControl = "no-cache";
+        Response.Headers.Append("Content-Type", "text/event-stream");
+
+        var (subscriptionId, reader) = _streamHub.Subscribe(sensorId);
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                var hasDataTask = reader.WaitToReadAsync(cancellationToken).AsTask();
+                var heartbeatTask = Task.Delay(TimeSpan.FromSeconds(15), cancellationToken);
+                var completed = await Task.WhenAny(hasDataTask, heartbeatTask);
+
+                if (completed == heartbeatTask)
+                {
+                    await Response.WriteAsync(": keepalive\n\n", cancellationToken);
+                    await Response.Body.FlushAsync(cancellationToken);
+                    continue;
+                }
+
+                if (!await hasDataTask)
+                {
+                    break;
+                }
+
+                while (reader.TryRead(out var streamEvent))
+                {
+                    var json = JsonSerializer.Serialize(streamEvent);
+                    await Response.WriteAsync($"event: reading\n", cancellationToken);
+                    await Response.WriteAsync($"data: {json}\n\n", cancellationToken);
+                }
+
+                await Response.Body.FlushAsync(cancellationToken);
+            }
+        }
+        finally
+        {
+            _streamHub.Unsubscribe(subscriptionId);
+        }
     }
 
     [HttpGet]

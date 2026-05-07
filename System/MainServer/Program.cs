@@ -32,6 +32,7 @@ builder.Services.AddHttpClient<MlClient>(client =>
     client.BaseAddress = new Uri(mlUrl);
     client.Timeout = TimeSpan.FromSeconds(5);
 });
+builder.Services.AddSingleton<ReadingsStreamHub>();
 
 builder.Services.AddCors(options =>
 {
