@@ -5,6 +5,7 @@ import { OverviewCard } from "./components/OverviewCard.jsx";
 import { PayloadCard } from "./components/PayloadCard.jsx";
 import { StatCard } from "./components/StatCard.jsx";
 import { SampleCard } from "./components/SampleCard.jsx";
+import { LineChart } from "./components/LineChart.jsx";
 
 function App() {
   const [activeView, setActiveView] = useState("Home");
@@ -20,6 +21,7 @@ function App() {
 
         const mappedSamples = data.map((r) => ({
           name: `Sample ${r.readingId}`,
+          timestamp: r.timestamp,
           temp: r.temperature,
           hum: r.humidity,
           co2: r.co2Level,
@@ -57,6 +59,7 @@ function App() {
     Home: "Home Overview",
     Sensors: "Sensor Details",
     Samples: "Sample History",
+    Charts: "Charts & Trends",
     Payload: "Payload Viewer",
     Settings: "Settings",
   };
@@ -127,6 +130,137 @@ function App() {
     );
   }
 
+  function ChartsView() {
+    /* API returns newest-first. Reverse for left-to-right time progression. */
+    const series = [...samples].reverse();
+    const tempData = series.map((s) => ({ t: s.timestamp, v: Number(s.temp) }));
+    const humData = series.map((s) => ({ t: s.timestamp, v: Number(s.hum) }));
+    const co2Data = series.map((s) => ({ t: s.timestamp, v: Number(s.co2) }));
+
+    const stats = (arr) => {
+      const vals = arr.map((d) => d.v).filter((v) => Number.isFinite(v));
+      if (vals.length === 0) {
+        return { avg: 0, min: 0, max: 0, latest: 0, count: 0 };
+      }
+      return {
+        avg: vals.reduce((a, b) => a + b, 0) / vals.length,
+        min: Math.min(...vals),
+        max: Math.max(...vals),
+        latest: vals[vals.length - 1],
+        count: vals.length,
+      };
+    };
+
+    const tStats = stats(tempData);
+    const hStats = stats(humData);
+    const cStats = stats(co2Data);
+    const totalCount = series.length;
+
+    return (
+      <section className="grid charts-grid">
+        <ChartCard
+          title="Temperature trend"
+          unit="°C"
+          stats={tStats}
+          data={tempData}
+          decimals={1}
+        />
+        <ChartCard
+          title="Humidity trend"
+          unit="%"
+          stats={hStats}
+          data={humData}
+          decimals={1}
+        />
+        <ChartCard
+          title="CO2 trend"
+          unit=" ppm"
+          stats={cStats}
+          data={co2Data}
+          decimals={0}
+        />
+        <article className="card chart-summary-card">
+          <div className="card-header">
+            <div>
+              <h3>Averages over {totalCount} samples</h3>
+              <p className="muted">Aggregated from the latest readings on the broker</p>
+            </div>
+            <span className="tag">Live</span>
+          </div>
+          <div className="summary-row">
+            <span>Avg temperature</span>
+            <strong>{tStats.avg.toFixed(1)} °C</strong>
+          </div>
+          <div className="summary-row">
+            <span>Avg humidity</span>
+            <strong>{hStats.avg.toFixed(1)} %</strong>
+          </div>
+          <div className="summary-row">
+            <span>Avg CO2</span>
+            <strong>{cStats.avg.toFixed(0)} ppm</strong>
+          </div>
+          <div className="summary-row">
+            <span>Range CO2</span>
+            <strong>
+              {cStats.min.toFixed(0)} – {cStats.max.toFixed(0)} ppm
+            </strong>
+          </div>
+        </article>
+      </section>
+    );
+  }
+
+  function ChartCard({ title, unit, stats, data, decimals = 1 }) {
+    const fmt = (n) => Number(n).toFixed(decimals);
+    return (
+      <article className="card chart-card">
+        <div className="card-header">
+          <div>
+            <h3>{title}</h3>
+            <p className="muted">
+              Avg / min / max over {stats.count} samples
+            </p>
+          </div>
+          <span className="tag">
+            {fmt(stats.avg)}
+            {unit}
+          </span>
+        </div>
+        <div className="chart-stats">
+          <div>
+            <span className="muted">Avg</span>
+            <strong>
+              {fmt(stats.avg)}
+              {unit}
+            </strong>
+          </div>
+          <div>
+            <span className="muted">Min</span>
+            <strong>
+              {fmt(stats.min)}
+              {unit}
+            </strong>
+          </div>
+          <div>
+            <span className="muted">Max</span>
+            <strong>
+              {fmt(stats.max)}
+              {unit}
+            </strong>
+          </div>
+          <div>
+            <span className="muted">Latest</span>
+            <strong>
+              {fmt(stats.latest)}
+              {unit}
+            </strong>
+          </div>
+        </div>
+        <LineChart data={data} unit={unit} />
+      </article>
+    );
+  }
+
   function SettingsView() {
     return (
       <section className="grid settings-grid">
@@ -170,6 +304,7 @@ function App() {
         {activeView === "Home" && <HomeView />}
         {activeView === "Sensors" && <SensorsView />}
         {activeView === "Samples" && <SamplesView />}
+        {activeView === "Charts" && <ChartsView />}
         {activeView === "Payload" && <PayloadView />}
         {activeView === "Settings" && <SettingsView />}
       </main>

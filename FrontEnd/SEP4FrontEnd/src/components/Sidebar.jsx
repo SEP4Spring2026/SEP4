@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-const menuItems = ["Home", "Sensors", "Samples", "Payload", "Settings"];
+const menuItems = ["Home", "Sensors", "Samples", "Charts", "Payload", "Settings"];
 
 export function Sidebar({ activeView, latestSample, onViewChange }) {
   return (
