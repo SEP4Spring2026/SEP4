@@ -66,8 +66,16 @@ public class ReadingsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<object>>> GetLatest([FromQuery] int? sensorId)
+    public async Task<ActionResult<IEnumerable<object>>> GetLatest(
+        [FromQuery] int? sensorId,
+        [FromQuery] int? limit)
     {
+        const int defaultLimit = 200;
+        const int maxLimit = 1000;
+        var take = limit ?? defaultLimit;
+        if (take < 1) take = 1;
+        if (take > maxLimit) take = maxLimit;
+
         var query = _db.Readings
             .Include(r => r.Prediction)
             .Include(r => r.Sensor);
@@ -79,7 +87,7 @@ public class ReadingsController : ControllerBase
 
         var readings = await query
             .OrderByDescending(r => r.Timestamp)
-            .Take(50)
+            .Take(take)
             .Select(r => new
             {
                 r.ReadingId,

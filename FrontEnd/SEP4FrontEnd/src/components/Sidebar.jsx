@@ -5,8 +5,12 @@ export function Sidebar({
   latestSample,
   devices,
   selectedSensorId,
+  sampleLimit,
+  sampleLimitOptions,
+  loadedCount,
   onViewChange,
   onSensorChange,
+  onSampleLimitChange,
 }) {
   return (
     <aside className="sidebar">
@@ -53,6 +57,28 @@ export function Sidebar({
           {selectedSensorId === "all"
             ? `${devices.length} device${devices.length === 1 ? "" : "s"} available`
             : `sensorId ${selectedSensorId}`}
+        </p>
+      </div>
+
+      <div className="status-card device-card">
+        <p className="muted">Sample window</p>
+        <label className="device-select-label" htmlFor="sample-limit-select">
+          Last N samples
+        </label>
+        <select
+          id="sample-limit-select"
+          className="device-select"
+          value={sampleLimit}
+          onChange={(event) => onSampleLimitChange(event.target.value)}
+        >
+          {sampleLimitOptions.map((option) => (
+            <option key={option} value={option}>
+              {option} samples
+            </option>
+          ))}
+        </select>
+        <p className="device-meta">
+          Showing {loadedCount} / {sampleLimit}
         </p>
       </div>
     </aside>
