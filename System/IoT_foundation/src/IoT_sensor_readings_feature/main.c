@@ -17,6 +17,18 @@
 #define APP_HAVE_AVR_INTERRUPTS 0
 #endif
 
+#if defined(__has_include)
+#if __has_include(<util/delay.h>)
+#include <util/delay.h>
+#define APP_HAVE_AVR_DELAY 1
+#endif
+#endif
+
+#ifndef APP_HAVE_AVR_DELAY
+#define APP_HAVE_AVR_DELAY 0
+#endif
+
+
 #define WIFI_SSID "YOUR_WIFI_SSID"
 #define WIFI_PASSWORD "YOUR_WIFI_PASSWORD"
 #define MQTT_BROKER_HOST "159.195.147.132"
@@ -48,6 +60,15 @@ static void app_enable_global_interrupts(void)
 
 static void app_delay_ms(uint16_t ms)
 {
+#if APP_HAVE_AVR_DELAY
+    /* _delay_ms requires a compile-time constant; loop in 1 ms steps to
+     * support runtime values. With F_CPU=16 MHz this gives accurate timing,
+     * which the original busy-loop did not. */
+    while (ms-- > 0U)
+    {
+        _delay_ms(1.0);
+    }
+#else
     volatile uint32_t i = 0;
     for (uint16_t m = 0; m < ms; m++)
     {
@@ -55,6 +76,7 @@ static void app_delay_ms(uint16_t ms)
         {
         }
     }
+#endif
 }
 
 static void app_serial_debug_flush(void)
@@ -136,6 +158,12 @@ static WIFI_ERROR_MESSAGE_t mqtt_publish_over_tcp(const char *topic, const char 
 #else
 static void app_delay_ms(uint16_t ms)
 {
+#if APP_HAVE_AVR_DELAY
+    while (ms-- > 0U)
+    {
+        _delay_ms(1.0);
+    }
+#else
     volatile uint32_t i = 0;
     for (uint16_t m = 0; m < ms; m++)
     {
@@ -143,6 +171,7 @@ static void app_delay_ms(uint16_t ms)
         {
         }
     }
+#endif
 }
 #endif
 
@@ -156,15 +185,31 @@ int main(void)
     bool mqtt_ready = false;
     (void)uart_stdio_init(APP_SERIAL_BAUDRATE);
     printf("\n[BOOT] Serial debug ready\n");
-    printf("[BOOT] Waiting 3s before WiFi init...\n");
+    printf("[BOOT] Waiting 5s before WiFi init (let ESP finish booting)...\n");
     app_serial_debug_flush();
-    app_delay_ms(3000);
+    app_delay_ms(5000);
 
     printf("[BOOT] Starting WiFi+MQTT initialization...\n");
     app_serial_debug_flush();
     wifi_init();
 
-    wifi_result = wifi_command_AT();
+    /* On a cold mains power-up the ESP module sometimes needs longer than
+     * the initial 5 s window to finish its own boot sequence. Retry AT
+     * until it answers OK, with a hard cap so we never block forever if
+     * the module is missing or wired wrong. */
+    wifi_result = WIFI_FAIL;
+    for (uint8_t at_attempt = 0U; at_attempt < 10U; at_attempt++)
+    {
+        wifi_result = wifi_command_AT();
+        if (wifi_result == WIFI_OK)
+        {
+            break;
+        }
+        printf("[WIFI] AT attempt %u failed (%d), retrying in 1s...\n",
+               (unsigned)(at_attempt + 1U), (int)wifi_result);
+        app_serial_debug_flush();
+        app_delay_ms(1000);
+    }
     app_log_wifi_step("AT", wifi_result);
 
     wifi_result = wifi_command_disable_echo();
