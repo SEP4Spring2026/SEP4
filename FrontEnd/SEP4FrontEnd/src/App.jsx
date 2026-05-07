@@ -6,6 +6,7 @@ import { PayloadCard } from "./components/PayloadCard.jsx";
 import { StatCard } from "./components/StatCard.jsx";
 import { SampleCard } from "./components/SampleCard.jsx";
 import { LineChart } from "./components/LineChart.jsx";
+import { getDevices, getReadings } from "./services/api.js";
 
 const SAMPLE_LIMIT_OPTIONS = [50, 100, 200, 500, 1000];
 const DEFAULT_SAMPLE_LIMIT = 200;
@@ -22,11 +23,7 @@ function App() {
   useEffect(() => {
     async function loadDevices() {
       try {
-        const res = await fetch("/api/readings/devices");
-        if (!res.ok) {
-          throw new Error(`Devices request failed with ${res.status}`);
-        }
-        const data = await res.json();
+        const data = await getDevices();
         setDevices(data);
       } catch (err) {
         console.error("Device API error:", err);
@@ -41,17 +38,7 @@ function App() {
       try {
         setLoading(true);
         setError(null);
-        const params = new URLSearchParams();
-        if (selectedSensorId !== "all") {
-          params.set("sensorId", selectedSensorId);
-        }
-        params.set("limit", String(selectedLimit));
-        const query = params.toString();
-        const res = await fetch(`/api/readings${query ? `?${query}` : ""}`);
-        if (!res.ok) {
-          throw new Error(`Readings request failed with ${res.status}`);
-        }
-        const data = await res.json();
+        const data = await getReadings(selectedSensorId, selectedLimit);
         const mappedSamples = data.map((r) => ({
           name: `Sample ${r.readingId}`,
           sensorId: r.sensorId,

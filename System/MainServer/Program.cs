@@ -30,17 +30,29 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddHttpClient<MlClient>(client =>
 {
     client.BaseAddress = new Uri(mlUrl);
+    client.Timeout = TimeSpan.FromSeconds(5);
 });
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials()
-            .SetIsOriginAllowed(_ => true); // DEV ONLY (important)
+        var allowedOrigins = (Environment.GetEnvironmentVariable("FRONTEND_ALLOWED_ORIGINS") ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        policy.AllowAnyHeader().AllowAnyMethod();
+
+        if (allowedOrigins.Length > 0)
+        {
+            policy.WithOrigins(allowedOrigins);
+            return;
+        }
+
+        if (builder.Environment.IsDevelopment())
+        {
+            // Local development fallback when explicit origins are not configured.
+            policy.SetIsOriginAllowed(_ => true);
+        }
     });
 });
 
@@ -49,7 +61,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.EnsureCreated();
+    db.Database.Migrate();
 }
 
 app.UseCors("AllowFrontend");
