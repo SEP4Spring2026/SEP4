@@ -34,7 +34,7 @@
 /* Change this define when switching between deployment and debugging. */
 #define APP_MODE APP_MODE_PRODUCTION
 
-static char payload_buffer[96];
+static char payload_buffer[160];
 
 static void app_enable_global_interrupts(void)
 {
@@ -200,6 +200,7 @@ int main(void)
         read_co2();
         read_temperature();
         read_humidity();
+        (void)read_air_quality();
         build_payload(payload_buffer, LOCAL_DEVICE_ID);
 
         /* Debug: print payload just before publish to MQTT. */
@@ -244,6 +245,7 @@ int main(void)
     printf("Development mode started (WiFi disabled)\n");
     printf("Serial baud: %lu\n", (unsigned long)APP_SERIAL_BAUDRATE);
     printf("CO2 sensor enabled in this build\n");
+    printf("ENS160 air-quality sensor enabled (tVOC/eCO2/AQI)\n");
     printf("Sampling every 5000 ms\n");
     printf("========================================\n");
 
@@ -254,6 +256,7 @@ int main(void)
         int co2 = read_co2();
         (void)read_temperature();
         (void)read_humidity();
+        int air_quality_status = read_air_quality();
         build_payload(payload_buffer, LOCAL_DEVICE_ID);
 
         printf("\n========== Sample %lu ==========\n", (unsigned long)sample_count);
@@ -284,6 +287,15 @@ int main(void)
         
         // CO2 Reading (ppm)
         printf("CO2              : %d ppm\n", co2);
+
+        // ENS160 air-quality (tVOC ppb / eCO2 ppm / AQI 1..5).
+        // air_quality_status: 0 = OK, 1 = warming up, <0 = failure code.
+        printf("ENS160 status    : %s\n",
+            (air_quality_status == 0) ? "OK" :
+            (air_quality_status == 1) ? "WARMUP" : "FAIL");
+        printf("tVOC             : %u ppb\n", (unsigned)sensors_last_tvoc_ppb());
+        printf("eCO2 (ENS160)    : %u ppm\n", (unsigned)sensors_last_ens160_eco2_ppm());
+        printf("AQI              : %u\n", (unsigned)sensors_last_aqi());
 
         // JSON Payload Script (For communication with main WebAPI via RabbitMQ)
         printf("Payload          : %s\n", payload_buffer);
