@@ -61,7 +61,16 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate();
+    try
+    {
+        db.Database.Migrate();
+    }
+    catch (Exception ex)
+    {
+        // Backward-compatible fallback for databases originally initialized via EnsureCreated.
+        Console.WriteLine($"[startup] migrate failed, falling back to EnsureCreated: {ex.Message}");
+        db.Database.EnsureCreated();
+    }
 }
 
 app.UseCors("AllowFrontend");
