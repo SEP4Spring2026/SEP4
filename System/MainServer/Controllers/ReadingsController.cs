@@ -13,6 +13,7 @@ namespace MainServer.Controllers;
 [Route("api/[controller]")]
 public class ReadingsController : ControllerBase
 {
+    private static readonly JsonSerializerOptions StreamJsonOptions = new(JsonSerializerDefaults.Web);
     private readonly AppDbContext _db;
     private readonly MlClient _ml;
     private readonly ReadingsStreamHub _streamHub;
@@ -124,7 +125,7 @@ public class ReadingsController : ControllerBase
 
                 while (reader.TryRead(out var streamEvent))
                 {
-                    var json = JsonSerializer.Serialize(streamEvent);
+                    var json = JsonSerializer.Serialize(streamEvent, StreamJsonOptions);
                     await Response.WriteAsync($"event: reading\n", cancellationToken);
                     await Response.WriteAsync($"data: {json}\n\n", cancellationToken);
                 }
