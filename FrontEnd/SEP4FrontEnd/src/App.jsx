@@ -6,10 +6,24 @@ import { PayloadCard } from "./components/PayloadCard.jsx";
 import { StatCard } from "./components/StatCard.jsx";
 import { SampleCard } from "./components/SampleCard.jsx";
 import { LineChart } from "./components/LineChart.jsx";
-import { getDevices, getReadings } from "./services/api.js";
+import { connectReadingsStream, getDevices, getReadings } from "./services/api.js";
 
 const SAMPLE_LIMIT_OPTIONS = [50, 100, 200, 500, 1000];
 const DEFAULT_SAMPLE_LIMIT = 200;
+
+function toSample(r) {
+  return {
+    name: `Sample ${r.readingId}`,
+    sensorId: r.sensorId,
+    timestamp: r.timestamp,
+    temp: r.temperature,
+    hum: r.humidity,
+    co2: r.co2Level,
+    payload: JSON.stringify(r, null, 2),
+    payloadLength: JSON.stringify(r).length,
+    dhtStatus: "online",
+  };
+}
 
 function App() {
   const [activeView, setActiveView] = useState("Home");
@@ -39,17 +53,7 @@ function App() {
         setLoading(true);
         setError(null);
         const data = await getReadings(selectedSensorId, selectedLimit);
-        const mappedSamples = data.map((r) => ({
-          name: `Sample ${r.readingId}`,
-          sensorId: r.sensorId,
-          timestamp: r.timestamp,
-          temp: r.temperature,
-          hum: r.humidity,
-          co2: r.co2Level,
-          payload: JSON.stringify(r, null, 2),
-          payloadLength: JSON.stringify(r).length,
-          dhtStatus: "online"
-        }));
+        const mappedSamples = data.map(toSample);
 
         setSamples(mappedSamples);
       } catch (err) {
@@ -61,6 +65,58 @@ function App() {
     }
 
     loadReadings();
+  }, [selectedSensorId, selectedLimit]);
+
+  useEffect(() => {
+    const stream = connectReadingsStream(selectedSensorId);
+
+    const onReading = (event) => {
+      try {
+        const reading = JSON.parse(event.data);
+        setSamples((prev) => {
+          const next = [toSample(reading), ...prev.filter((s) => s.name !== `Sample ${reading.readingId}`)];
+          return next.slice(0, selectedLimit);
+        });
+
+        setDevices((prev) => {
+          const idx = prev.findIndex((d) => d.sensorId === reading.sensorId);
+          if (idx < 0) {
+            return [
+              ...prev,
+              {
+                sensorId: reading.sensorId,
+                status: "active",
+                readingCount: 1,
+                latestTimestamp: reading.timestamp,
+              },
+            ].sort((a, b) => a.sensorId - b.sensorId);
+          }
+
+          const updated = [...prev];
+          updated[idx] = {
+            ...updated[idx],
+            status: "active",
+            readingCount: (updated[idx].readingCount ?? 0) + 1,
+            latestTimestamp: reading.timestamp,
+          };
+          return updated;
+        });
+      } catch (streamErr) {
+        console.error("Stream parse error:", streamErr);
+      }
+    };
+
+    const onError = () => {
+      console.error("Readings SSE disconnected, browser will retry automatically.");
+    };
+
+    stream.addEventListener("reading", onReading);
+    stream.onerror = onError;
+
+    return () => {
+      stream.removeEventListener("reading", onReading);
+      stream.close();
+    };
   }, [selectedSensorId, selectedLimit]);
 
   if (loading) return <div style={{ padding: 24 }}>Loading...</div>;

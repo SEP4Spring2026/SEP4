@@ -21,3 +21,12 @@ export async function getDevices() {
   }
   return await res.json();
 }
+
+export function connectReadingsStream(sensorId = "all") {
+  const params = new URLSearchParams();
+  if (sensorId !== "all") {
+    params.set("sensorId", String(sensorId));
+  }
+  const query = params.toString();
+  return new EventSource(`/api/readings/stream${query ? `?${query}` : ""}`);
+}
