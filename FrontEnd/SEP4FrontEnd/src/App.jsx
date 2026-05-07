@@ -10,6 +10,7 @@ import { connectReadingsStream, getDevices, getReadings } from "./services/api.j
 
 const SAMPLE_LIMIT_OPTIONS = [50, 100, 200, 500, 1000];
 const DEFAULT_SAMPLE_LIMIT = 200;
+const OFFLINE_AFTER_SECONDS = 120;
 
 function toSample(r) {
   return {
@@ -25,6 +26,45 @@ function toSample(r) {
   };
 }
 
+function toDateMs(value) {
+  if (!value) return null;
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function formatDuration(totalSeconds) {
+  if (!Number.isFinite(totalSeconds) || totalSeconds < 0) return "n/a";
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
+
+function formatLastSeen(lastSeenSeconds) {
+  if (!Number.isFinite(lastSeenSeconds)) return "never";
+  if (lastSeenSeconds < 5) return "just now";
+  if (lastSeenSeconds < 60) return `${lastSeenSeconds}s ago`;
+  return `${Math.floor(lastSeenSeconds / 60)}m ago`;
+}
+
+function getDeviceHealth(device, nowMs) {
+  const latestMs = toDateMs(device.latestTimestamp);
+  const firstMs = toDateMs(device.firstTimestamp);
+  const lastSeenSeconds = latestMs == null ? null : Math.max(0, Math.floor((nowMs - latestMs) / 1000));
+  const isOnline = lastSeenSeconds != null && lastSeenSeconds <= OFFLINE_AFTER_SECONDS;
+  const uptimeSeconds = firstMs != null && latestMs != null ? Math.max(0, Math.floor((latestMs - firstMs) / 1000)) : 0;
+  return {
+    isOnline,
+    missingData: !isOnline,
+    statusLabel: isOnline ? "online" : "offline",
+    statusType: isOnline ? "success" : "danger",
+    lastSeenLabel: formatLastSeen(lastSeenSeconds),
+    uptimeLabel: formatDuration(uptimeSeconds),
+  };
+}
+
 function App() {
   const [activeView, setActiveView] = useState("Home");
   const [samples, setSamples] = useState([]);
@@ -33,6 +73,12 @@ function App() {
   const [selectedLimit, setSelectedLimit] = useState(DEFAULT_SAMPLE_LIMIT);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNowMs(Date.now()), 10000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     async function loadDevices() {
@@ -87,6 +133,7 @@ function App() {
                 sensorId: reading.sensorId,
                 status: "active",
                 readingCount: 1,
+                firstTimestamp: reading.timestamp,
                 latestTimestamp: reading.timestamp,
               },
             ].sort((a, b) => a.sensorId - b.sensorId);
@@ -97,6 +144,7 @@ function App() {
             ...updated[idx],
             status: "active",
             readingCount: (updated[idx].readingCount ?? 0) + 1,
+            firstTimestamp: updated[idx].firstTimestamp ?? reading.timestamp,
             latestTimestamp: reading.timestamp,
           };
           return updated;
@@ -124,6 +172,13 @@ function App() {
   if (!samples.length) return <div style={{ padding: 24 }}>No readings found for this device selection.</div>;
 
   const latestSample = samples[0];
+  const latestDeviceHealth = getDeviceHealth(
+    devices.find((d) => d.sensorId === latestSample.sensorId) ?? {},
+    nowMs
+  );
+  const offlineAlerts = devices
+    .map((device) => ({ sensorId: device.sensorId, health: getDeviceHealth(device, nowMs) }))
+    .filter((entry) => entry.health.missingData);
 
   const summary = {
     temp: latestSample.temp,
@@ -175,7 +230,16 @@ function App() {
     return (
       <section className="grid bottom-grid view-grid">
         {samples.map((sample) => (
-          <SampleCard key={sample.name} sample={sample} />
+          <SampleCard
+            key={sample.name}
+            sample={{
+              ...sample,
+              dhtStatus: getDeviceHealth(
+                devices.find((d) => d.sensorId === sample.sensorId) ?? {},
+                nowMs
+              ).statusLabel,
+            }}
+          />
         ))}
       </section>
     );
@@ -347,26 +411,36 @@ function App() {
     return (
       <section className="grid settings-grid">
         <article className="card">
-          <h3>Display</h3>
+          <h3>Sensor Health</h3>
           <div className="summary-row">
-            <span>Language</span>
-            <strong>English</strong>
+            <span>Current device status</span>
+            <strong className={latestDeviceHealth.statusType}>{latestDeviceHealth.statusLabel}</strong>
           </div>
           <div className="summary-row">
-            <span>Theme</span>
-            <strong>Dark</strong>
+            <span>Last seen</span>
+            <strong>{latestDeviceHealth.lastSeenLabel}</strong>
+          </div>
+          <div className="summary-row">
+            <span>Uptime</span>
+            <strong>{latestDeviceHealth.uptimeLabel}</strong>
+          </div>
+          <div className="summary-row">
+            <span>Missing-data threshold</span>
+            <strong>{OFFLINE_AFTER_SECONDS}s</strong>
           </div>
         </article>
         <article className="card">
-          <h3>Refresh</h3>
-          <div className="summary-row">
-            <span>Sensor status</span>
-            <strong>Live</strong>
-          </div>
-          <div className="summary-row">
-            <span>Last sample</span>
-            <strong>{latestSample.name}</strong>
-          </div>
+          <h3>Offline Alerts ({offlineAlerts.length})</h3>
+          {offlineAlerts.length === 0 ? (
+            <p className="muted">No offline devices detected.</p>
+          ) : (
+            offlineAlerts.map((alert) => (
+              <div className="summary-row" key={alert.sensorId}>
+                <span>Device {alert.sensorId}</span>
+                <strong className="danger">{alert.health.lastSeenLabel}</strong>
+              </div>
+            ))
+          )}
         </article>
       </section>
     );
@@ -376,12 +450,13 @@ function App() {
     <div className="page">
       <Sidebar
         activeView={activeView}
-        latestSample={latestSample}
         devices={devices}
         selectedSensorId={selectedSensorId}
         sampleLimit={selectedLimit}
         sampleLimitOptions={SAMPLE_LIMIT_OPTIONS}
         loadedCount={samples.length}
+        latestDeviceHealth={latestDeviceHealth}
+        offlineAlerts={offlineAlerts}
         onViewChange={setActiveView}
         onSensorChange={setSelectedSensorId}
         onSampleLimitChange={(value) => setSelectedLimit(Number(value))}
