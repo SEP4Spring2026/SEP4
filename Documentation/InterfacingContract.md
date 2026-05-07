@@ -12,15 +12,17 @@
 
 ### - Data payload example: 
 ### {
-###  "device_id": "sensor_denmark_01",
+###  "sensorId":102,
 ###  "timestamp": "2026-04-08T12:15:00Z",
-### "sensors": {
-###    "temperature": 24.5,
-###    "humidity": 45.2,
-###    "smoke_density": 120,
-###    "gas_lpg": 15
+###  "sensors": {
+###    "temperature": 24.5,               // Temperature, measured in °C
+###    "humidity": 45.2,                  // Humidity, measured in %
+###    "co2Level":503,                    // CO2, measured in ppm
+###    "tvoc":28,                         // Total Volatile Organic Compounds, Measured in ppb
+###    "eco2":410,                        // Estimated CO2, measured in ppm
+###    "aqi":1                            // 1 = Excellent, 2 = Good, 3 = Moderate, 4 = Poor, 5 = Unhealthy
 ###  },
-###  "status": "normal"
+###  "status": "normal"                   // How will ML implement the classification algorithms??
 ### }
 
 ## - How frequently is the data updated?

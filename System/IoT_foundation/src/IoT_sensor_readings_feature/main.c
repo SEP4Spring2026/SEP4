@@ -29,15 +29,15 @@
 #endif
 
 
-#define WIFI_SSID "YOUR_WIFI_SSID"
-#define WIFI_PASSWORD "YOUR_WIFI_PASSWORD"
+#define WIFI_SSID "YOUR_WIFI_SSID" // Change this with your WIFI SSID
+#define WIFI_PASSWORD "YOUR_WIFI_PASSWORD" // Change this with your WIFI Password
 #define MQTT_BROKER_HOST "159.195.147.132"
 #define MQTT_BROKER_PORT 1883
-#define MQTT_CLIENT_ID "iot-device-101"
+#define MQTT_CLIENT_ID "iot-device-101" // Change this with Device 101 or 102
 #define MQTT_USERNAME ""
 #define MQTT_PASSWORD ""
 #define MQTT_TOPIC "iot/readings"
-#define LOCAL_DEVICE_ID 101U
+#define LOCAL_DEVICE_ID 101U // Change this with Device 101 or 102
 #define APP_SERIAL_BAUDRATE 115200UL
 
 #define APP_MODE_PRODUCTION 1
