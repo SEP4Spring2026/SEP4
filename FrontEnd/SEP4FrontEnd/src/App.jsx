@@ -7,11 +7,15 @@ import { StatCard } from "./components/StatCard.jsx";
 import { SampleCard } from "./components/SampleCard.jsx";
 import { LineChart } from "./components/LineChart.jsx";
 
+const SAMPLE_LIMIT_OPTIONS = [50, 100, 200, 500, 1000];
+const DEFAULT_SAMPLE_LIMIT = 200;
+
 function App() {
   const [activeView, setActiveView] = useState("Home");
   const [samples, setSamples] = useState([]);
   const [devices, setDevices] = useState([]);
   const [selectedSensorId, setSelectedSensorId] = useState("all");
+  const [selectedLimit, setSelectedLimit] = useState(DEFAULT_SAMPLE_LIMIT);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -37,11 +41,13 @@ function App() {
       try {
         setLoading(true);
         setError(null);
-        const query =
-          selectedSensorId === "all"
-            ? ""
-            : `?sensorId=${encodeURIComponent(selectedSensorId)}`;
-        const res = await fetch(`/api/readings${query}`);
+        const params = new URLSearchParams();
+        if (selectedSensorId !== "all") {
+          params.set("sensorId", selectedSensorId);
+        }
+        params.set("limit", String(selectedLimit));
+        const query = params.toString();
+        const res = await fetch(`/api/readings${query ? `?${query}` : ""}`);
         if (!res.ok) {
           throw new Error(`Readings request failed with ${res.status}`);
         }
@@ -68,7 +74,7 @@ function App() {
     }
 
     loadReadings();
-  }, [selectedSensorId]);
+  }, [selectedSensorId, selectedLimit]);
 
   if (loading) return <div style={{ padding: 24 }}>Loading...</div>;
   if (error) return <div style={{ padding: 24 }}>Failed to reach the API. Is the main server running?</div>;
@@ -330,8 +336,12 @@ function App() {
         latestSample={latestSample}
         devices={devices}
         selectedSensorId={selectedSensorId}
+        sampleLimit={selectedLimit}
+        sampleLimitOptions={SAMPLE_LIMIT_OPTIONS}
+        loadedCount={samples.length}
         onViewChange={setActiveView}
         onSensorChange={setSelectedSensorId}
+        onSampleLimitChange={(value) => setSelectedLimit(Number(value))}
       />
 
       <main className="content">

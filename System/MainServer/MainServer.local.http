@@ -34,11 +34,17 @@ Content-Type: application/json
   "co2Level": 2500
 }
 
-### Get latest 50 readings with their predictions
+### Get latest 200 readings with their predictions (default limit)
 GET {{host}}/api/readings
 
-### Get latest 50 readings for one device
+### Get latest readings for one device
 GET {{host}}/api/readings?sensorId=101
+
+### Get latest readings with a custom sample limit
+GET {{host}}/api/readings?limit=500
+
+### Get latest readings for one device with a custom sample limit
+GET {{host}}/api/readings?sensorId=101&limit=100
 
 ### Get known sensor devices
 GET {{host}}/api/readings/devices
