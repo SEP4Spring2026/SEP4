@@ -14,7 +14,7 @@ var dbName = Environment.GetEnvironmentVariable("DB_NAME");
 var dbUser = Environment.GetEnvironmentVariable("DB_USER");
 var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD");
 
-var mlUrl = Environment.GetEnvironmentVariable("ML_SERVER_URL");
+var mlUrl = Environment.GetEnvironmentVariable("ML_SERVER_URL") ?? "http://ml-server:8000";
 
 var connectionString =
     $"Server={dbHost};Port={dbPort};Database={dbName};User={dbUser};Password={dbPassword};";

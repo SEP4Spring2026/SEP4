@@ -76,7 +76,7 @@ public class ReadingsController : ControllerBase
         if (take < 1) take = 1;
         if (take > maxLimit) take = maxLimit;
 
-        var query = _db.Readings
+        IQueryable<SensorReading> query = _db.Readings
             .Include(r => r.Prediction)
             .Include(r => r.Sensor);
 
