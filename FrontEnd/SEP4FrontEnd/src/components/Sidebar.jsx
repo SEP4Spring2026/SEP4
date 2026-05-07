@@ -2,12 +2,13 @@ const menuItems = ["Home", "Sensors", "Samples", "Charts", "Payload", "Settings"
 
 export function Sidebar({
   activeView,
-  latestSample,
   devices,
   selectedSensorId,
   sampleLimit,
   sampleLimitOptions,
   loadedCount,
+  latestDeviceHealth,
+  offlineAlerts,
   onViewChange,
   onSensorChange,
   onSampleLimitChange,
@@ -31,8 +32,24 @@ export function Sidebar({
       </nav>
 
       <div className="status-card">
-        <p className="muted">DHT status</p>
-        <strong>{latestSample.dhtStatus}</strong>
+        <p className="muted">Sensor health</p>
+        <strong className={latestDeviceHealth.statusType}>{latestDeviceHealth.statusLabel}</strong>
+        <p className="device-meta">
+          Last seen {latestDeviceHealth.lastSeenLabel}
+        </p>
+        <p className="device-meta">
+          Uptime {latestDeviceHealth.uptimeLabel}
+        </p>
+      </div>
+
+      <div className="status-card">
+        <p className="muted">Offline alerts</p>
+        <strong className={offlineAlerts.length ? "danger" : "success"}>
+          {offlineAlerts.length}
+        </strong>
+        <p className="device-meta">
+          {offlineAlerts.length ? "missing-data devices" : "all sensors reporting"}
+        </p>
       </div>
 
       <div className="status-card device-card">

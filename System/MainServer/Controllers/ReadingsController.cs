@@ -182,21 +182,52 @@ public class ReadingsController : ControllerBase
     }
 
     [HttpGet("devices")]
-    public async Task<ActionResult<IEnumerable<object>>> GetDevices()
+    public ActionResult<IEnumerable<object>> GetDevices()
     {
-        var devices = await _db.Sensors
+        var now = DateTime.UtcNow;
+        const int offlineAfterSeconds = 120;
+
+        var devices = _db.Sensors
             .Select(s => new
             {
                 s.SensorId,
                 s.Status,
                 ReadingCount = s.Readings.Count,
+                FirstTimestamp = s.Readings
+                    .OrderBy(r => r.Timestamp)
+                    .Select(r => (DateTime?)r.Timestamp)
+                    .FirstOrDefault(),
                 LatestTimestamp = s.Readings
                     .OrderByDescending(r => r.Timestamp)
                     .Select(r => (DateTime?)r.Timestamp)
                     .FirstOrDefault()
             })
+            .AsEnumerable()
+            .Select(s =>
+            {
+                var lastSeenSeconds = s.LatestTimestamp.HasValue
+                    ? Math.Max(0, (int)(now - s.LatestTimestamp.Value).TotalSeconds)
+                    : (int?)null;
+                var uptimeSeconds = s.FirstTimestamp.HasValue && s.LatestTimestamp.HasValue
+                    ? Math.Max(0, (int)(s.LatestTimestamp.Value - s.FirstTimestamp.Value).TotalSeconds)
+                    : 0;
+                var isOnline = lastSeenSeconds.HasValue && lastSeenSeconds.Value <= offlineAfterSeconds;
+
+                return new
+                {
+                    s.SensorId,
+                    s.Status,
+                    s.ReadingCount,
+                    s.FirstTimestamp,
+                    s.LatestTimestamp,
+                    LastSeenSeconds = lastSeenSeconds,
+                    UptimeSeconds = uptimeSeconds,
+                    IsOnline = isOnline,
+                    MissingData = !isOnline
+                };
+            })
             .OrderBy(s => s.SensorId)
-            .ToListAsync();
+            .ToList();
 
         return Ok(devices);
     }
