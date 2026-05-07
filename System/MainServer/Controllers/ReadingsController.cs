@@ -66,11 +66,18 @@ public class ReadingsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<object>>> GetLatest()
+    public async Task<ActionResult<IEnumerable<object>>> GetLatest([FromQuery] int? sensorId)
     {
-        var readings = await _db.Readings
+        var query = _db.Readings
             .Include(r => r.Prediction)
-            .Include(r => r.Sensor)
+            .Include(r => r.Sensor);
+
+        if (sensorId.HasValue)
+        {
+            query = query.Where(r => r.SensorId == sensorId.Value);
+        }
+
+        var readings = await query
             .OrderByDescending(r => r.Timestamp)
             .Take(50)
             .Select(r => new
@@ -91,5 +98,25 @@ public class ReadingsController : ControllerBase
             .ToListAsync();
 
         return Ok(readings);
+    }
+
+    [HttpGet("devices")]
+    public async Task<ActionResult<IEnumerable<object>>> GetDevices()
+    {
+        var devices = await _db.Sensors
+            .Select(s => new
+            {
+                s.SensorId,
+                s.Status,
+                ReadingCount = s.Readings.Count,
+                LatestTimestamp = s.Readings
+                    .OrderByDescending(r => r.Timestamp)
+                    .Select(r => (DateTime?)r.Timestamp)
+                    .FirstOrDefault()
+            })
+            .OrderBy(s => s.SensorId)
+            .ToListAsync();
+
+        return Ok(devices);
     }
 }

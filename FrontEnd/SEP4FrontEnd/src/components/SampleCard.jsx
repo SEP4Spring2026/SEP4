@@ -1,9 +1,11 @@
-import { useState } from "react";
-
 export function SampleCard({ sample }) {
   return (
     <article className="card sample-card">
       <h3>{sample.name}</h3>
+      <div className="summary-row">
+        <span>Device ID</span>
+        <strong>{sample.sensorId}</strong>
+      </div>
       <div className="summary-row">
         <span>DHT status</span>
         <strong>{sample.dhtStatus}</strong>

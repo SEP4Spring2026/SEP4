@@ -94,6 +94,39 @@ p {
   padding: 16px;
 }
 
+.device-card {
+  display: grid;
+  gap: 10px;
+}
+
+.device-select-label {
+  color: #e2e8f0;
+  font-size: 13px;
+}
+
+.device-select {
+  width: 100%;
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #0f172a;
+  color: #f8fafc;
+  font: inherit;
+  outline: none;
+}
+
+.device-select:focus {
+  border-color: #67e8f9;
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.12);
+}
+
+.device-meta {
+  margin: 0;
+  color: #67e8f9;
+  font-size: 13px;
+  font-weight: bold;
+}
+
 .content {
   padding: 24px;
 }
