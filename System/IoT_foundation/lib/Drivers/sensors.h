@@ -14,3 +14,12 @@ uint8_t sensors_last_dht_temperature_integer(void);
 uint8_t sensors_last_dht_temperature_decimal(void);
 uint32_t sensors_dht_success_count(void);
 uint32_t sensors_dht_fail_count(void);
+
+/* ENS160 air-quality sensor (tVOC / eCO2 / AQI). Returns 0 on success
+ * (sensor read OK), non-zero on failure. The most recent values are
+ * cached and accessible via the getters below. */
+int read_air_quality(void);
+uint16_t sensors_last_tvoc_ppb(void);
+uint16_t sensors_last_ens160_eco2_ppm(void);
+uint8_t  sensors_last_aqi(void);
+uint8_t  sensors_last_ens160_ok(void);
