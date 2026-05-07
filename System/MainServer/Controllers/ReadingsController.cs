@@ -2,6 +2,7 @@ using MainServer.Data;
 using MainServer.Dtos;
 using MainServer.Models;
 using MainServer.Services;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -21,12 +22,12 @@ public class ReadingsController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<PredictionDto>> Post(SensorReadingDto dto)
+    public async Task<ActionResult<PredictionDto>> Post(SensorReadingDto dto, CancellationToken cancellationToken)
     {
         var romeTz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Rome");
         var nowRome = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, romeTz);
 
-        var device = await _db.Sensors.FirstOrDefaultAsync(s => s.SensorId == dto.SensorId);
+        var device = await _db.Sensors.FirstOrDefaultAsync(s => s.SensorId == dto.SensorId, cancellationToken);
         if (device == null)
         {
             device = new SensorDevice
@@ -35,7 +36,7 @@ public class ReadingsController : ControllerBase
                 Status = "active"
             };
             _db.Sensors.Add(device);
-            await _db.SaveChangesAsync();
+            await _db.SaveChangesAsync(cancellationToken);
         }
 
         var reading = new SensorReading
@@ -47,9 +48,21 @@ public class ReadingsController : ControllerBase
             Co2Level = dto.Co2Level
         };
         _db.Readings.Add(reading);
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(cancellationToken);
 
-        var predictionDto = await _ml.PredictAsync(reading);
+        PredictionDto predictionDto;
+        try
+        {
+            predictionDto = await _ml.PredictAsync(reading, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ml] prediction failed for reading {reading.ReadingId}: {ex.Message}");
+            return StatusCode(StatusCodes.Status502BadGateway, new
+            {
+                message = "Prediction service unavailable."
+            });
+        }
 
         var prediction = new Prediction
         {
@@ -60,7 +73,7 @@ public class ReadingsController : ControllerBase
             RiskLevel = predictionDto.RiskLevel
         };
         _db.Predictions.Add(prediction);
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(cancellationToken);
 
         return Ok(predictionDto);
     }
