@@ -15,6 +15,10 @@ public class ReadingsStreamHubTests
             Temperature: 23.4,
             Humidity: 44.2,
             Co2Level: 510,
+            Tvoc: 28,
+            Eco2: 410,
+            Aqi: 1,
+            Classification: "No Smoke",
             SensorId: 7,
             Prediction: null);
 
@@ -24,6 +28,10 @@ public class ReadingsStreamHubTests
         Assert.True(reader.TryRead(out var received));
         Assert.Equal(11, received.ReadingId);
         Assert.Equal(7, received.SensorId);
+        Assert.Equal(28, received.Tvoc);
+        Assert.Equal(410, received.Eco2);
+        Assert.Equal(1, received.Aqi);
+        Assert.Equal("No Smoke", received.Classification);
     }
 
     [Fact]
@@ -37,6 +45,10 @@ public class ReadingsStreamHubTests
             Temperature: 19.1,
             Humidity: 51.0,
             Co2Level: 430,
+            Tvoc: null,
+            Eco2: null,
+            Aqi: null,
+            Classification: null,
             SensorId: 7,
             Prediction: null);
 
