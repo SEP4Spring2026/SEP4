@@ -9,6 +9,10 @@ public record ReadingStreamEvent(
     double Temperature,
     double Humidity,
     double Co2Level,
+    double? Tvoc,
+    double? Eco2,
+    int? Aqi,
+    string? Classification,
     int SensorId,
     object? Prediction
 );

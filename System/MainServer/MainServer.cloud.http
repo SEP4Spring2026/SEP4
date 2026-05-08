@@ -7,9 +7,16 @@ Content-Type: application/json
 
 {
   "sensorId": 101,
-  "temperature": 24,
-  "humidity": 45,
-  "co2Level": 600
+  "timestamp": "2026-04-08T12:15:00Z",
+  "sensors": {
+    "temperature": 24,
+    "humidity": 45,
+    "co2Level": 600,
+    "tvoc": 28,
+    "eco2": 410,
+    "aqi": 1
+  },
+  "classification": "No Smoke"
 }
 
 ### Warning reading — high CO2 (>=1000) should classify as Warning/Medium
@@ -18,9 +25,16 @@ Content-Type: application/json
 
 {
   "sensorId": 102,
-  "temperature": 25,
-  "humidity": 50,
-  "co2Level": 1200
+  "timestamp": "2026-04-08T12:15:30Z",
+  "sensors": {
+    "temperature": 25,
+    "humidity": 50,
+    "co2Level": 1200,
+    "tvoc": 80,
+    "eco2": 900,
+    "aqi": 3
+  },
+  "classification": "No Smoke"
 }
 
 ### Fire reading — high temp (>=60) and danger CO2 (>=2000) should classify as Fire/High
@@ -29,9 +43,16 @@ Content-Type: application/json
 
 {
   "sensorId": 101,
-  "temperature": 65,
-  "humidity": 15,
-  "co2Level": 2500
+  "timestamp": "2026-04-08T12:16:00Z",
+  "sensors": {
+    "temperature": 65,
+    "humidity": 15,
+    "co2Level": 2500,
+    "tvoc": 400,
+    "eco2": 2200,
+    "aqi": 5
+  },
+  "classification": "Smoke"
 }
 
 ### Get latest 200 readings with their predictions (default limit)
