@@ -18,9 +18,18 @@ public class MlClient
     {
         var payload = new
         {
-            temperature = reading.Temperature,
-            humidity = reading.Humidity,
-            co2Level = reading.Co2Level
+            sensorId = reading.SensorId,
+            timestamp = reading.Timestamp,
+            sensors = new
+            {
+                temperature = reading.Temperature,
+                humidity = reading.Humidity,
+                co2Level = reading.Co2Level,
+                tvoc = reading.Tvoc ?? 0d,
+                eco2 = reading.Eco2 ?? 0d,
+                aqi = reading.Aqi ?? 1
+            },
+            classification = reading.Classification
         };
 
         HttpResponseMessage? response = null;

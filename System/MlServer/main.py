@@ -1,13 +1,26 @@
+from datetime import datetime
+from typing import Optional
+
 from fastapi import FastAPI
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 app = FastAPI()
 
 
+class Sensors(BaseModel):
+    temperature: float = Field(..., description="Temperature in degrees Celsius")
+    humidity: float = Field(..., description="Relative humidity, percent")
+    co2Level: float = Field(..., description="CO2 concentration, ppm")
+    tvoc: float = Field(..., description="Total Volatile Organic Compounds, ppb")
+    eco2: float = Field(..., description="Estimated CO2, ppm")
+    aqi: int = Field(..., ge=1, le=5, description="Air Quality Index, 1=Excellent..5=Unhealthy")
+
+
 class Reading(BaseModel):
-    temperature: float
-    humidity: float
-    co2Level: float
+    sensorId: int
+    timestamp: datetime
+    sensors: Sensors
+    classification: Optional[str] = None
 
 
 class Prediction(BaseModel):
@@ -21,6 +34,8 @@ CO2_DANGER = 2000
 TEMP_WARNING = 40
 TEMP_DANGER = 60
 HUMIDITY_DRY = 20
+AQI_WARNING = 3
+AQI_DANGER = 5
 
 
 @app.get("/health")
@@ -30,20 +45,26 @@ def health():
 
 @app.post("/predict", response_model=Prediction)
 def predict(reading: Reading):
+    s = reading.sensors
     danger = 0
     warning = 0
 
-    if reading.co2Level >= CO2_DANGER:
+    if s.co2Level >= CO2_DANGER:
         danger += 1
-    elif reading.co2Level >= CO2_WARNING:
+    elif s.co2Level >= CO2_WARNING:
         warning += 1
 
-    if reading.temperature >= TEMP_DANGER:
+    if s.temperature >= TEMP_DANGER:
         danger += 1
-    elif reading.temperature >= TEMP_WARNING:
+    elif s.temperature >= TEMP_WARNING:
         warning += 1
 
-    if reading.humidity <= HUMIDITY_DRY:
+    if s.humidity <= HUMIDITY_DRY:
+        warning += 1
+
+    if s.aqi >= AQI_DANGER:
+        danger += 1
+    elif s.aqi >= AQI_WARNING:
         warning += 1
 
     if danger > 0:
