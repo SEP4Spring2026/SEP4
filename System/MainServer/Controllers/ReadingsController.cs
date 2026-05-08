@@ -43,13 +43,18 @@ public class ReadingsController : ControllerBase
             await _db.SaveChangesAsync(cancellationToken);
         }
 
+        var sensors = dto.Sensors;
         var reading = new SensorReading
         {
             SensorId = device.SensorId,
             Timestamp = dto.Timestamp == default ? nowRome : dto.Timestamp,
-            Temperature = dto.Temperature,
-            Humidity = dto.Humidity,
-            Co2Level = dto.Co2Level
+            Temperature = sensors.Temperature,
+            Humidity = sensors.Humidity,
+            Co2Level = sensors.Co2Level,
+            Tvoc = sensors.Tvoc,
+            Eco2 = sensors.Eco2,
+            Aqi = sensors.Aqi,
+            Classification = dto.Classification
         };
         _db.Readings.Add(reading);
         await _db.SaveChangesAsync(cancellationToken);
@@ -85,6 +90,10 @@ public class ReadingsController : ControllerBase
             reading.Temperature,
             reading.Humidity,
             reading.Co2Level,
+            reading.Tvoc,
+            reading.Eco2,
+            reading.Aqi,
+            reading.Classification,
             reading.SensorId,
             new
             {
@@ -169,6 +178,10 @@ public class ReadingsController : ControllerBase
                 r.Temperature,
                 r.Humidity,
                 r.Co2Level,
+                r.Tvoc,
+                r.Eco2,
+                r.Aqi,
+                r.Classification,
                 r.SensorId,
                 Prediction = r.Prediction == null ? null : new
                 {
