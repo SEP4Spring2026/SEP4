@@ -24,6 +24,10 @@ public class SensorReadingTests
         var reading = new SensorReading();
 
         Assert.Null(reading.SmokeLevel);
+        Assert.Null(reading.Tvoc);
+        Assert.Null(reading.Eco2);
+        Assert.Null(reading.Aqi);
+        Assert.Null(reading.Classification);
         Assert.Null(reading.Sensor);
         Assert.Null(reading.Prediction);
     }
@@ -40,6 +44,10 @@ public class SensorReadingTests
             Humidity = 41.0,
             Co2Level = 800,
             SmokeLevel = 0.1,
+            Tvoc = 28,
+            Eco2 = 410,
+            Aqi = 1,
+            Classification = "No Smoke",
             SensorId = 3,
         };
 
@@ -49,6 +57,10 @@ public class SensorReadingTests
         Assert.Equal(41.0, reading.Humidity);
         Assert.Equal(800, reading.Co2Level);
         Assert.Equal(0.1, reading.SmokeLevel);
+        Assert.Equal(28, reading.Tvoc);
+        Assert.Equal(410, reading.Eco2);
+        Assert.Equal(1, reading.Aqi);
+        Assert.Equal("No Smoke", reading.Classification);
         Assert.Equal(3, reading.SensorId);
     }
 }
