@@ -14,7 +14,28 @@ const SAMPLE_LIMIT_OPTIONS = [200, 500, 1000, 2500, 5000];
 const DEFAULT_SAMPLE_LIMIT = 1000;
 const OFFLINE_AFTER_SECONDS = 120;
 
+/** Same nested JSON shape as the IoT → backend contract (for display). */
+function readingToContractPayload(r) {
+  const ts = r.timestamp ? new Date(r.timestamp) : null;
+  const timestamp =
+    ts && Number.isFinite(ts.getTime()) ? ts.toISOString() : new Date().toISOString();
+  return {
+    sensorId: r.sensorId,
+    timestamp,
+    sensors: {
+      temperature: Number(r.temperature ?? 0),
+      humidity: Number(r.humidity ?? 0),
+      co2Level: Math.round(Number(r.co2Level ?? 0)),
+      tvoc: Math.round(Number(r.tvoc ?? 0)),
+      eco2: Math.round(Number(r.eco2 ?? 0)),
+      aqi: Math.round(Number(r.aqi ?? 1)),
+    },
+    classification: r.classification ?? "Normal",
+  };
+}
+
 function toSample(r) {
+  const contract = readingToContractPayload(r);
   return {
     name: `Sample ${r.readingId}`,
     sensorId: r.sensorId,
@@ -22,8 +43,12 @@ function toSample(r) {
     temp: r.temperature,
     hum: r.humidity,
     co2: r.co2Level,
-    payload: JSON.stringify(r, null, 2),
-    payloadLength: JSON.stringify(r).length,
+    tvoc: r.tvoc ?? 0,
+    eco2: r.eco2 ?? 0,
+    aqi: r.aqi ?? 1,
+    classification: r.classification ?? "Normal",
+    payload: JSON.stringify(contract, null, 2),
+    payloadLength: JSON.stringify(contract).length,
     dhtStatus: "online",
   };
 }
