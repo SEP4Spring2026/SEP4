@@ -14,11 +14,54 @@ const SAMPLE_LIMIT_OPTIONS = [200, 500, 1000, 2500, 5000];
 const DEFAULT_SAMPLE_LIMIT = 1000;
 const OFFLINE_AFTER_SECONDS = 120;
 
+const DISPLAY_TIMEZONE = "Europe/Rome";
+
+/** ISO 8601 using Rome wall clock and offset (+01:00 / +02:00), matching MainServer LocalReadingTimestamp. */
+function formatTimestampEuropeRome(date) {
+  const d = date instanceof Date ? date : new Date(date);
+  const instant = Number.isFinite(d.getTime()) ? d : new Date();
+
+  const wall = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: DISPLAY_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).format(instant);
+  const isoLocal = wall.replace(" ", "T");
+
+  const tzName =
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: DISPLAY_TIMEZONE,
+      timeZoneName: "longOffset",
+    })
+      .formatToParts(instant)
+      .find((p) => p.type === "timeZoneName")?.value ?? "GMT+00";
+
+  return `${isoLocal}${offsetLongGmtToIso(tzName)}`;
+}
+
+function offsetLongGmtToIso(label) {
+  const s = String(label).trim();
+  const bare = s.match(/^([+-])(\d{2}):(\d{2})$/);
+  if (bare) return `${bare[1]}${bare[2]}:${bare[3]}`;
+  const m = s.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/i);
+  if (!m) return "+00:00";
+  const hh = m[2].padStart(2, "0");
+  const mm = (m[3] ?? "00").padStart(2, "0");
+  return `${m[1]}${hh}:${mm}`;
+}
+
 /** Same nested JSON shape as the IoT → backend contract (for display). */
 function readingToContractPayload(r) {
   const ts = r.timestamp ? new Date(r.timestamp) : null;
   const timestamp =
-    ts && Number.isFinite(ts.getTime()) ? ts.toISOString() : new Date().toISOString();
+    ts && Number.isFinite(ts.getTime())
+      ? formatTimestampEuropeRome(ts)
+      : formatTimestampEuropeRome(new Date());
   return {
     sensorId: r.sensorId,
     timestamp,
