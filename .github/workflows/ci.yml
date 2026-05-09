@@ -112,6 +112,13 @@ jobs:
           push: false
           tags: kamtjatka/ml-server:ci
 
+      - name: Build frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: System/SEP4FrontEnd
+          push: false
+          tags: kamtjatka/frontend:ci
+
   deploy:
     name: Deploy to VPS
     needs: [mainserver, mlserver, docker]
