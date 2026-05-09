@@ -408,3 +408,13 @@ p {
 .section-spacer {
   height: 16px;
 }
+
+.recommendation-item {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.recommendation-item .bullet {
+  flex-shrink: 0;
+}

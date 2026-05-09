@@ -1,4 +1,4 @@
-const menuItems = ["Home", "Sensors", "Samples", "Charts", "Payload", "Settings"];
+const menuItems = ["Home", "Sensors", "Samples", "Charts", "Payload", "Classification", "Settings"];
 
 export function Sidebar({
   activeView,
