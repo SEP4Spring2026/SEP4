@@ -1,10 +1,13 @@
-export async function getReadings(sensorId = "all", limit = 200) {
+export async function getReadings(sensorId = "all", limit = 200, hours = null) {
   const params = new URLSearchParams();
   if (sensorId !== "all") {
     params.set("sensorId", sensorId);
   }
   if (limit) {
     params.set("limit", String(limit));
+  }
+  if (hours != null && Number.isFinite(hours) && hours > 0) {
+    params.set("hours", String(hours));
   }
   const query = params.toString();
   const res = await fetch(`/api/readings${query ? `?${query}` : ""}`);

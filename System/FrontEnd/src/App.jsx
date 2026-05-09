@@ -8,8 +8,10 @@ import { SampleCard } from "./components/SampleCard.jsx";
 import { LineChart } from "./components/LineChart.jsx";
 import { connectReadingsStream, getDevices, getReadings } from "./services/api.js";
 
-const SAMPLE_LIMIT_OPTIONS = [50, 100, 200, 500, 1000];
-const DEFAULT_SAMPLE_LIMIT = 200;
+/** Passed to GET /api/readings so charts cover the last day of data. */
+const SAMPLE_WINDOW_HOURS = 24;
+const SAMPLE_LIMIT_OPTIONS = [200, 500, 1000, 2500, 5000];
+const DEFAULT_SAMPLE_LIMIT = 1000;
 const OFFLINE_AFTER_SECONDS = 120;
 
 function toSample(r) {
@@ -98,7 +100,7 @@ function App() {
       try {
         setLoading(true);
         setError(null);
-        const data = await getReadings(selectedSensorId, selectedLimit);
+        const data = await getReadings(selectedSensorId, selectedLimit, SAMPLE_WINDOW_HOURS);
         const mappedSamples = data.map(toSample);
 
         setSamples(mappedSamples);
@@ -329,7 +331,7 @@ function App() {
           <div className="card-header">
             <div>
               <h3>Averages over {totalCount} samples</h3>
-              <p className="muted">Aggregated from the latest readings on the broker</p>
+              <p className="muted">Last 24 hours of readings (up to your sample cap)</p>
             </div>
             <span className="tag">Live</span>
           </div>
