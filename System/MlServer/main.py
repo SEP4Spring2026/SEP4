@@ -29,6 +29,10 @@ class Prediction(BaseModel):
     riskLevel: str
 
 
+# Thresholds → riskLevel returned to MainServer → MQTT iot/alarm/{sensorId}:
+#   High   → payload CRITICAL (buzzer pattern on board)
+#   Medium → WARN only if ALARM_PUBLISH_MEDIUM=true on MainServer
+#   Low    → OFF (silence buzzer)
 CO2_WARNING = 1000
 CO2_DANGER = 2000
 TEMP_WARNING = 40

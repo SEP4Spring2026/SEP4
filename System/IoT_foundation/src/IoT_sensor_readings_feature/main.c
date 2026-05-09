@@ -38,6 +38,10 @@
 #define MQTT_PASSWORD ""
 #define MQTT_TOPIC "iot/readings"
 #define LOCAL_DEVICE_ID 101U // Change this with Device 101 or 102
+
+/* Server publishes ML risk here after POST /api/readings → /predict (ASCII payloads). */
+static char mqtt_alarm_topic[28];
+static volatile uint8_t g_alarm_pending;
 #define APP_SERIAL_BAUDRATE 115200UL
 
 #define APP_MODE_PRODUCTION 1
@@ -90,10 +94,54 @@ static void app_log_wifi_step(const char *step_name, WIFI_ERROR_MESSAGE_t result
     app_serial_debug_flush();
 }
 
-static char mqtt_rx_buffer[128];
+static char mqtt_rx_buffer[384];
+
+static void mqtt_build_alarm_topic(void)
+{
+    (void)snprintf(mqtt_alarm_topic, sizeof(mqtt_alarm_topic), "iot/alarm/%u", (unsigned)LOCAL_DEVICE_ID);
+}
 
 static void mqtt_rx_callback(void)
 {
+    /* Broker sends binary MQTT (CONNACK, SUBACK, PUBLISH). Alarm payloads are ASCII. */
+    if (strstr(mqtt_rx_buffer, "CRITICAL") != NULL)
+    {
+        g_alarm_pending = 2;
+    }
+    else if (strstr(mqtt_rx_buffer, "WARN") != NULL)
+    {
+        g_alarm_pending = 1;
+    }
+    else if (strstr(mqtt_rx_buffer, "OFF") != NULL)
+    {
+        g_alarm_pending = 3;
+    }
+}
+
+static WIFI_ERROR_MESSAGE_t mqtt_subscribe_over_tcp(const char *topic)
+{
+    uint8_t packet[96];
+    uint16_t idx = 0;
+    uint8_t topic_len = (uint8_t)strlen(topic);
+    const uint16_t packet_id = 1;
+    uint8_t remaining = (uint8_t)(2u + 2u + topic_len + 1u);
+
+    if (remaining >= 128U)
+    {
+        return WIFI_FAIL;
+    }
+
+    packet[idx++] = 0x82; /* SUBSCRIBE */
+    packet[idx++] = remaining;
+    packet[idx++] = (uint8_t)(packet_id >> 8);
+    packet[idx++] = (uint8_t)(packet_id & 0xFF);
+    packet[idx++] = 0;
+    packet[idx++] = topic_len;
+    memcpy(&packet[idx], topic, topic_len);
+    idx = (uint16_t)(idx + topic_len);
+    packet[idx++] = 0; /* requested QoS 0 */
+
+    return wifi_command_TCP_transmit(packet, idx);
 }
 
 static WIFI_ERROR_MESSAGE_t mqtt_connect_over_tcp(void)
@@ -127,7 +175,16 @@ static WIFI_ERROR_MESSAGE_t mqtt_connect_over_tcp(void)
     memcpy(&packet[idx], MQTT_CLIENT_ID, client_id_len);
     idx = (uint8_t)(idx + client_id_len);
 
-    return wifi_command_TCP_transmit(packet, idx);
+    {
+        WIFI_ERROR_MESSAGE_t conn_result = wifi_command_TCP_transmit(packet, idx);
+        if (conn_result != WIFI_OK)
+        {
+            return conn_result;
+        }
+    }
+
+    app_delay_ms(80);
+    return mqtt_subscribe_over_tcp(mqtt_alarm_topic);
 }
 
 static WIFI_ERROR_MESSAGE_t mqtt_publish_over_tcp(const char *topic, const char *payload)
@@ -226,6 +283,8 @@ int main(void)
     wifi_result = wifi_command_join_AP(WIFI_SSID, WIFI_PASSWORD);
     app_log_wifi_step("CWJAP", wifi_result);
 
+    mqtt_build_alarm_topic();
+
     wifi_result = mqtt_connect_over_tcp();
     app_log_wifi_step("MQTT-TCP CONNECT", wifi_result);
     mqtt_ready = (wifi_result == WIFI_OK);
@@ -233,6 +292,7 @@ int main(void)
     printf("Production mode started (MQTT over TCP)\n");
     printf("MQTT broker       : %s:%u\n", MQTT_BROKER_HOST, (unsigned)MQTT_BROKER_PORT);
     printf("MQTT topic        : %s\n", MQTT_TOPIC);
+    printf("MQTT alarm topic  : %s\n", mqtt_alarm_topic);
     printf("Serial baud       : %lu\n", (unsigned long)APP_SERIAL_BAUDRATE);
     app_serial_debug_flush();
 
@@ -279,6 +339,36 @@ int main(void)
             app_log_wifi_step("MQTT-TCP RECONN", wifi_result);
             mqtt_ready = (wifi_result == WIFI_OK);
         }
+
+        {
+            uint8_t alarm = g_alarm_pending;
+            if (alarm != 0U)
+            {
+                g_alarm_pending = 0;
+                if (alarm == 3U)
+                {
+                    buzzer_init_silent();
+                    printf("[ALARM] Buzzer OFF (server risk Low)\n");
+                }
+                else if (alarm == 1U)
+                {
+                    buzzer_beep();
+                    printf("[ALARM] WARN beep (server risk Medium)\n");
+                }
+                else if (alarm == 2U)
+                {
+                    uint8_t k;
+                    printf("[ALARM] CRITICAL pattern (server risk High)\n");
+                    for (k = 0; k < 10U; k++)
+                    {
+                        buzzer_beep();
+                        app_delay_ms(100);
+                    }
+                }
+                app_serial_debug_flush();
+            }
+        }
+
         app_serial_debug_flush();
         app_delay_ms(5000);
     }

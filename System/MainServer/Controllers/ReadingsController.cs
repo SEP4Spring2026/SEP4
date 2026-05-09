@@ -65,12 +65,18 @@ public class ReadingsController : ControllerBase
     private readonly AppDbContext _db;
     private readonly MlClient _ml;
     private readonly ReadingsStreamHub _streamHub;
+    private readonly AlarmMqttPublisher _alarmMqtt;
 
-    public ReadingsController(AppDbContext db, MlClient ml, ReadingsStreamHub streamHub)
+    public ReadingsController(
+        AppDbContext db,
+        MlClient ml,
+        ReadingsStreamHub streamHub,
+        AlarmMqttPublisher alarmMqtt)
     {
         _db = db;
         _ml = ml;
         _streamHub = streamHub;
+        _alarmMqtt = alarmMqtt;
     }
 
     [HttpPost]
@@ -148,6 +154,8 @@ public class ReadingsController : ControllerBase
                 prediction.RiskLevel,
                 prediction.ConfidenceScore
             }));
+
+        await _alarmMqtt.PublishRiskLevelAsync(device.SensorId, predictionDto.RiskLevel, cancellationToken);
 
         return Ok(predictionDto);
     }
