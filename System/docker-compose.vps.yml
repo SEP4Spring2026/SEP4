@@ -41,6 +41,12 @@ services:
         condition: service_healthy
       ml-server:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
     ports:
       - "${MAIN_SERVER_PORT:-8080}:8080"
     environment:
@@ -64,7 +70,8 @@ services:
     container_name: kamtjatka-frontend
     restart: unless-stopped
     depends_on:
-      - main-server
+      main-server:
+        condition: service_healthy
     ports:
       - "${FRONTEND_PORT:-5173}:80"
 
@@ -97,7 +104,7 @@ services:
     container_name: kamtjatka-ml
     restart: unless-stopped
     ports:
-      - "${ML_SERVER_PORT}:8000"
+      - "${ML_SERVER_PORT:-8000}:8000"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=2).status==200 else 1)"]
       interval: 10s
