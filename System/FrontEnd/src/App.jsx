@@ -267,13 +267,55 @@ function App() {
     Settings: "Settings",
   };
 
+  function getRecommendation(sample) {
+  if (!sample) return [];
+
+  const recs = [];
+
+  if (sample.co2 > 1000) {
+    recs.push("High CO2 detected — ventilate the room");
+  }
+
+  if (sample.temp > 30) {
+    recs.push("High temperature — consider cooling or ventilation");
+  }
+
+  if (sample.hum > 70) {
+    recs.push("High humidity — risk of poor air quality");
+  }
+
+  if (sample.co2 > 2000) {
+    recs.push("⚠ Possible unsafe air quality — take immediate action");
+  }
+
+  return recs;
+  }
+
   function HomeView() {
+    const recommendations = getRecommendation(latestSample);
     return (
       <>
         <section className="grid top-grid">
           <OverviewCard summary={summary} />
           <PayloadCard payload={latestSample.payload} />
         </section>
+
+        <div className="section-spacer" />
+
+        <article className="card">
+          <h3>Recommendations</h3>
+
+          {recommendations.length === 0 ? (
+            <p className="muted">Everything looks normal.</p>
+          ) : (
+            recommendations.map((rec, i) => (
+              <div className="summary-row" key={i}>
+                <span>•</span>
+                <strong>{rec}</strong>
+              </div>
+            ))
+          )}
+        </article>
 
         <section className="grid stats-grid">
           <StatCard title="Device ID" value={summary.sensorId} status="selected" statusType="success" />
