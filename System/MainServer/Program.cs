@@ -51,9 +51,11 @@ builder.Services.AddCors(options =>
 
         if (builder.Environment.IsDevelopment())
         {
-            // Local development fallback when explicit origins are not configured.
             policy.SetIsOriginAllowed(_ => true);
+            return;
         }
+
+        policy.AllowAnyOrigin();
     });
 });
 
