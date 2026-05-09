@@ -30,8 +30,8 @@
 
 
 
-#define WIFI_SSID "YOUR_WIFI_SSID" // Change this with your WIFI SSID
-#define WIFI_PASSWORD "YOUR_WIFI_PASSWORD" // Change this with your WIFI Password
+#define WIFI_SSID "YOUR_WIFI_SSID"
+#define WIFI_PASSWORD "YOUR_WIFI_PASSWORD"
 #define MQTT_BROKER_HOST "159.195.147.132"
 #define MQTT_BROKER_PORT 1883
 #define MQTT_CLIENT_ID "iot-device-101" // Change this with Device 101 or 102
@@ -102,18 +102,52 @@ static void mqtt_build_alarm_topic(void)
     (void)snprintf(mqtt_alarm_topic, sizeof(mqtt_alarm_topic), "iot/alarm/%u", (unsigned)LOCAL_DEVICE_ID);
 }
 
+static bool mqtt_binary_contains(const uint8_t *buf, uint16_t buflen, const char *needle)
+{
+    uint16_t nlen = (uint16_t)strlen(needle);
+    uint16_t i;
+
+    if (buflen < nlen || nlen == 0U)
+    {
+        return false;
+    }
+
+    for (i = 0; i + nlen <= buflen; i++)
+    {
+        if (memcmp(buf + i, needle, nlen) == 0)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 static void mqtt_rx_callback(void)
 {
-    /* Broker sends binary MQTT (CONNACK, SUBACK, PUBLISH). Alarm payloads are ASCII. */
-    if (strstr(mqtt_rx_buffer, "CRITICAL") != NULL)
+    uint16_t len = wifi_last_ipd_payload_len;
+    const uint8_t *buf = (const uint8_t *)mqtt_rx_buffer;
+
+    if (len > (uint16_t)sizeof(mqtt_rx_buffer))
+    {
+        len = (uint16_t)sizeof(mqtt_rx_buffer);
+    }
+
+    printf("[MQTT-RX] +IPD payload=%u bytes\n", (unsigned)len);
+    app_serial_debug_flush();
+
+    /*
+     * Do not use strstr() on MQTT frames: PUBLISH packets contain embedded NUL bytes
+     * (e.g. topic length MSB), so strstr stops early and never reaches the ASCII payload.
+     */
+    if (mqtt_binary_contains(buf, len, "CRITICAL"))
     {
         g_alarm_pending = 2;
     }
-    else if (strstr(mqtt_rx_buffer, "WARN") != NULL)
+    else if (mqtt_binary_contains(buf, len, "WARN"))
     {
         g_alarm_pending = 1;
     }
-    else if (strstr(mqtt_rx_buffer, "OFF") != NULL)
+    else if (mqtt_binary_contains(buf, len, "OFF"))
     {
         g_alarm_pending = 3;
     }
