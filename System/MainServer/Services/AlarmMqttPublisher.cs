@@ -32,8 +32,18 @@ public sealed class AlarmMqttPublisher : IAsyncDisposable
             "true",
             StringComparison.OrdinalIgnoreCase);
 
+        AllowAlarmTest = string.Equals(
+            Environment.GetEnvironmentVariable("ALLOW_ALARM_TEST"),
+            "true",
+            StringComparison.OrdinalIgnoreCase);
+
         _client = _mqttFactory.CreateMqttClient();
     }
+
+    /// <summary>HTTP alarm-test button enabled (still requires <see cref="IsEnabled"/>).</summary>
+    public bool AllowAlarmTest { get; }
+
+    public bool IsAlarmTestEnabled => IsEnabled && AllowAlarmTest;
 
     public bool IsEnabled => !string.IsNullOrWhiteSpace(_brokerHost);
 
@@ -51,6 +61,21 @@ public sealed class AlarmMqttPublisher : IAsyncDisposable
         };
     }
 
+    /// <summary>Maps dashboard query values to firmware MQTT payloads.</summary>
+    public static string? NormalizeAlarmTestLevel(string? level)
+    {
+        if (string.IsNullOrWhiteSpace(level))
+            return null;
+
+        return level.Trim().ToLowerInvariant() switch
+        {
+            "critical" => "CRITICAL",
+            "warn" or "warning" => "WARN",
+            "off" or "silence" => "OFF",
+            _ => null,
+        };
+    }
+
     public async Task PublishRiskLevelAsync(int sensorId, string riskLevel, CancellationToken cancellationToken = default)
     {
         if (!IsEnabled || Volatile.Read(ref _disposedFlag) != 0)
@@ -62,42 +87,60 @@ public sealed class AlarmMqttPublisher : IAsyncDisposable
 
         try
         {
-            await _mutex.WaitAsync(cancellationToken).ConfigureAwait(false);
-            try
-            {
-                if (!_client.IsConnected)
-                {
-                    var clientId = $"sep4-{Guid.NewGuid():N}";
-                    if (clientId.Length > 23)
-                        clientId = clientId[..23];
-
-                    var options = new MqttClientOptionsBuilder()
-                        .WithTcpServer(_brokerHost, _brokerPort)
-                        .WithClientId(clientId)
-                        .WithCleanSession()
-                        .Build();
-
-                    await _client.ConnectAsync(options, cancellationToken).ConfigureAwait(false);
-                    _logger.LogInformation("Alarm MQTT connected to {Host}:{Port}", _brokerHost, _brokerPort);
-                }
-
-                var topic = $"iot/alarm/{sensorId}";
-                var message = new MqttApplicationMessageBuilder()
-                    .WithTopic(topic)
-                    .WithPayload(payload)
-                    .WithQualityOfServiceLevel(MQTTnet.Protocol.MqttQualityOfServiceLevel.AtMostOnce)
-                    .Build();
-
-                await _client.PublishAsync(message, cancellationToken).ConfigureAwait(false);
-            }
-            finally
-            {
-                _mutex.Release();
-            }
+            await PublishPayloadCoreAsync(sensorId, payload, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Alarm MQTT publish failed for sensor {SensorId}, payload {Payload}", sensorId, payload);
+        }
+    }
+
+    /// <summary>Publish a test alarm when <see cref="IsAlarmTestEnabled"/>.</summary>
+    public async Task PublishAlarmTestAsync(int sensorId, string level, CancellationToken cancellationToken = default)
+    {
+        if (!IsAlarmTestEnabled || Volatile.Read(ref _disposedFlag) != 0)
+            throw new InvalidOperationException("Alarm test is disabled or MQTT is not configured.");
+
+        var payload = NormalizeAlarmTestLevel(level)
+            ?? throw new ArgumentException("Invalid level; use critical, warn, or off.", nameof(level));
+
+        await PublishPayloadCoreAsync(sensorId, payload, cancellationToken).ConfigureAwait(false);
+        _logger.LogInformation("Alarm test MQTT published for sensor {SensorId}: {Payload}", sensorId, payload);
+    }
+
+    private async Task PublishPayloadCoreAsync(int sensorId, string payload, CancellationToken cancellationToken)
+    {
+        await _mutex.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (!_client.IsConnected)
+            {
+                var clientId = $"sep4-{Guid.NewGuid():N}";
+                if (clientId.Length > 23)
+                    clientId = clientId[..23];
+
+                var options = new MqttClientOptionsBuilder()
+                    .WithTcpServer(_brokerHost, _brokerPort)
+                    .WithClientId(clientId)
+                    .WithCleanSession()
+                    .Build();
+
+                await _client.ConnectAsync(options, cancellationToken).ConfigureAwait(false);
+                _logger.LogInformation("Alarm MQTT connected to {Host}:{Port}", _brokerHost, _brokerPort);
+            }
+
+            var topic = $"iot/alarm/{sensorId}";
+            var message = new MqttApplicationMessageBuilder()
+                .WithTopic(topic)
+                .WithPayload(payload)
+                .WithQualityOfServiceLevel(MQTTnet.Protocol.MqttQualityOfServiceLevel.AtMostOnce)
+                .Build();
+
+            await _client.PublishAsync(message, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _mutex.Release();
         }
     }
 

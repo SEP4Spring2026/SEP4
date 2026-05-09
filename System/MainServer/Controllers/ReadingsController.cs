@@ -160,6 +160,44 @@ public class ReadingsController : ControllerBase
         return Ok(predictionDto);
     }
 
+    /// <summary>MQTT-only buzzer test for Settings UI; requires ALLOW_ALARM_TEST=true and ALARM_MQTT_HOST.</summary>
+    [HttpPost("alarm-test")]
+    public async Task<IActionResult> PostAlarmTest(
+        [FromQuery] int sensorId,
+        [FromQuery] string level = "critical",
+        CancellationToken cancellationToken)
+    {
+        if (!_alarmMqtt.IsAlarmTestEnabled)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                message = "Alarm test is disabled. Set ALLOW_ALARM_TEST=true and ALARM_MQTT_HOST on the server.",
+            });
+        }
+
+        if (sensorId < 1)
+            return BadRequest(new { message = "sensorId must be a positive device id." });
+
+        try
+        {
+            await _alarmMqtt.PublishAlarmTestAsync(sensorId, level, cancellationToken).ConfigureAwait(false);
+            return NoContent();
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[alarm-test] {ex.Message}");
+            return StatusCode(StatusCodes.Status502BadGateway, new { message = "MQTT publish failed." });
+        }
+    }
+
     [HttpGet("stream")]
     public async Task Stream([FromQuery] int? sensorId, CancellationToken cancellationToken)
     {

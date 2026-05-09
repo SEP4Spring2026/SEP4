@@ -98,6 +98,11 @@ if (!string.IsNullOrEmpty(alarmMqtt))
         alarmMqtt);
 }
 
+if (string.Equals(Environment.GetEnvironmentVariable("ALLOW_ALARM_TEST"), "true", StringComparison.OrdinalIgnoreCase))
+{
+    startupLogger.LogInformation("POST /api/readings/alarm-test is enabled for buzzer tests.");
+}
+
 await ApplyMigrationsWithRepairAsync(app, startupLogger);
 
 app.UseCors("AllowFrontend");

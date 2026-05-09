@@ -66,6 +66,8 @@ services:
       ALARM_MQTT_PORT: "1883"
       # Set to true to also MQTT-publish Medium risk (short WARN beep on device).
       ALARM_PUBLISH_MEDIUM: "false"
+      # Settings UI buzzer test → POST /api/readings/alarm-test
+      ALLOW_ALARM_TEST: "true"
 
   frontend:
     build: ./FrontEnd

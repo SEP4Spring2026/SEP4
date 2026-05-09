@@ -25,6 +25,25 @@ export async function getDevices() {
   return await res.json();
 }
 
+/** Buzzer test → MQTT iot/alarm/{sensorId}; requires server ALLOW_ALARM_TEST=true */
+export async function postAlarmTest(sensorId, level = "critical") {
+  const params = new URLSearchParams({
+    sensorId: String(sensorId),
+    level,
+  });
+  const res = await fetch(`/api/readings/alarm-test?${params}`, { method: "POST" });
+  if (!res.ok) {
+    let detail = `Alarm test failed (${res.status})`;
+    try {
+      const body = await res.json();
+      if (body?.message) detail = body.message;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(detail);
+  }
+}
+
 export function connectReadingsStream(sensorId = "all") {
   const params = new URLSearchParams();
   if (sensorId !== "all") {

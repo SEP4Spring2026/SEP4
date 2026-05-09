@@ -6,7 +6,7 @@ import { PayloadCard } from "./components/PayloadCard.jsx";
 import { StatCard } from "./components/StatCard.jsx";
 import { SampleCard } from "./components/SampleCard.jsx";
 import { LineChart } from "./components/LineChart.jsx";
-import { connectReadingsStream, getDevices, getReadings } from "./services/api.js";
+import { connectReadingsStream, getDevices, getReadings, postAlarmTest } from "./services/api.js";
 
 /** Passed to GET /api/readings so charts cover the last day of data. */
 const SAMPLE_WINDOW_HOURS = 24;
@@ -144,6 +144,8 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [alarmTestMessage, setAlarmTestMessage] = useState(null);
+  const [alarmTestBusy, setAlarmTestBusy] = useState(false);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNowMs(Date.now()), 10000);
@@ -519,9 +521,70 @@ function App() {
     );
   }
 
+  async function runAlarmTest(level) {
+    if (selectedSensorId === "all") {
+      setAlarmTestMessage({ type: "error", text: "Choose a device in the sidebar first." });
+      return;
+    }
+    setAlarmTestBusy(true);
+    setAlarmTestMessage(null);
+    try {
+      await postAlarmTest(Number(selectedSensorId), level);
+      setAlarmTestMessage({ type: "ok", text: "MQTT command sent to the board." });
+    } catch (err) {
+      setAlarmTestMessage({
+        type: "error",
+        text: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setAlarmTestBusy(false);
+    }
+  }
+
   function SettingsView() {
     return (
       <section className="grid settings-grid">
+        <article className="card">
+          <h3>Buzzer test</h3>
+          <p className="muted">
+            Sends the same MQTT payloads as ML alarms (<code>iot/alarm/</code> + device id). Pick a device in the
+            sidebar.
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: 12 }}>
+            <button
+              type="button"
+              className="menu-item"
+              style={{ width: "auto", display: "inline-block", textAlign: "center" }}
+              disabled={alarmTestBusy}
+              onClick={() => runAlarmTest("critical")}
+            >
+              Critical pattern
+            </button>
+            <button
+              type="button"
+              className="menu-item"
+              style={{ width: "auto", display: "inline-block", textAlign: "center" }}
+              disabled={alarmTestBusy}
+              onClick={() => runAlarmTest("warn")}
+            >
+              Short warn
+            </button>
+            <button
+              type="button"
+              className="menu-item"
+              style={{ width: "auto", display: "inline-block", textAlign: "center" }}
+              disabled={alarmTestBusy}
+              onClick={() => runAlarmTest("off")}
+            >
+              Silence (OFF)
+            </button>
+          </div>
+          {alarmTestMessage ? (
+            <p className={alarmTestMessage.type === "error" ? "danger" : "muted"} style={{ marginTop: 12 }}>
+              {alarmTestMessage.text}
+            </p>
+          ) : null}
+        </article>
         <article className="card">
           <h3>Sensor Health</h3>
           <div className="summary-row">
