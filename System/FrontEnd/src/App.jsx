@@ -239,9 +239,20 @@ function App() {
       <>
         <section className="grid top-grid">
           <OverviewCard summary={summary} />
-          <PayloadCard payload={latestSample.payload} />
+          
         </section>
 
+        <div className="section-spacer" />
+
+        <section className="grid">
+          <article className="card">
+            <h3>Room Environment Classification</h3>
+              <p>
+                {latestSample.classification ?? "No classification available yet"}
+              </p>
+          </article>
+        </section>
+        
         <div className="section-spacer" />
 
         <article className="card">
