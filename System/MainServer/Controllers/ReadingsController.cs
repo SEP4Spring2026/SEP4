@@ -45,7 +45,7 @@ public class ReadingsController : ControllerBase
 
     private static readonly JsonSerializerOptions StreamJsonOptions = new(JsonSerializerDefaults.Web);
 
-    /// <summary>Mqtt/firmware POST flat JSON; nested <see cref="SensorReadingDto.Sensors"/> when present.</summary>
+    /// <summary>Nested <c>sensors</c> object or flat root metrics.</summary>
     private static SensorPayloadDto ResolveSensorPayload(SensorReadingDto dto)
     {
         if (dto.Sensors is not null)

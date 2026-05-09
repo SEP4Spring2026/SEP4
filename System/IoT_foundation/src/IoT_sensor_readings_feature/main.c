@@ -46,7 +46,7 @@
 /* Change this define when switching between deployment and debugging. */
 #define APP_MODE APP_MODE_PRODUCTION
 
-static char payload_buffer[160];
+static char payload_buffer[SENSOR_PAYLOAD_BUFFER_BYTES];
 
 static void app_enable_global_interrupts(void)
 {

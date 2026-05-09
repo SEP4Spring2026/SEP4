@@ -2,6 +2,9 @@
 
 #include <stdint.h>
 
+/** Minimum byte size for the buffer passed to build_payload(). */
+#define SENSOR_PAYLOAD_BUFFER_BYTES 256
+
 void sensors_init(void);
 int read_co2(void);
 float read_temperature(void);
