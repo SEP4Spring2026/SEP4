@@ -164,8 +164,8 @@ public class ReadingsController : ControllerBase
     [HttpPost("alarm-test")]
     public async Task<IActionResult> PostAlarmTest(
         [FromQuery] int sensorId,
-        [FromQuery] string level = "critical",
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        [FromQuery] string level = "critical")
     {
         if (!_alarmMqtt.IsAlarmTestEnabled)
         {
