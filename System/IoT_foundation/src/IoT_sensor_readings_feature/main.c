@@ -29,19 +29,20 @@
 #endif
 
 
-
 #define WIFI_SSID "YOUR_WIFI_SSID" /* Set locally before flashing; never commit real credentials */
 #define WIFI_PASSWORD "YOUR_WIFI_PASSWORD" /* Set locally before flashing; never commit real credentials */
 #define MQTT_BROKER_HOST "159.195.147.132"
 #define MQTT_BROKER_PORT 1883
-#define MQTT_CLIENT_ID "iot-device-101" // Change this with Device 101 or 102
 #define MQTT_USERNAME ""
 #define MQTT_PASSWORD ""
 #define MQTT_TOPIC "iot/readings"
-#define LOCAL_DEVICE_ID 101U // Change this with Device 101 or 102
+/* Per board: JSON sensorId, SUBSCRIBE iot/alarm/{id}, and unique MQTT client id (see mqtt_build_client_id). */
+#define LOCAL_DEVICE_ID 101U
 
 /* Server publishes ML risk here after POST /api/readings ? /predict (ASCII payloads). */
 static char mqtt_alarm_topic[28];
+/* MQTT 3.1.1: client identifier <= 23 chars; must be unique per board or sessions kick each other off the broker. */
+static char mqtt_client_id[24];
 static volatile uint8_t g_alarm_pending;
 #define APP_SERIAL_BAUDRATE 115200UL
 
@@ -100,6 +101,11 @@ static char mqtt_rx_buffer[384];
 static void mqtt_build_alarm_topic(void)
 {
     (void)snprintf(mqtt_alarm_topic, sizeof(mqtt_alarm_topic), "iot/alarm/%u", (unsigned)LOCAL_DEVICE_ID);
+}
+
+static void mqtt_build_client_id(void)
+{
+    (void)snprintf(mqtt_client_id, sizeof(mqtt_client_id), "sep4iot%u", (unsigned)LOCAL_DEVICE_ID);
 }
 
 static bool mqtt_binary_contains(const uint8_t *buf, uint16_t buflen, const char *needle)
@@ -184,7 +190,7 @@ static WIFI_ERROR_MESSAGE_t mqtt_connect_over_tcp(void)
     WIFI_ERROR_MESSAGE_t result;
     uint8_t packet[96];
     uint8_t idx = 0;
-    uint8_t client_id_len = (uint8_t)strlen(MQTT_CLIENT_ID);
+    uint8_t client_id_len = (uint8_t)strlen(mqtt_client_id);
     uint8_t remaining_length = (uint8_t)(10U + 2U + client_id_len);
 
     result = wifi_command_create_TCP_connection((char *)MQTT_BROKER_HOST, MQTT_BROKER_PORT, mqtt_rx_callback, mqtt_rx_buffer);
@@ -207,7 +213,7 @@ static WIFI_ERROR_MESSAGE_t mqtt_connect_over_tcp(void)
     packet[idx++] = 60;   /* Keep alive seconds */
     packet[idx++] = 0x00;
     packet[idx++] = client_id_len;
-    memcpy(&packet[idx], MQTT_CLIENT_ID, client_id_len);
+    memcpy(&packet[idx], mqtt_client_id, client_id_len);
     idx = (uint8_t)(idx + client_id_len);
 
     {
@@ -362,6 +368,7 @@ int main(void)
     printf("MQTT broker       : %s:%u\n", MQTT_BROKER_HOST, (unsigned)MQTT_BROKER_PORT);
     printf("MQTT topic        : %s\n", MQTT_TOPIC);
     printf("MQTT alarm topic  : %s\n", mqtt_alarm_topic);
+    printf("MQTT client id    : %s\n", mqtt_client_id);
     printf("Serial baud       : %lu\n", (unsigned long)APP_SERIAL_BAUDRATE);
     app_serial_debug_flush();
 
