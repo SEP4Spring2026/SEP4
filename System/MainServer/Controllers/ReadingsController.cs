@@ -27,6 +27,24 @@ public class ReadingsController : ControllerBase
     }
 
     private static readonly JsonSerializerOptions StreamJsonOptions = new(JsonSerializerDefaults.Web);
+
+    /// <summary>Mqtt/firmware POST flat JSON; nested <see cref="SensorReadingDto.Sensors"/> when present.</summary>
+    private static SensorPayloadDto ResolveSensorPayload(SensorReadingDto dto)
+    {
+        if (dto.Sensors is not null)
+            return dto.Sensors;
+
+        return new SensorPayloadDto
+        {
+            Temperature = dto.Temperature ?? 0,
+            Humidity = dto.Humidity ?? 0,
+            Co2Level = dto.Co2Level ?? 0,
+            Tvoc = dto.Tvoc ?? 0,
+            Eco2 = dto.Eco2 ?? 0,
+            Aqi = dto.Aqi ?? 0,
+        };
+    }
+
     private readonly AppDbContext _db;
     private readonly MlClient _ml;
     private readonly ReadingsStreamHub _streamHub;
@@ -55,7 +73,7 @@ public class ReadingsController : ControllerBase
             await _db.SaveChangesAsync(cancellationToken);
         }
 
-        var sensors = dto.Sensors ?? new SensorPayloadDto();
+        var sensors = ResolveSensorPayload(dto);
         var reading = new SensorReading
         {
             SensorId = device.SensorId,
