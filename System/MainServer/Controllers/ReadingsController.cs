@@ -26,6 +26,23 @@ public class ReadingsController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Rolling window cutoff using the same clock as stored readings (<see cref="LocalReadingTimestamp"/>).
+    /// </summary>
+    private static DateTime CutoffForRollingHours(double hoursBack)
+    {
+        try
+        {
+            var tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Rome");
+            var nowLocal = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
+            return nowLocal.AddHours(-hoursBack);
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return DateTime.UtcNow.AddHours(-hoursBack);
+        }
+    }
+
     private static readonly JsonSerializerOptions StreamJsonOptions = new(JsonSerializerDefaults.Web);
 
     /// <summary>Mqtt/firmware POST flat JSON; nested <see cref="SensorReadingDto.Sensors"/> when present.</summary>
@@ -181,12 +198,26 @@ public class ReadingsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<object>>> GetLatest(
         [FromQuery] int? sensorId,
-        [FromQuery] int? limit)
+        [FromQuery] int? limit,
+        [FromQuery] double? hours)
     {
         const int defaultLimit = 200;
-        const int maxLimit = 1000;
+        const int maxLimitNoWindow = 1000;
+        const int maxLimitWithHours = 15000;
+        const double maxHours = 168;
+
         var take = limit ?? defaultLimit;
         if (take < 1) take = 1;
+
+        double? windowHours = null;
+        if (hours.HasValue)
+        {
+            var h = hours.Value;
+            if (h > 0 && !double.IsNaN(h) && !double.IsInfinity(h))
+                windowHours = Math.Min(h, maxHours);
+        }
+
+        var maxLimit = windowHours.HasValue ? maxLimitWithHours : maxLimitNoWindow;
         if (take > maxLimit) take = maxLimit;
 
         IQueryable<SensorReading> query = _db.Readings
@@ -196,6 +227,12 @@ public class ReadingsController : ControllerBase
         if (sensorId.HasValue)
         {
             query = query.Where(r => r.SensorId == sensorId.Value);
+        }
+
+        if (windowHours.HasValue)
+        {
+            var cutoff = CutoffForRollingHours(windowHours.Value);
+            query = query.Where(r => r.Timestamp >= cutoff);
         }
 
         var readings = await query
