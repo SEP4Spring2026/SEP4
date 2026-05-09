@@ -29,8 +29,9 @@
 #endif
 
 
-#define WIFI_SSID "YOUR_WIFI_SSID" /* Set before flashing — never commit real credentials */
-#define WIFI_PASSWORD "YOUR_WIFI_PASSWORD" /* Set before flashing — never commit real credentials */
+
+#define WIFI_SSID "YOUR_WIFI_SSID" // Change this with your WIFI SSID
+#define WIFI_PASSWORD "YOUR_WIFI_PASSWORD" // Change this with your WIFI Password
 #define MQTT_BROKER_HOST "159.195.147.132"
 #define MQTT_BROKER_PORT 1883
 #define MQTT_CLIENT_ID "iot-device-101" // Change this with Device 101 or 102
@@ -39,7 +40,7 @@
 #define MQTT_TOPIC "iot/readings"
 #define LOCAL_DEVICE_ID 101U // Change this with Device 101 or 102
 
-/* Server publishes ML risk here after POST /api/readings â†’ /predict (ASCII payloads). */
+/* Server publishes ML risk here after POST /api/readings ? /predict (ASCII payloads). */
 static char mqtt_alarm_topic[28];
 static volatile uint8_t g_alarm_pending;
 #define APP_SERIAL_BAUDRATE 115200UL
@@ -50,7 +51,7 @@ static volatile uint8_t g_alarm_pending;
 /* Change this define when switching between deployment and debugging. */
 #define APP_MODE APP_MODE_PRODUCTION
 
-static char payload_buffer[SENSOR_PAYLOAD_BUFFER_BYTES];
+static char payload_buffer[160];
 
 static void app_enable_global_interrupts(void)
 {
@@ -187,27 +188,61 @@ static WIFI_ERROR_MESSAGE_t mqtt_connect_over_tcp(void)
     return mqtt_subscribe_over_tcp(mqtt_alarm_topic);
 }
 
+/* MQTT 3.1.1 variable-byte encoding for the Remaining Length field (required when length >= 128). */
+static uint8_t mqtt_encode_remaining_length(uint8_t *dst, uint32_t remaining)
+{
+    uint8_t pos = 0;
+    do
+    {
+        if (pos >= 4U)
+        {
+            return 0;
+        }
+        uint8_t encoded = (uint8_t)(remaining % 128U);
+        remaining /= 128U;
+        if (remaining > 0U)
+        {
+            encoded |= 0x80;
+        }
+        dst[pos++] = encoded;
+    } while (remaining > 0U);
+
+    return pos;
+}
+
 static WIFI_ERROR_MESSAGE_t mqtt_publish_over_tcp(const char *topic, const char *payload)
 {
-    uint8_t packet[192];
-    uint8_t idx = 0;
+    uint8_t packet[512];
+    uint16_t idx = 0;
     uint8_t topic_len = (uint8_t)strlen(topic);
-    uint8_t payload_len = (uint8_t)strlen(payload);
-    uint8_t remaining_length = (uint8_t)(2U + topic_len + payload_len);
+    uint16_t payload_len = (uint16_t)strlen(payload);
 
-    if (remaining_length >= 128U)
+    if (topic_len == 0U || payload_len > 400U)
+    {
+        return WIFI_FAIL;
+    }
+
+    uint32_t remaining = (uint32_t)(2U + topic_len + payload_len);
+    uint8_t rl_enc[4];
+    uint8_t rl_n = mqtt_encode_remaining_length(rl_enc, remaining);
+
+    if (rl_n == 0U || (uint32_t)(1U + rl_n + remaining) > sizeof(packet))
     {
         return WIFI_FAIL;
     }
 
     packet[idx++] = 0x30; /* MQTT PUBLISH, QoS0, retain=0 */
-    packet[idx++] = remaining_length;
+    for (uint8_t i = 0; i < rl_n; i++)
+    {
+        packet[idx++] = rl_enc[i];
+    }
+
     packet[idx++] = 0x00;
     packet[idx++] = topic_len;
     memcpy(&packet[idx], topic, topic_len);
-    idx = (uint8_t)(idx + topic_len);
+    idx = (uint16_t)(idx + topic_len);
     memcpy(&packet[idx], payload, payload_len);
-    idx = (uint8_t)(idx + payload_len);
+    idx = (uint16_t)(idx + payload_len);
 
     return wifi_command_TCP_transmit(packet, idx);
 }
