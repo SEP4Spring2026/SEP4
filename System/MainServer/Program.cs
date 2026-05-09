@@ -89,26 +89,7 @@ var app = builder.Build();
 var startupLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
 startupLogger.LogInformation("DB host: {DbHost}; ML URL: {MlUrl}", dbHost ?? "(null)", mlUrl);
 
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    try
-    {
-        db.Database.Migrate();
-    }
-    catch (Exception ex)
-    {
-        startupLogger.LogWarning(ex, "migrate failed, falling back to EnsureCreated");
-        try
-        {
-            db.Database.EnsureCreated();
-        }
-        catch (Exception ex2)
-        {
-            startupLogger.LogWarning(ex2, "EnsureCreated failed (continuing anyway)");
-        }
-    }
-}
+await ApplyMigrationsWithRepairAsync(app, startupLogger);
 
 app.UseCors("AllowFrontend");
 
@@ -122,3 +103,19 @@ app.MapControllers();
 startupLogger.LogInformation("MainServer ready; buffered diagnostics at GET /api/logs.");
 
 app.Run();
+
+static async Task ApplyMigrationsWithRepairAsync(WebApplication application, ILogger startupLog)
+{
+    await using var scope = application.Services.CreateAsyncScope();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    try
+    {
+        await db.Database.MigrateAsync().ConfigureAwait(false);
+    }
+    catch (Exception ex)
+    {
+        startupLog.LogWarning(ex, "Database.MigrateAsync failed; attempting legacy schema repair");
+        await DbSchemaRepair.RepairAfterMigrateFailureAsync(db, startupLog).ConfigureAwait(false);
+        await db.Database.MigrateAsync().ConfigureAwait(false);
+    }
+}
