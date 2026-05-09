@@ -2,9 +2,9 @@ name: CI/CD
 
 on:
   push:
-    branches: [Dev]
+    branches: [Dev, main]
   pull_request:
-    branches: [Dev]
+    branches: [Dev, main]
   workflow_dispatch:
 
 jobs:
@@ -115,7 +115,7 @@ jobs:
   deploy:
     name: Deploy to VPS
     needs: [mainserver, mlserver, docker]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/Dev'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/Dev' || github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -128,14 +128,7 @@ jobs:
           ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
 
       - name: Pull and rebuild on VPS
+        env:
+          BRANCH: ${{ github.ref_name }}
         run: |
-          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} <<'EOF'
-            set -euo pipefail
-            cd ~/SEP4
-            git fetch origin
-            git checkout Dev
-            git reset --hard origin/Dev
-            cd System
-            docker compose -f docker-compose.vps.yml up -d --build
-            docker image prune -f
-          EOF
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "set -euo pipefail; cd ~/SEP4; git fetch origin; git checkout \"${BRANCH}\"; git reset --hard \"origin/${BRANCH}\"; cd System; docker compose -f docker-compose.vps.yml up -d --build; docker image prune -f"
