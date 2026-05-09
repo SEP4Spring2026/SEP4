@@ -394,3 +394,17 @@ p {
     grid-template-columns: 1fr;
   }
 }
+
+.top-grid,
+.stats-grid,
+.bottom-grid,
+.payload-grid,
+.charts-grid,
+.settings-grid,
+.card {
+  gap: 16px;
+}
+
+.section-spacer {
+  height: 16px;
+}
