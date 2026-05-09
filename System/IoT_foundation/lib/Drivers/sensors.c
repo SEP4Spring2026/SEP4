@@ -126,12 +126,10 @@ int read_air_quality(void)
 
 void build_payload(char *buffer, uint16_t sensor_id)
 {
-    /* Match MainServer SensorReadingDto shape for POST /api/readings,
-     * extended with ENS160 air-quality fields. */
     snprintf(
         buffer,
-        160,
-        "{\"sensorId\":%u,\"temperature\":%u.%u,\"humidity\":%u.%u,\"co2Level\":%d,\"tvoc\":%u,\"eco2\":%u,\"aqi\":%u}",
+        SENSOR_PAYLOAD_BUFFER_BYTES,
+        "{\"sensorId\":%u,\"sensors\":{\"temperature\":%u.%u,\"humidity\":%u.%u,\"co2Level\":%d,\"tvoc\":%u,\"eco2\":%u,\"aqi\":%u},\"classification\":\"Normal\"}",
         sensor_id,
         dht_t_i,
         dht_t_d,

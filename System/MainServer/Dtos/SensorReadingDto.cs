@@ -5,10 +5,10 @@ public class SensorReadingDto
     public int SensorId { get; set; }
     public DateTime Timestamp { get; set; }
 
-    /// <summary>Optional nested payload (e.g. dashboard). MQTT/firmware sends flat root fields instead.</summary>
+    /// <summary>Nested sensor readings.</summary>
     public SensorPayloadDto? Sensors { get; set; }
 
-    /// <summary>Flat IoT JSON: temperature, humidity, co2Level, tvoc, eco2, aqi.</summary>
+    /// <summary>Flat root fields used when <see cref="Sensors"/> is null.</summary>
     public double? Temperature { get; set; }
     public double? Humidity { get; set; }
     public double? Co2Level { get; set; }
