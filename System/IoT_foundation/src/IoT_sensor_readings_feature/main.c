@@ -29,8 +29,8 @@
 #endif
 
 
-#define WIFI_SSID "YOUR_WIFI_SSID" // Change this with your WIFI SSID
-#define WIFI_PASSWORD "YOUR_WIFI_PASSWORD" // Change this with your WIFI Password
+#define WIFI_SSID "YOUR_WIFI_SSID" /* Set before flashing — never commit real credentials */
+#define WIFI_PASSWORD "YOUR_WIFI_PASSWORD" /* Set before flashing — never commit real credentials */
 #define MQTT_BROKER_HOST "159.195.147.132"
 #define MQTT_BROKER_PORT 1883
 #define MQTT_CLIENT_ID "iot-device-101" // Change this with Device 101 or 102
