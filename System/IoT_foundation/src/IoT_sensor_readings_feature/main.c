@@ -30,8 +30,8 @@
 
 
 
-#define WIFI_SSID "YOUR_WIFI_SSID" /* Set locally before flashing ? never commit real credentials */
-#define WIFI_PASSWORD "YOUR_WIFI_PASSWORD" /* Set locally before flashing ? never commit real credentials */
+#define WIFI_SSID "YOUR_WIFI_SSID" /* Set locally before flashing; never commit real credentials */
+#define WIFI_PASSWORD "YOUR_WIFI_PASSWORD" /* Set locally before flashing; never commit real credentials */
 #define MQTT_BROKER_HOST "159.195.147.132"
 #define MQTT_BROKER_PORT 1883
 #define MQTT_CLIENT_ID "iot-device-101" // Change this with Device 101 or 102
