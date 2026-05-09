@@ -1,10 +1,16 @@
 using MainServer.Data;
+using MainServer.Logging;
 using MainServer.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 var builder = WebApplication.CreateBuilder(args);
 
 DotNetEnv.Env.Load();
+
+var liveLogBuffer = new InMemoryLogBuffer(maxLines: 800);
+builder.Services.AddSingleton(liveLogBuffer);
+builder.Logging.AddProvider(new InMemoryLoggerProvider(liveLogBuffer));
 
 builder.Services.AddControllers();
 
@@ -41,9 +47,6 @@ if (string.Equals(Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINE
     connectionString += ";SslMode=None;AllowPublicKeyRetrieval=true";
 }
 
-
-Console.WriteLine($"[startup] DB host: {dbHost}");
-Console.WriteLine($"[startup] ML URL : {mlUrl}");
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 36)))
@@ -83,6 +86,9 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+var startupLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
+startupLogger.LogInformation("DB host: {DbHost}; ML URL: {MlUrl}", dbHost ?? "(null)", mlUrl);
+
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -92,14 +98,14 @@ using (var scope = app.Services.CreateScope())
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"[startup] migrate failed, falling back to EnsureCreated: {ex}");
+        startupLogger.LogWarning(ex, "migrate failed, falling back to EnsureCreated");
         try
         {
             db.Database.EnsureCreated();
         }
         catch (Exception ex2)
         {
-            Console.WriteLine($"[startup] EnsureCreated failed (continuing anyway): {ex2}");
+            startupLogger.LogWarning(ex2, "EnsureCreated failed (continuing anyway)");
         }
     }
 }
@@ -107,5 +113,12 @@ using (var scope = app.Services.CreateScope())
 app.UseCors("AllowFrontend");
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+
+app.MapGet("/api/logs", (InMemoryLogBuffer logs) =>
+    Results.Text(string.Join(Environment.NewLine, logs.Snapshot()), "text/plain; charset=utf-8"));
+
 app.MapControllers();
+
+startupLogger.LogInformation("MainServer ready; buffered diagnostics at GET /api/logs.");
+
 app.Run();
