@@ -61,7 +61,7 @@ services:
       ML_SERVER_URL: http://ml-server:8000
 
   frontend:
-    build: ./SEP4FrontEnd
+    build: ./FrontEnd
     image: kamtjatka/frontend:latest
     container_name: kamtjatka-frontend
     restart: unless-stopped
