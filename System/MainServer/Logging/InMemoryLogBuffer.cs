@@ -11,7 +11,7 @@ public sealed class InMemoryLogBuffer
 
     public InMemoryLogBuffer(int maxLines = 800)
     {
-        _maxLines = Math.Clamp(maxLines, 50, 50_000);
+        _maxLines = Math.Clamp(maxLines, 1, 50_000);
     }
 
     public void Append(string line)
