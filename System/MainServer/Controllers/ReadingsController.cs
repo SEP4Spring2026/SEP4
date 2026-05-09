@@ -55,7 +55,7 @@ public class ReadingsController : ControllerBase
             await _db.SaveChangesAsync(cancellationToken);
         }
 
-        var sensors = dto.Sensors;
+        var sensors = dto.Sensors ?? new SensorPayloadDto();
         var reading = new SensorReading
         {
             SensorId = device.SensorId,

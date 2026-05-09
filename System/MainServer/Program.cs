@@ -14,21 +14,33 @@ var dbName = Environment.GetEnvironmentVariable("DB_NAME");
 var dbUser = Environment.GetEnvironmentVariable("DB_USER");
 var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD");
 
-var mlUrl = Environment.GetEnvironmentVariable("ML_SERVER_URL") ?? "http://ml-server:8000";
+var mlUrlRaw = Environment.GetEnvironmentVariable("ML_SERVER_URL");
+var mlUrl = string.IsNullOrWhiteSpace(mlUrlRaw) ? "http://ml-server:8000" : mlUrlRaw.Trim();
+if (!Uri.TryCreate(mlUrl, UriKind.Absolute, out var mlUri)
+    || (mlUri.Scheme != Uri.UriSchemeHttp && mlUri.Scheme != Uri.UriSchemeHttps))
+{
+    Console.WriteLine($"[startup] Invalid ML_SERVER_URL '{mlUrl}', using http://ml-server:8000");
+    mlUrl = "http://ml-server:8000";
+}
 
 var connectionString =
     $"Server={dbHost};Port={dbPort};Database={dbName};User={dbUser};Password={dbPassword};";
 
 if (string.Equals(Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER"), "true", StringComparison.OrdinalIgnoreCase))
 {
-    if (string.IsNullOrWhiteSpace(dbHost) || string.IsNullOrWhiteSpace(dbPassword))
+    if (string.IsNullOrWhiteSpace(dbHost)
+        || string.IsNullOrWhiteSpace(dbPort)
+        || string.IsNullOrWhiteSpace(dbName)
+        || string.IsNullOrWhiteSpace(dbUser)
+        || string.IsNullOrWhiteSpace(dbPassword))
     {
-        Console.WriteLine("[startup] Missing DB_HOST or DB_PASSWORD for container run.");
+        Console.WriteLine("[startup] Missing DB_HOST, DB_PORT, DB_NAME, DB_USER, or DB_PASSWORD.");
         Environment.Exit(1);
     }
 
     connectionString += ";SslMode=None;AllowPublicKeyRetrieval=true";
 }
+
 
 Console.WriteLine($"[startup] DB host: {dbHost}");
 Console.WriteLine($"[startup] ML URL : {mlUrl}");
@@ -86,15 +98,14 @@ using (var scope = app.Services.CreateScope())
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"[startup] migrate failed, falling back to EnsureCreated: {ex.Message}");
+        Console.WriteLine($"[startup] migrate failed, falling back to EnsureCreated: {ex}");
         try
         {
             db.Database.EnsureCreated();
         }
         catch (Exception ex2)
         {
-            Console.WriteLine($"[startup] EnsureCreated failed: {ex2.Message}");
-            throw;
+            Console.WriteLine($"[startup] EnsureCreated failed (continuing anyway): {ex2}");
         }
     }
 }
