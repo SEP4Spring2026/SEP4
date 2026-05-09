@@ -16,11 +16,7 @@ services:
       ML_SERVER_URL: ${ML_SERVER_URL}
 
   frontend:
-<<<<<<< HEAD
-    build: ../FrontEnd/SEP4FrontEnd
-=======
     build: ./SEP4FrontEnd
->>>>>>> 4320dbf64c21bd6757efc9964d4e2b3b4f09a00f
     image: kamtjatka/frontend:latest
     container_name: kamtjatka-frontend
     restart: unless-stopped
