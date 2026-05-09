@@ -13,6 +13,19 @@ namespace MainServer.Controllers;
 [Route("api/[controller]")]
 public class ReadingsController : ControllerBase
 {
+    private static DateTime LocalReadingTimestamp()
+    {
+        try
+        {
+            var tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Rome");
+            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return DateTime.UtcNow;
+        }
+    }
+
     private static readonly JsonSerializerOptions StreamJsonOptions = new(JsonSerializerDefaults.Web);
     private readonly AppDbContext _db;
     private readonly MlClient _ml;
@@ -28,8 +41,7 @@ public class ReadingsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<PredictionDto>> Post(SensorReadingDto dto, CancellationToken cancellationToken)
     {
-        var romeTz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Rome");
-        var nowRome = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, romeTz);
+        var nowRome = LocalReadingTimestamp();
 
         var device = await _db.Sensors.FirstOrDefaultAsync(s => s.SensorId == dto.SensorId, cancellationToken);
         if (device == null)

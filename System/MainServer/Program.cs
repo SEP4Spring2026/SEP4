@@ -19,7 +19,17 @@ var mlUrl = Environment.GetEnvironmentVariable("ML_SERVER_URL") ?? "http://ml-se
 var connectionString =
     $"Server={dbHost};Port={dbPort};Database={dbName};User={dbUser};Password={dbPassword};";
 
-var parsedDbHost = System.Text.RegularExpressions.Regex.Match(connectionString ?? "", @"Server=([^;]+)").Groups[1].Value;
+if (string.Equals(Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER"), "true", StringComparison.OrdinalIgnoreCase))
+{
+    if (string.IsNullOrWhiteSpace(dbHost) || string.IsNullOrWhiteSpace(dbPassword))
+    {
+        Console.WriteLine("[startup] Missing DB_HOST or DB_PASSWORD for container run.");
+        Environment.Exit(1);
+    }
+
+    connectionString += ";SslMode=None;AllowPublicKeyRetrieval=true";
+}
+
 Console.WriteLine($"[startup] DB host: {dbHost}");
 Console.WriteLine($"[startup] ML URL : {mlUrl}");
 
@@ -76,13 +86,21 @@ using (var scope = app.Services.CreateScope())
     }
     catch (Exception ex)
     {
-        // Backward-compatible fallback for databases originally initialized via EnsureCreated.
         Console.WriteLine($"[startup] migrate failed, falling back to EnsureCreated: {ex.Message}");
-        db.Database.EnsureCreated();
+        try
+        {
+            db.Database.EnsureCreated();
+        }
+        catch (Exception ex2)
+        {
+            Console.WriteLine($"[startup] EnsureCreated failed: {ex2.Message}");
+            throw;
+        }
     }
 }
 
 app.UseCors("AllowFrontend");
 
+app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.MapControllers();
 app.Run();
