@@ -90,6 +90,7 @@ jobs:
         with:
           name: python-coverage
           path: System/MlServer/coverage.xml
+
   iot_firmware:
     name: IoT Firmware (PlatformIO)
     runs-on: ubuntu-latest
@@ -109,6 +110,9 @@ jobs:
 
       - name: Build IoT firmware
         run: platformio run -e ATmega2560
+        
+      - name: Run IoT Unity tests
+        run: platformio test -e native
   
 
   docker:
