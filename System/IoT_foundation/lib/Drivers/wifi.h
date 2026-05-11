@@ -35,6 +35,9 @@ typedef enum{
  */
 typedef void (*WIFI_TCP_Callback_t)();
 
+/** Bytes in the last +IPD TCP segment (MQTT frames contain embedded NULs; do not use strstr on that buffer). */
+extern volatile uint16_t wifi_last_ipd_payload_len;
+
 /**
  * @brief Initialize the WiFi module. After it have been initialized it can take up to 4 seconds before its ready. 
  * 

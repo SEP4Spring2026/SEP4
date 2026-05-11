@@ -6,6 +6,8 @@ This folder contains a small containerized stack for the IoT side:
 - `mqtt-debug-subscriber`: prints all payloads from `iot/readings`
 - `mqtt-http-bridge`: forwards `iot/readings` payloads to backend `POST /api/readings`
 
+On the VPS (`docker-compose.vps.yml`), **MainServer** also publishes ML-derived alarms on **`iot/alarm/{sensorId}`** (payloads `CRITICAL`, `WARN`, `OFF`) when `ALARM_MQTT_HOST` is set. Firmware subscribes to that topic and drives the buzzer.
+
 ## Run
 
 From `System/IoT_foundation/devops`:
@@ -38,6 +40,8 @@ In `src/IoT_sensor_readings_feature/main.c` keep:
 
 - `MQTT_BROKER_PORT` as `1883`
 - `MQTT_TOPIC` as `iot/readings`
+- `LOCAL_DEVICE_ID` must match the dashboard device (JSON `sensorId` and `SUBSCRIBE iot/alarm/{id}`)
+- Each physical board needs its **own** flash image: set `LOCAL_DEVICE_ID` to `101U` or `102U` accordingly. The firmware derives a unique MQTT client id (`sep4iot101`, `sep4iot102`, …) from that value so two boards never share `iot-device-101` on the broker (which would disconnect one board and break buzzer / alarms).
 
 For local testing, set `MQTT_BROKER_HOST` to the machine running Docker
 (for example your laptop LAN IP).
