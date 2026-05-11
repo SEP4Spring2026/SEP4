@@ -6,30 +6,92 @@ import { PayloadCard } from "./components/PayloadCard.jsx";
 import { StatCard } from "./components/StatCard.jsx";
 import { SampleCard } from "./components/SampleCard.jsx";
 import { LineChart } from "./components/LineChart.jsx";
-import { connectReadingsStream, getDevices, getReadings } from "./services/api.js";
+import { connectReadingsStream, getDevices, getReadings, postAlarmTest } from "./services/api.js";
 
-const SAMPLE_LIMIT_OPTIONS = [50, 100, 200, 500, 1000];
-const DEFAULT_SAMPLE_LIMIT = 200;
+/** Passed to GET /api/readings so charts cover the last day of data. */
+const SAMPLE_WINDOW_HOURS = 24;
+const SAMPLE_LIMIT_OPTIONS = [200, 500, 1000, 2500, 5000];
+const DEFAULT_SAMPLE_LIMIT = 1000;
 const OFFLINE_AFTER_SECONDS = 120;
 
+const DISPLAY_TIMEZONE = "Europe/Rome";
+
+/** ISO 8601 using Rome wall clock and offset (+01:00 / +02:00), matching MainServer LocalReadingTimestamp. */
+function formatTimestampEuropeRome(date) {
+  const d = date instanceof Date ? date : new Date(date);
+  const instant = Number.isFinite(d.getTime()) ? d : new Date();
+
+  const wall = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: DISPLAY_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).format(instant);
+  const isoLocal = wall.replace(" ", "T");
+
+  const tzName =
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: DISPLAY_TIMEZONE,
+      timeZoneName: "longOffset",
+    })
+      .formatToParts(instant)
+      .find((p) => p.type === "timeZoneName")?.value ?? "GMT+00";
+
+  return `${isoLocal}${offsetLongGmtToIso(tzName)}`;
+}
+
+function offsetLongGmtToIso(label) {
+  const s = String(label).trim();
+  const bare = s.match(/^([+-])(\d{2}):(\d{2})$/);
+  if (bare) return `${bare[1]}${bare[2]}:${bare[3]}`;
+  const m = s.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/i);
+  if (!m) return "+00:00";
+  const hh = m[2].padStart(2, "0");
+  const mm = (m[3] ?? "00").padStart(2, "0");
+  return `${m[1]}${hh}:${mm}`;
+}
+
+/** Same nested JSON shape as the IoT → backend contract (for display). */
+function readingToContractPayload(r) {
+  const ts = r.timestamp ? new Date(r.timestamp) : null;
+  const timestamp =
+    ts && Number.isFinite(ts.getTime())
+      ? formatTimestampEuropeRome(ts)
+      : formatTimestampEuropeRome(new Date());
+  return {
+    sensorId: r.sensorId,
+    timestamp,
+    sensors: {
+      temperature: Number(r.temperature ?? 0),
+      humidity: Number(r.humidity ?? 0),
+      co2Level: Math.round(Number(r.co2Level ?? 0)),
+      tvoc: Math.round(Number(r.tvoc ?? 0)),
+      eco2: Math.round(Number(r.eco2 ?? 0)),
+      aqi: Math.round(Number(r.aqi ?? 1)),
+    },
+    classification: r.classification ?? "Normal",
+  };
+}
+
 function toSample(r) {
+  const contract = readingToContractPayload(r);
   return {
     name: `Sample ${r.readingId}`,
     sensorId: r.sensorId,
-
-    temp: r.temperature ?? null,
-    hum: r.humidity ?? null,
-    co2: r.co2Level ?? null,
-
-    tvoc: r.tvoc ?? null,
-    eco2: r.eco2 ?? null,
-    aqi: r.aqi ?? null,
-
-    classification: r.classification ?? null,
-
-    payload: JSON.stringify(r, null, 2),
-    payloadLength: JSON.stringify(r).length,
-
+    timestamp: r.timestamp,
+    temp: r.temperature,
+    hum: r.humidity,
+    co2: r.co2Level,
+    tvoc: r.tvoc ?? 0,
+    eco2: r.eco2 ?? 0,
+    aqi: r.aqi ?? 1,
+    classification: r.classification ?? "Normal",
+    payload: JSON.stringify(contract, null, 2),
+    payloadLength: JSON.stringify(contract).length,
     dhtStatus: "online",
   };
 }
@@ -82,6 +144,8 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [alarmTestMessage, setAlarmTestMessage] = useState(null);
+  const [alarmTestBusy, setAlarmTestBusy] = useState(false);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNowMs(Date.now()), 10000);
@@ -106,7 +170,7 @@ function App() {
       try {
         setLoading(true);
         setError(null);
-        const data = await getReadings(selectedSensorId, selectedLimit);
+        const data = await getReadings(selectedSensorId, selectedLimit, SAMPLE_WINDOW_HOURS);
         const mappedSamples = data.map(toSample);
 
         setSamples(mappedSamples);
@@ -239,7 +303,7 @@ function App() {
       <>
         <section className="grid top-grid">
           <OverviewCard summary={summary} />
-          
+          <PayloadCard payload={latestSample.payload} />
         </section>
 
         <div className="section-spacer" />
@@ -265,6 +329,9 @@ function App() {
               <div className="recommendation-item" key={i}>
                 <span className="bullet">•</span>
                 <span>{rec}</span>
+              <div className="summary-row" key={i}>
+                <span>•</span>
+                <strong>{rec}</strong>
               </div>
             ))
           )}
@@ -413,7 +480,7 @@ function App() {
           <div className="card-header">
             <div>
               <h3>Averages over {totalCount} samples</h3>
-              <p className="muted">Aggregated from the latest readings on the broker</p>
+              <p className="muted">Last 24 hours of readings (up to your sample cap)</p>
             </div>
             <span className="tag">Live</span>
           </div>
@@ -491,9 +558,70 @@ function App() {
     );
   }
 
+  async function runAlarmTest(level) {
+    if (selectedSensorId === "all") {
+      setAlarmTestMessage({ type: "error", text: "Choose a device in the sidebar first." });
+      return;
+    }
+    setAlarmTestBusy(true);
+    setAlarmTestMessage(null);
+    try {
+      await postAlarmTest(Number(selectedSensorId), level);
+      setAlarmTestMessage({ type: "ok", text: "MQTT command sent to the board." });
+    } catch (err) {
+      setAlarmTestMessage({
+        type: "error",
+        text: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setAlarmTestBusy(false);
+    }
+  }
+
   function SettingsView() {
     return (
       <section className="grid settings-grid">
+        <article className="card">
+          <h3>Buzzer test</h3>
+          <p className="muted">
+            Sends the same MQTT payloads as ML alarms (<code>iot/alarm/</code> + device id). Pick a device in the
+            sidebar.
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: 12 }}>
+            <button
+              type="button"
+              className="menu-item"
+              style={{ width: "auto", display: "inline-block", textAlign: "center" }}
+              disabled={alarmTestBusy}
+              onClick={() => runAlarmTest("critical")}
+            >
+              Critical pattern
+            </button>
+            <button
+              type="button"
+              className="menu-item"
+              style={{ width: "auto", display: "inline-block", textAlign: "center" }}
+              disabled={alarmTestBusy}
+              onClick={() => runAlarmTest("warn")}
+            >
+              Short warn
+            </button>
+            <button
+              type="button"
+              className="menu-item"
+              style={{ width: "auto", display: "inline-block", textAlign: "center" }}
+              disabled={alarmTestBusy}
+              onClick={() => runAlarmTest("off")}
+            >
+              Silence (OFF)
+            </button>
+          </div>
+          {alarmTestMessage ? (
+            <p className={alarmTestMessage.type === "error" ? "danger" : "muted"} style={{ marginTop: 12 }}>
+              {alarmTestMessage.text}
+            </p>
+          ) : null}
+        </article>
         <article className="card">
           <h3>Sensor Health</h3>
           <div className="summary-row">
@@ -555,7 +683,6 @@ function App() {
         {activeView === "Charts" && <ChartsView />}
         {activeView === "Payload" && <PayloadView />}
         {activeView === "Settings" && <SettingsView />}
-        {activeView === "Classification" && <ClassificationView />}
       </main>
     </div>
   );

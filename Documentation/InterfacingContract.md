@@ -22,7 +22,7 @@
 ###    "eco2":410,                        // Estimated CO2, measured in ppm
 ###    "aqi":1                            // Air Quality Index, 1 = Excellent, 2 = Good, 3 = Moderate, 4 = Poor, 5 = Unhealthy
 ###  },
-###  "classification": "No Smoke"         // classification of data, how will ML implement the classification algorithms?
+###  "classification": "Normal"           // Normal, Cooking, or Fire
 ### }
 
 ## - How frequently is the data updated?

@@ -329,6 +329,8 @@ WIFI_ERROR_MESSAGE_t wifi_command_close_TCP_connection()
 #define IPD_PREFIX "+IPD,"
 #define PREFIX_LENGTH 5
 
+volatile uint16_t wifi_last_ipd_payload_len = 0;
+
 WIFI_TCP_Callback_t callback_when_message_received_static;
 char *received_message_buffer_static_pointer;
 static void  wifi_TCP_callback(uint8_t byte)
@@ -376,16 +378,17 @@ static void  wifi_TCP_callback(uint8_t byte)
                 received_message_buffer_static_pointer[index++] = byte;
             }
             if(index == length) {
-                // message is complete, null terminate the string
-                received_message_buffer_static_pointer[index] = '\0';
+                uint16_t payload_bytes = (uint16_t)length;
 
-                // reset to IDLE
+                received_message_buffer_static_pointer[index] = '\0';
+                wifi_last_ipd_payload_len = payload_bytes;
+
                 state = IDLE;
                 length = 0;
                 index = 0;
 
-            wifi_clear_databuffer_and_index();
-            callback_when_message_received_static();
+                wifi_clear_databuffer_and_index();
+                callback_when_message_received_static();
             }
             break;
     }

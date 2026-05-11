@@ -1,10 +1,16 @@
 using MainServer.Data;
+using MainServer.Logging;
 using MainServer.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 var builder = WebApplication.CreateBuilder(args);
 
 DotNetEnv.Env.Load();
+
+var liveLogBuffer = new InMemoryLogBuffer(maxLines: 800);
+builder.Services.AddSingleton(liveLogBuffer);
+builder.Logging.AddProvider(new InMemoryLoggerProvider(liveLogBuffer));
 
 builder.Services.AddControllers();
 
@@ -55,6 +61,8 @@ builder.Services.AddHttpClient<MlClient>(client =>
     client.Timeout = TimeSpan.FromSeconds(5);
 });
 builder.Services.AddSingleton<ReadingsStreamHub>();
+builder.Services.AddSingleton<AlarmMqttPublisher>();
+builder.Services.AddHostedService<AlarmMqttShutdownHostedService>();
 
 builder.Services.AddCors(options =>
 {
@@ -83,12 +91,43 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
+var startupLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
+startupLogger.LogInformation("DB host: {DbHost}; ML URL: {MlUrl}", dbHost ?? "(null)", mlUrl);
+var alarmMqtt = Environment.GetEnvironmentVariable("ALARM_MQTT_HOST")?.Trim();
+if (!string.IsNullOrEmpty(alarmMqtt))
 {
+    startupLogger.LogInformation(
+        "Alarm MQTT: {Host} (ML risk High→CRITICAL, Low→OFF; Medium→WARN only if ALARM_PUBLISH_MEDIUM=true)",
+        alarmMqtt);
+}
+
+if (string.Equals(Environment.GetEnvironmentVariable("ALLOW_ALARM_TEST"), "true", StringComparison.OrdinalIgnoreCase))
+{
+    startupLogger.LogInformation("POST /api/readings/alarm-test is enabled for buzzer tests.");
+}
+
+await ApplyMigrationsWithRepairAsync(app, startupLogger);
+
+app.UseCors("AllowFrontend");
+
+app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+
+app.MapGet("/api/logs", (InMemoryLogBuffer logs) =>
+    Results.Text(string.Join(Environment.NewLine, logs.Snapshot()), "text/plain; charset=utf-8"));
+
+app.MapControllers();
+
+startupLogger.LogInformation("MainServer ready; buffered diagnostics at GET /api/logs.");
+
+app.Run();
+
+static async Task ApplyMigrationsWithRepairAsync(WebApplication application, ILogger startupLog)
+{
+    await using var scope = application.Services.CreateAsyncScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     try
     {
-        db.Database.Migrate();
+        await db.Database.MigrateAsync().ConfigureAwait(false);
     }
     catch (Exception ex)
     {
@@ -101,11 +140,8 @@ using (var scope = app.Services.CreateScope())
         {
             Console.WriteLine($"[startup] EnsureCreated failed (continuing anyway): {ex2}");
         }
+        startupLog.LogWarning(ex, "Database.MigrateAsync failed; attempting legacy schema repair");
+        await DbSchemaRepair.RepairAfterMigrateFailureAsync(db, startupLog).ConfigureAwait(false);
+        await db.Database.MigrateAsync().ConfigureAwait(false);
     }
 }
-
-app.UseCors("AllowFrontend");
-
-app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
-app.MapControllers();
-app.Run();

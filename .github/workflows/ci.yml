@@ -91,6 +91,30 @@ jobs:
           name: python-coverage
           path: System/MlServer/coverage.xml
 
+  iot_firmware:
+    name: IoT Firmware (PlatformIO)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: System/IoT_foundation
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Build IoT firmware
+        run: platformio run -e ATmega2560
+        
+      - name: Run IoT Unity tests
+        run: platformio test -e native
+  
+
   docker:
     name: Build images
     runs-on: ubuntu-latest
@@ -115,7 +139,7 @@ jobs:
       - name: Build frontend image
         uses: docker/build-push-action@v6
         with:
-          context: System/SEP4FrontEnd
+          context: System/FrontEnd
           push: false
           tags: kamtjatka/frontend:ci
 
