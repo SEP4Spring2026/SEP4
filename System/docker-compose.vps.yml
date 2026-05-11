@@ -37,6 +37,8 @@ services:
     container_name: kamtjatka-main
     restart: unless-stopped
     depends_on:
+      mqtt-broker:
+        condition: service_started
       mysql:
         condition: service_healthy
       ml-server:
@@ -59,6 +61,13 @@ services:
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       ML_SERVER_URL: http://ml-server:8000
+      # MQTT alarm → firmware SUBSCRIBE iot/alarm/{sensorId}; payloads CRITICAL / WARN / OFF
+      ALARM_MQTT_HOST: mqtt-broker
+      ALARM_MQTT_PORT: "1883"
+      # Set to true to also MQTT-publish Medium risk (short WARN beep on device).
+      ALARM_PUBLISH_MEDIUM: "false"
+      # Settings UI buzzer test → POST /api/readings/alarm-test
+      ALLOW_ALARM_TEST: "true"
 
   frontend:
     build: ./FrontEnd

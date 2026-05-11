@@ -46,6 +46,7 @@ public class ReadingsController : ControllerBase
     private static readonly JsonSerializerOptions StreamJsonOptions = new(JsonSerializerDefaults.Web);
 
     /// <summary>Mqtt/firmware POST flat JSON; nested <see cref="SensorReadingDto.Sensors"/> when present.</summary>
+    /// <summary>Nested <c>sensors</c> object or flat root metrics.</summary>
     private static SensorPayloadDto ResolveSensorPayload(SensorReadingDto dto)
     {
         if (dto.Sensors is not null)
@@ -65,12 +66,18 @@ public class ReadingsController : ControllerBase
     private readonly AppDbContext _db;
     private readonly MlClient _ml;
     private readonly ReadingsStreamHub _streamHub;
+    private readonly AlarmMqttPublisher _alarmMqtt;
 
-    public ReadingsController(AppDbContext db, MlClient ml, ReadingsStreamHub streamHub)
+    public ReadingsController(
+        AppDbContext db,
+        MlClient ml,
+        ReadingsStreamHub streamHub,
+        AlarmMqttPublisher alarmMqtt)
     {
         _db = db;
         _ml = ml;
         _streamHub = streamHub;
+        _alarmMqtt = alarmMqtt;
     }
 
     [HttpPost]
@@ -149,7 +156,47 @@ public class ReadingsController : ControllerBase
                 prediction.ConfidenceScore
             }));
 
+        await _alarmMqtt.PublishRiskLevelAsync(device.SensorId, predictionDto.RiskLevel, cancellationToken);
+
         return Ok(predictionDto);
+    }
+
+    /// <summary>MQTT-only buzzer test for Settings UI; requires ALLOW_ALARM_TEST=true and ALARM_MQTT_HOST.</summary>
+    [HttpPost("alarm-test")]
+    public async Task<IActionResult> PostAlarmTest(
+        [FromQuery] int sensorId,
+        CancellationToken cancellationToken,
+        [FromQuery] string level = "critical")
+    {
+        if (!_alarmMqtt.IsAlarmTestEnabled)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                message = "Alarm test is disabled. Set ALLOW_ALARM_TEST=true and ALARM_MQTT_HOST on the server.",
+            });
+        }
+
+        if (sensorId < 1)
+            return BadRequest(new { message = "sensorId must be a positive device id." });
+
+        try
+        {
+            await _alarmMqtt.PublishAlarmTestAsync(sensorId, level, cancellationToken).ConfigureAwait(false);
+            return NoContent();
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[alarm-test] {ex.Message}");
+            return StatusCode(StatusCodes.Status502BadGateway, new { message = "MQTT publish failed." });
+        }
     }
 
     [HttpGet("stream")]

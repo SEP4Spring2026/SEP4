@@ -145,7 +145,7 @@ p {
 }
 
 .top-grid {
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 1fr;
 }
 
 .stats-grid {
@@ -393,4 +393,28 @@ p {
   .hero-stats {
     grid-template-columns: 1fr;
   }
+}
+
+.top-grid,
+.stats-grid,
+.bottom-grid,
+.payload-grid,
+.charts-grid,
+.settings-grid,
+.card {
+  gap: 16px;
+}
+
+.section-spacer {
+  height: 16px;
+}
+
+.recommendation-item {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.recommendation-item .bullet {
+  flex-shrink: 0;
 }
