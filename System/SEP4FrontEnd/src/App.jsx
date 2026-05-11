@@ -6,6 +6,7 @@ import { PayloadCard } from "./components/PayloadCard.jsx";
 import { StatCard } from "./components/StatCard.jsx";
 import { SampleCard } from "./components/SampleCard.jsx";
 import { LineChart } from "./components/LineChart.jsx";
+import { LoginPage } from "./components/LoginPage.jsx";
 import { connectReadingsStream, getDevices, getReadings } from "./services/api.js";
 
 const SAMPLE_LIMIT_OPTIONS = [50, 100, 200, 500, 1000];
@@ -65,7 +66,7 @@ function getDeviceHealth(device, nowMs) {
   };
 }
 
-function App() {
+function Dashboard() {
   const [activeView, setActiveView] = useState("Home");
   const [samples, setSamples] = useState([]);
   const [devices, setDevices] = useState([]);
@@ -474,6 +475,31 @@ function App() {
       </main>
     </div>
   );
+}
+
+function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    if (window.location.search.includes("logout=1")) {
+      window.localStorage.removeItem("sep4LoggedIn");
+      window.localStorage.removeItem("sep4Role");
+      window.history.replaceState(null, "", window.location.pathname);
+      return false;
+    }
+
+    return window.localStorage.getItem("sep4LoggedIn") === "true";
+  });
+
+  function handleLogin(role) {
+    window.localStorage.setItem("sep4LoggedIn", "true");
+    window.localStorage.setItem("sep4Role", role);
+    setIsLoggedIn(true);
+  }
+
+  if (!isLoggedIn) {
+    return <LoginPage onLogin={handleLogin} />;
+  }
+
+  return <Dashboard />;
 }
 
 export default App;
