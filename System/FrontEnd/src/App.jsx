@@ -253,11 +253,15 @@ function App() {
     .filter((entry) => entry.health.missingData);
 
   const summary = {
-    temp: latestSample.temp,
-    hum: latestSample.hum,
-    co2: latestSample.co2,
-    sensorId: latestSample.sensorId,
-    payloadLength: latestSample.payloadLength
+  sensorId: latestSample.sensorId,
+  
+  temp: latestSample.temp,
+  hum: latestSample.hum,
+  co2: latestSample.co2,
+
+  tvoc: latestSample.tvoc,
+  eco2: latestSample.eco2,
+  aqi: latestSample.aqi,
   };
 
   const pageTitles = {
@@ -304,6 +308,17 @@ function App() {
 
         <div className="section-spacer" />
 
+        <section className="grid">
+          <article className="card">
+            <h3>Room Environment Classification</h3>
+              <p>
+                {latestSample.classification ?? "No classification available yet"}
+              </p>
+          </article>
+        </section>
+        
+        <div className="section-spacer" />
+
         <article className="card">
           <h3>Recommendations</h3>
 
@@ -311,6 +326,9 @@ function App() {
             <p className="muted">Everything looks normal.</p>
           ) : (
             recommendations.map((rec, i) => (
+              <div className="recommendation-item" key={i}>
+                <span className="bullet">•</span>
+                <span>{rec}</span>
               <div className="summary-row" key={i}>
                 <span>•</span>
                 <strong>{rec}</strong>
@@ -324,6 +342,9 @@ function App() {
           <StatCard title="Temperature" value={summary.temp} status="stable" statusType="success" />
           <StatCard title="Humidity" value={summary.hum} status="stable" statusType="success" />
           <StatCard title="CO2" value={summary.co2} status="watch" statusType="danger" />
+          <StatCard title="TVOC" value={summary.tvoc} status="watch" statusType="danger" />
+          <StatCard title="eCO2" value={summary.eco2} status="watch" statusType="danger" />
+          <StatCard title="AQI" value={summary.aqi ?? "-"} status="watch" statusType="danger" />
         </section>
       </>
     );
@@ -390,12 +411,28 @@ function App() {
     );
   }
 
+  function ClassificationView() {
+  return (
+    <section className="grid">
+      <article className="card">
+        <h3>Air Classification</h3>
+          <p>
+            {latestSample.classification ?? "No classification available yet"}
+          </p>
+      </article>
+    </section>
+  );
+  } 
+
   function ChartsView() {
     /* API returns newest-first. Reverse for left-to-right time progression. */
     const series = [...samples].reverse();
     const tempData = series.map((s) => ({ t: s.timestamp, v: Number(s.temp) }));
     const humData = series.map((s) => ({ t: s.timestamp, v: Number(s.hum) }));
     const co2Data = series.map((s) => ({ t: s.timestamp, v: Number(s.co2) }));
+    const tvocData = series.map(s => ({ t: s.timestamp, v: Number(s.tvoc) }));
+    const eco2Data = series.map(s => ({ t: s.timestamp, v: Number(s.eco2) }));
+    const aqiData = series.map(s => ({ t: s.timestamp, v: Number(s.aqi) }));
 
     const stats = (arr) => {
       const vals = arr.map((d) => d.v).filter((v) => Number.isFinite(v));

@@ -48,6 +48,9 @@ if (string.Equals(Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINE
 }
 
 
+Console.WriteLine($"[startup] DB host: {dbHost}");
+Console.WriteLine($"[startup] ML URL : {mlUrl}");
+
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 36)))
 );
@@ -128,6 +131,15 @@ static async Task ApplyMigrationsWithRepairAsync(WebApplication application, ILo
     }
     catch (Exception ex)
     {
+        Console.WriteLine($"[startup] migrate failed, falling back to EnsureCreated: {ex}");
+        try
+        {
+            db.Database.EnsureCreated();
+        }
+        catch (Exception ex2)
+        {
+            Console.WriteLine($"[startup] EnsureCreated failed (continuing anyway): {ex2}");
+        }
         startupLog.LogWarning(ex, "Database.MigrateAsync failed; attempting legacy schema repair");
         await DbSchemaRepair.RepairAfterMigrateFailureAsync(db, startupLog).ConfigureAwait(false);
         await db.Database.MigrateAsync().ConfigureAwait(false);

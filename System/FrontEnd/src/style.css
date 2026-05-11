@@ -145,7 +145,7 @@ p {
 }
 
 .top-grid {
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 1fr;
 }
 
 .stats-grid {
@@ -407,4 +407,14 @@ p {
 
 .section-spacer {
   height: 16px;
+}
+
+.recommendation-item {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.recommendation-item .bullet {
+  flex-shrink: 0;
 }
