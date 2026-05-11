@@ -323,18 +323,22 @@ function App() {
           <h3>Recommendations</h3>
 
           {recommendations.length === 0 ? (
-            <p className="muted">Everything looks normal.</p>
+          <p className="muted">Everything looks normal.</p>
           ) : (
-            recommendations.map((rec, i) => (
-              <div className="recommendation-item" key={i}>
+          recommendations.map((rec, i) => (
+            <React.Fragment key={i}>
+              <div className="recommendation-item">
                 <span className="bullet">•</span>
                 <span>{rec}</span>
-              <div className="summary-row" key={i}>
+              </div>
+
+              <div className="summary-row">
                 <span>•</span>
                 <strong>{rec}</strong>
               </div>
-            ))
-          )}
+            </React.Fragment>
+          ))
+        )}
         </article>
 
         <section className="grid stats-grid">
