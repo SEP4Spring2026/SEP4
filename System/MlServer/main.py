@@ -8,10 +8,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
 BASE_DIR = Path(__file__).resolve().parent
-
-# Container build copies the joblib files to `model/` (see Dockerfile).
-# Dev runs read them straight from the training folder.
-MODEL_DIRS = [BASE_DIR / "model", BASE_DIR / "Felipe's model"]
+MODEL_DIR = BASE_DIR / "model"
 MODEL_FILE = "model_random_forest.joblib"
 SCALER_FILE = "scaler.joblib"
 
@@ -28,15 +25,13 @@ RISK_BY_CLASS = {0: "Low", 1: "Medium", 2: "High"}
 
 
 def _load_artifacts():
-    for directory in MODEL_DIRS:
-        model_path = directory / MODEL_FILE
-        scaler_path = directory / SCALER_FILE
-        if model_path.is_file() and scaler_path.is_file():
-            return joblib.load(model_path), joblib.load(scaler_path)
-    searched = ", ".join(str(d) for d in MODEL_DIRS)
-    raise FileNotFoundError(
-        f"Could not locate {MODEL_FILE} + {SCALER_FILE} in any of: {searched}"
-    )
+    model_path = MODEL_DIR / MODEL_FILE
+    scaler_path = MODEL_DIR / SCALER_FILE
+    if not (model_path.is_file() and scaler_path.is_file()):
+        raise FileNotFoundError(
+            f"Could not locate {MODEL_FILE} + {SCALER_FILE} in {MODEL_DIR}"
+        )
+    return joblib.load(model_path), joblib.load(scaler_path)
 
 
 _model, _scaler = _load_artifacts()

@@ -12,9 +12,7 @@ RUN pip install -r requirements.txt
 
 COPY main.py .
 
-# Only the trained artifacts go into the image; training data + notebooks stay out.
-COPY ["Felipe's model/model_random_forest.joblib", "model/model_random_forest.joblib"]
-COPY ["Felipe's model/scaler.joblib", "model/scaler.joblib"]
+COPY model/ ./model/
 
 RUN useradd --create-home --shell /usr/sbin/nologin appuser \
     && chown -R appuser:appuser /app
