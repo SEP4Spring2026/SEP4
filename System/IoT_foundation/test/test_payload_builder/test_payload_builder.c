@@ -54,12 +54,80 @@ void test_payload_builder_returns_error_when_buffer_is_null(void)
     TEST_ASSERT_EQUAL(-1, result);
 }
 
+void test_payload_builder_returns_error_when_buffer_too_small(void)
+{
+    char buffer[20];
+
+    int result = payload_builder_build(
+        buffer,
+        sizeof(buffer),
+        1,
+        23,
+        5,
+        45,
+        0,
+        420,
+        12,
+        400,
+        2,
+        "normal");
+
+    TEST_ASSERT_EQUAL(-1, result);
+}
+
+void test_payload_builder_returns_error_when_classification_is_null(void)
+{
+    char buffer[256];
+
+    int result = payload_builder_build(
+        buffer,
+        sizeof(buffer),
+        1,
+        23,
+        5,
+        45,
+        0,
+        420,
+        12,
+        400,
+        2,
+        NULL);
+
+    TEST_ASSERT_EQUAL(-1, result);
+}
+
+void test_payload_builder_accepts_zero_values(void)
+{
+    char buffer[256];
+
+    int result = payload_builder_build(
+        buffer,
+        sizeof(buffer),
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        "normal");
+
+    TEST_ASSERT_TRUE(result > 0);
+    TEST_ASSERT_NOT_NULL(strstr(buffer, "\"sensorId\":0"));
+    TEST_ASSERT_NOT_NULL(strstr(buffer, "\"co2Level\":0"));
+}
+
 int main(void)
 {
     UNITY_BEGIN();
 
     RUN_TEST(test_payload_builder_creates_expected_json);
     RUN_TEST(test_payload_builder_returns_error_when_buffer_is_null);
+    RUN_TEST(test_payload_builder_returns_error_when_buffer_too_small);
+    RUN_TEST(test_payload_builder_returns_error_when_classification_is_null);
+    RUN_TEST(test_payload_builder_accepts_zero_values);
 
     return UNITY_END();
 }
