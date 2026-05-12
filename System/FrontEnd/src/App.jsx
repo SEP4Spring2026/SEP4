@@ -274,27 +274,84 @@ function App() {
   };
 
   function getRecommendation(sample) {
-  if (!sample) return [];
+    if (!sample) return [];
 
-  const recs = [];
+    const recs = [];
+    const co2 = Number(sample.co2 ?? 0);
+    const temp = Number(sample.temp ?? 0);
+    const hum = Number(sample.hum ?? 0);
+    const tvoc = Number(sample.tvoc ?? 0);
+    const eco2 = Number(sample.eco2 ?? 0);
+    const aqi = Number(sample.aqi ?? 0);
+    const classification = String(sample.classification ?? "Normal").toLowerCase();
 
-  if (sample.co2 > 1000) {
-    recs.push("High CO2 detected — ventilate the room");
-  }
+    if (classification !== "normal") {
+      recs.push({
+        level: "danger",
+        title: "Fire risk detected",
+        message: `Current classification is ${sample.classification}. Check the room immediately.`,
+      });
+    }
 
-  if (sample.temp > 30) {
-    recs.push("High temperature — consider cooling or ventilation");
-  }
+    if (co2 > 2000) {
+      recs.push({
+        level: "danger",
+        title: "Unsafe CO2 level",
+        message: "CO2 is very high. Leave the room if symptoms occur and ventilate immediately.",
+      });
+    } else if (co2 > 1000) {
+      recs.push({
+        level: "warning",
+        title: "High CO2 level",
+        message: "Ventilate the room to improve air quality.",
+      });
+    }
 
-  if (sample.hum > 70) {
-    recs.push("High humidity — risk of poor air quality");
-  }
+    if (temp > 35) {
+      recs.push({
+        level: "danger",
+        title: "Very high temperature",
+        message: "Temperature is unusually high. Check for heat sources or fire risk.",
+      });
+    } else if (temp > 30) {
+      recs.push({
+        level: "warning",
+        title: "High temperature",
+        message: "Consider cooling or increasing ventilation.",
+      });
+    }
 
-  if (sample.co2 > 2000) {
-    recs.push("⚠ Possible unsafe air quality — take immediate action");
-  }
+    if (hum > 70) {
+      recs.push({
+        level: "warning",
+        title: "High humidity",
+        message: "Humidity is high. This may reduce comfort and air quality.",
+      });
+    } else if (hum < 25) {
+      recs.push({
+        level: "info",
+        title: "Low humidity",
+        message: "Air is dry. Consider increasing humidity if people stay here longer.",
+      });
+    }
 
-  return recs;
+    if (tvoc > 500 || eco2 > 1500 || aqi > 3) {
+      recs.push({
+        level: "warning",
+        title: "Air quality needs attention",
+        message: "VOC/eCO2/AQI values suggest poorer air quality. Ventilation is recommended.",
+      });
+    }
+
+    if (recs.length === 0) {
+      recs.push({
+        level: "success",
+        title: "All readings look normal",
+        message: "No immediate action is recommended.",
+      });
+    }
+
+    return recs;
   }
 
   function HomeView() {
@@ -323,23 +380,20 @@ function App() {
           <h3>Recommendations</h3>
 
           {recommendations.length === 0 ? (
-          <p className="muted">Everything looks normal.</p>
+            <p className="muted">Everything looks normal.</p>
           ) : (
-          recommendations.map((rec, i) => (
-            <React.Fragment key={i}>
-              <div className="recommendation-item">
-                <span className="bullet">•</span>
-                <span>{rec}</span>
-              </div>
-
-              <div className="summary-row">
-                <span>•</span>
-                <strong>{rec}</strong>
-              </div>
-            </React.Fragment>
-          ))
-        )}
+            <div className="recommendation-list">
+              {recommendations.map((rec, i) => (
+                <div className={`recommendation-item ${rec.level}`} key={`${rec.title}-${i}`}>
+                  <strong>{rec.title}</strong>
+                  <span>{rec.message}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </article>
+
+
 
         <section className="grid stats-grid">
           <StatCard title="Device ID" value={summary.sensorId} status="selected" statusType="success" />
