@@ -1,36 +1,60 @@
-# -------- IDE --------
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.userprefs
+appsettings.Development.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Test output
+TestResults/
+
+# IDE
+.vs/
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
 .idea/
-.vscode/
-
-# VS Code task/user settings
 *.code-workspace
-
-# -------- JetBrains --------
 *.iml
 out/
 
-# -------- Java / Maven --------
+# Java / Maven
 target/
 *.class
 *.jar
 *.war
-*.log
 
-# -------- .NET --------
-bin/
-obj/
-.vs/
+# Env / secrets
+.env
+*.env
+.env.*
+!.env.example
 
-# -------- OS junk --------
+# AI tooling artifacts
+.claude/
+.codex-temp/
+
+# OS
 .DS_Store
 Thumbs.db
 
-# -------- Generated docs --------
+# Logs
+*.log
+
+# Generated docs
 Documentation/Styles/*.log
 
-# -------- Secrets / env --------
-.env
-.env.*
-
-# -------- Docker volumes / temp --------
+# Docker volumes / temp
 mysql_data/

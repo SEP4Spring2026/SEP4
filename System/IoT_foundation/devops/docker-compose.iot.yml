@@ -1,0 +1,39 @@
+services:
+  mqtt-broker:
+    image: eclipse-mosquitto:2
+    container_name: sep4-mqtt-broker
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mqtt-data:/mosquitto/data
+      - mqtt-log:/mosquitto/log
+
+  mqtt-debug-subscriber:
+    image: eclipse-mosquitto:2
+    container_name: sep4-mqtt-debug-subscriber
+    restart: unless-stopped
+    depends_on:
+      - mqtt-broker
+    command: >
+      sh -c "
+      sleep 2 &&
+      mosquitto_sub -h mqtt-broker -p 1883 -t 'iot/readings' -v
+      "
+
+  mqtt-http-bridge:
+    build: ./mqtt_http_bridge
+    container_name: sep4-mqtt-http-bridge
+    restart: unless-stopped
+    depends_on:
+      - mqtt-broker
+    environment:
+      MQTT_HOST: mqtt-broker
+      MQTT_PORT: 1883
+      MQTT_TOPIC: iot/readings
+      BACKEND_URL: http://host.docker.internal:8080/api/readings
+
+volumes:
+  mqtt-data:
+  mqtt-log:

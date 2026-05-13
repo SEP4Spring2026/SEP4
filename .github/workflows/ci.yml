@@ -1,0 +1,141 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [Dev, main]
+  pull_request:
+    branches: [Dev, main]
+  workflow_dispatch:
+
+jobs:
+  mainserver:
+    name: MainServer (.NET)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore System/MainServer.Tests/MainServer.Tests.csproj
+
+      - name: Build
+        run: dotnet build System/MainServer.Tests/MainServer.Tests.csproj --configuration Release --no-restore
+
+      - name: Test + coverage (≥5% required)
+        run: >
+          dotnet test System/MainServer.Tests/MainServer.Tests.csproj
+          --configuration Release
+          --no-build
+          --logger "trx;LogFileName=test-results.trx"
+          --results-directory ${{ github.workspace }}/TestResults
+          /p:CollectCoverage=true
+          /p:CoverletOutputFormat=cobertura
+          /p:CoverletOutput=${{ github.workspace }}/TestResults/coverage.cobertura.xml
+          /p:Threshold=5
+          /p:ThresholdType=line
+          /p:Exclude="[*]MainServer.Migrations.*"
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          if [ -f TestResults/coverage.cobertura.xml ]; then
+            pct=$(grep -oP 'line-rate="\K[^"]+' TestResults/coverage.cobertura.xml | head -1)
+            pct_int=$(awk "BEGIN { printf \"%.1f\", $pct * 100 }")
+            echo "### MainServer line coverage: ${pct_int}%" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-test-results
+          path: TestResults/
+
+  mlserver:
+    name: MlServer (Python)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: System/MlServer
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: System/MlServer/requirements*.txt
+
+      - name: Install deps
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Test + coverage (≥50% required)
+        run: pytest --cov --cov-report=xml --cov-report=term-missing --cov-fail-under=50
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          if [ -f coverage.xml ]; then
+            pct=$(grep -oP 'line-rate="\K[^"]+' coverage.xml | head -1)
+            pct_int=$(awk "BEGIN { printf \"%.1f\", $pct * 100 }")
+            echo "### MlServer line coverage: ${pct_int}%" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-coverage
+          path: System/MlServer/coverage.xml
+
+  docker:
+    name: Build images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build MainServer image
+        uses: docker/build-push-action@v6
+        with:
+          context: System/MainServer
+          push: false
+          tags: kamtjatka/main-server:ci
+
+      - name: Build MlServer image
+        uses: docker/build-push-action@v6
+        with:
+          context: System/MlServer
+          push: false
+          tags: kamtjatka/ml-server:ci
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: System/SEP4FrontEnd
+          push: false
+          tags: kamtjatka/frontend:ci
+
+  deploy:
+    name: Deploy to VPS
+    needs: [mainserver, mlserver, docker]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/Dev' || github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Pull and rebuild on VPS
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "set -euo pipefail; cd ~/SEP4; git fetch origin; git checkout \"${BRANCH}\"; git reset --hard \"origin/${BRANCH}\"; cd System; docker compose -f docker-compose.vps.yml stop ml-server main-server frontend mqtt-http-bridge || true; docker compose -f docker-compose.vps.yml rm -f ml-server main-server frontend mqtt-http-bridge || true; for n in kamtjatka-ml kamtjatka-main kamtjatka-frontend kamtjatka-mqtt-http-bridge; do docker ps -aq --filter name=\$n | xargs -r docker rm -f || true; done; docker compose -f docker-compose.vps.yml up -d --build --remove-orphans; docker image prune -f"
