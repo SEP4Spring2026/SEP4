@@ -1,0 +1,7 @@
+@startuml
+start
+:Building administrator connects device to the internet;
+:Device sends measurements to the main server;
+:Server sends predictions to resident, building administrator and the device;
+stop
+@enduml

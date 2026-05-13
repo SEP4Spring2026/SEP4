@@ -1,0 +1,11 @@
+@startuml SSD01 Do Learning Step
+title SSD01 – Make a prediction
+!include https://raw.githubusercontent.com/fredoslav2004/MinimalThemePUML/refs/heads/main/minimal-theme.puml
+
+actor Device
+participant MainServer
+
+Device -> MainServer: Send measurement (MQTT)
+MainServer --> Device: Send prediction (MQTT)
+
+@enduml
