@@ -7,6 +7,7 @@ import { StatCard } from "./components/StatCard.jsx";
 import { SampleCard } from "./components/SampleCard.jsx";
 import { LineChart } from "./components/LineChart.jsx";
 import { LoginPage } from "./components/LoginPage.jsx";
+import { clearLogin, getStoredLogin, saveLogin } from "./services/auth.js";
 import { connectReadingsStream, getDevices, getReadings } from "./services/api.js";
 
 const SAMPLE_LIMIT_OPTIONS = [50, 100, 200, 500, 1000];
@@ -66,7 +67,7 @@ function getDeviceHealth(device, nowMs) {
   };
 }
 
-function Dashboard() {
+function Dashboard({ currentRole, onLogout }) {
   const [activeView, setActiveView] = useState("Home");
   const [samples, setSamples] = useState([]);
   const [devices, setDevices] = useState([]);
@@ -464,7 +465,7 @@ function Dashboard() {
       />
 
       <main className="content">
-        <Topbar title={pageTitles[activeView]} activeView={activeView} />
+        <Topbar title={pageTitles[activeView]} activeView={activeView} currentRole={currentRole} onLogout={onLogout} />
 
         {activeView === "Home" && <HomeView />}
         {activeView === "Sensors" && <SensorsView />}
@@ -478,28 +479,31 @@ function Dashboard() {
 }
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+  const [login, setLogin] = useState(() => {
     if (window.location.search.includes("logout=1")) {
-      window.localStorage.removeItem("sep4LoggedIn");
-      window.localStorage.removeItem("sep4Role");
+      clearLogin();
       window.history.replaceState(null, "", window.location.pathname);
-      return false;
+      return { isLoggedIn: false, role: getStoredLogin().role };
     }
 
-    return window.localStorage.getItem("sep4LoggedIn") === "true";
+    return getStoredLogin();
   });
 
   function handleLogin(role) {
-    window.localStorage.setItem("sep4LoggedIn", "true");
-    window.localStorage.setItem("sep4Role", role);
-    setIsLoggedIn(true);
+    const savedRole = saveLogin(role);
+    setLogin({ isLoggedIn: true, role: savedRole });
   }
 
-  if (!isLoggedIn) {
+  function handleLogout() {
+    clearLogin();
+    setLogin({ isLoggedIn: false, role: getStoredLogin().role });
+  }
+
+  if (!login.isLoggedIn) {
     return <LoginPage onLogin={handleLogin} />;
   }
 
-  return <Dashboard />;
+  return <Dashboard currentRole={login.role} onLogout={handleLogout} />;
 }
 
 export default App;

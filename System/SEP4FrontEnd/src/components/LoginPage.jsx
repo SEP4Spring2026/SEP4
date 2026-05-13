@@ -1,10 +1,5 @@
 import { useState } from "react";
-
-const roleOptions = [
-  { value: "resident", label: "Resident" },
-  { value: "building-administrator", label: "Building administrator" },
-  { value: "system-admin", label: "System admin" },
-];
+import { roleOptions } from "../services/auth.js";
 
 function LoginHeader() {
   return (

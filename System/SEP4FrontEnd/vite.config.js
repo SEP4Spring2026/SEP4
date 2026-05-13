@@ -1,5 +1,8 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { env } from 'node:process'
+
+const apiProxyTarget = env.VITE_API_PROXY_TARGET || "http://localhost:8080"
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -7,7 +10,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: process.env.VITE_API_PROXY_TARGET || "http://localhost:8080",
+        target: apiProxyTarget,
         changeOrigin: true,
       },
     },

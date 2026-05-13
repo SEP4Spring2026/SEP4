@@ -192,6 +192,35 @@ p {
   margin-bottom: 24px;
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  text-align: right;
+}
+
+.topbar-actions strong {
+  display: block;
+  color: #f8fafc;
+  font-size: 14px;
+}
+
+.logout-button {
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.logout-button:hover {
+  border-color: #67e8f9;
+  color: #67e8f9;
+}
+
 .grid {
   display: grid;
   gap: 16px;
@@ -445,5 +474,12 @@ p {
 
   .hero-stats {
     grid-template-columns: 1fr;
+  }
+
+  .topbar,
+  .topbar-actions {
+    align-items: flex-start;
+    flex-direction: column;
+    text-align: left;
   }
 }
