@@ -12,6 +12,8 @@ RUN pip install -r requirements.txt
 
 COPY main.py .
 
+COPY model/ ./model/
+
 RUN useradd --create-home --shell /usr/sbin/nologin appuser \
     && chown -R appuser:appuser /app
 USER appuser

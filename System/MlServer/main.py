@@ -1,8 +1,40 @@
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
+import joblib
+import numpy as np
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
+
+BASE_DIR = Path(__file__).resolve().parent
+MODEL_DIR = BASE_DIR / "model"
+MODEL_FILE = "model_random_forest.joblib"
+SCALER_FILE = "scaler.joblib"
+
+# Trained features, order is load-bearing — must match scaler.fit_transform input.
+FEATURE_ORDER = ("temperature", "humidity", "tvoc", "eco2")
+
+# Class id -> labels returned to MainServer.
+# riskLevel drives the MQTT buzzer (see AlarmMqttPublisher.MapRiskToPayload):
+#   High   -> CRITICAL
+#   Medium -> WARN (only if ALARM_PUBLISH_MEDIUM=true)
+#   Low    -> OFF
+CATEGORY_BY_CLASS = {0: "Normal", 1: "Cooking", 2: "Fire"}
+RISK_BY_CLASS = {0: "Low", 1: "Medium", 2: "High"}
+
+
+def _load_artifacts():
+    model_path = MODEL_DIR / MODEL_FILE
+    scaler_path = MODEL_DIR / SCALER_FILE
+    if not (model_path.is_file() and scaler_path.is_file()):
+        raise FileNotFoundError(
+            f"Could not locate {MODEL_FILE} + {SCALER_FILE} in {MODEL_DIR}"
+        )
+    return joblib.load(model_path), joblib.load(scaler_path)
+
+
+_model, _scaler = _load_artifacts()
 
 app = FastAPI()
 
@@ -29,15 +61,6 @@ class Prediction(BaseModel):
     riskLevel: str
 
 
-CO2_WARNING = 1000
-CO2_DANGER = 2000
-TEMP_WARNING = 40
-TEMP_DANGER = 60
-HUMIDITY_DRY = 20
-AQI_WARNING = 3
-AQI_DANGER = 5
-
-
 @app.get("/health")
 def health():
     return {"status": "ok"}
@@ -46,41 +69,19 @@ def health():
 @app.post("/predict", response_model=Prediction)
 def predict(reading: Reading):
     s = reading.sensors
-    danger = 0
-    warning = 0
+    features = np.array(
+        [[getattr(s, name) for name in FEATURE_ORDER]],
+        dtype=float,
+    )
+    scaled = _scaler.transform(features)
 
-    if s.co2Level >= CO2_DANGER:
-        danger += 1
-    elif s.co2Level >= CO2_WARNING:
-        warning += 1
+    probabilities = _model.predict_proba(scaled)[0]
+    best_index = int(np.argmax(probabilities))
+    class_id = int(_model.classes_[best_index])
+    confidence = float(probabilities[best_index])
 
-    if s.temperature >= TEMP_DANGER:
-        danger += 1
-    elif s.temperature >= TEMP_WARNING:
-        warning += 1
-
-    if s.humidity <= HUMIDITY_DRY:
-        warning += 1
-
-    if s.aqi >= AQI_DANGER:
-        danger += 1
-    elif s.aqi >= AQI_WARNING:
-        warning += 1
-
-    if danger > 0:
-        return Prediction(
-            predictedCategory="Fire",
-            confidenceScore=1.0,
-            riskLevel="High",
-        )
-    if warning > 0:
-        return Prediction(
-            predictedCategory="Warning",
-            confidenceScore=1.0,
-            riskLevel="Medium",
-        )
     return Prediction(
-        predictedCategory="Normal",
-        confidenceScore=1.0,
-        riskLevel="Low",
+        predictedCategory=CATEGORY_BY_CLASS.get(class_id, "Unknown"),
+        confidenceScore=confidence,
+        riskLevel=RISK_BY_CLASS.get(class_id, "Low"),
     )

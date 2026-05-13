@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Sidebar } from "./components/Sidebar.jsx";
 import { Topbar } from "./components/Topbar.jsx";
 import { OverviewCard } from "./components/OverviewCard.jsx";
@@ -7,13 +7,79 @@ import { StatCard } from "./components/StatCard.jsx";
 import { SampleCard } from "./components/SampleCard.jsx";
 import { LineChart } from "./components/LineChart.jsx";
 import { LoginPage } from "./components/LoginPage.jsx";
-import { connectReadingsStream, getDevices, getReadings } from "./services/api.js";
+import { connectReadingsStream, getDevices, getReadings, postAlarmTest } from "./services/api.js";
 
-const SAMPLE_LIMIT_OPTIONS = [50, 100, 200, 500, 1000];
-const DEFAULT_SAMPLE_LIMIT = 200;
+/** Passed to GET /api/readings so charts cover the last day of data. */
+const SAMPLE_WINDOW_HOURS = 24;
+const SAMPLE_LIMIT_OPTIONS = [200, 500, 1000, 2500, 5000];
+const DEFAULT_SAMPLE_LIMIT = 1000;
 const OFFLINE_AFTER_SECONDS = 120;
 
+const DISPLAY_TIMEZONE = "Europe/Rome";
+
+/** ISO 8601 using Rome wall clock and offset (+01:00 / +02:00), matching MainServer LocalReadingTimestamp. */
+function formatTimestampEuropeRome(date) {
+  const d = date instanceof Date ? date : new Date(date);
+  const instant = Number.isFinite(d.getTime()) ? d : new Date();
+
+  const wall = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: DISPLAY_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).format(instant);
+  const isoLocal = wall.replace(" ", "T");
+
+  const tzName =
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: DISPLAY_TIMEZONE,
+      timeZoneName: "longOffset",
+    })
+      .formatToParts(instant)
+      .find((p) => p.type === "timeZoneName")?.value ?? "GMT+00";
+
+  return `${isoLocal}${offsetLongGmtToIso(tzName)}`;
+}
+
+function offsetLongGmtToIso(label) {
+  const s = String(label).trim();
+  const bare = s.match(/^([+-])(\d{2}):(\d{2})$/);
+  if (bare) return `${bare[1]}${bare[2]}:${bare[3]}`;
+  const m = s.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/i);
+  if (!m) return "+00:00";
+  const hh = m[2].padStart(2, "0");
+  const mm = (m[3] ?? "00").padStart(2, "0");
+  return `${m[1]}${hh}:${mm}`;
+}
+
+/** Same nested JSON shape as the IoT → backend contract (for display). */
+function readingToContractPayload(r) {
+  const ts = r.timestamp ? new Date(r.timestamp) : null;
+  const timestamp =
+    ts && Number.isFinite(ts.getTime())
+      ? formatTimestampEuropeRome(ts)
+      : formatTimestampEuropeRome(new Date());
+  return {
+    sensorId: r.sensorId,
+    timestamp,
+    sensors: {
+      temperature: Number(r.temperature ?? 0),
+      humidity: Number(r.humidity ?? 0),
+      co2Level: Math.round(Number(r.co2Level ?? 0)),
+      tvoc: Math.round(Number(r.tvoc ?? 0)),
+      eco2: Math.round(Number(r.eco2 ?? 0)),
+      aqi: Math.round(Number(r.aqi ?? 1)),
+    },
+    classification: r.classification ?? "Normal",
+  };
+}
+
 function toSample(r) {
+  const contract = readingToContractPayload(r);
   return {
     name: `Sample ${r.readingId}`,
     sensorId: r.sensorId,
@@ -21,8 +87,12 @@ function toSample(r) {
     temp: r.temperature,
     hum: r.humidity,
     co2: r.co2Level,
-    payload: JSON.stringify(r, null, 2),
-    payloadLength: JSON.stringify(r).length,
+    tvoc: r.tvoc ?? 0,
+    eco2: r.eco2 ?? 0,
+    aqi: r.aqi ?? 1,
+    classification: r.classification ?? "Normal",
+    payload: JSON.stringify(contract, null, 2),
+    payloadLength: JSON.stringify(contract).length,
     dhtStatus: "online",
   };
 }
@@ -75,6 +145,8 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [alarmTestMessage, setAlarmTestMessage] = useState(null);
+  const [alarmTestBusy, setAlarmTestBusy] = useState(false);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNowMs(Date.now()), 10000);
@@ -99,7 +171,7 @@ function Dashboard() {
       try {
         setLoading(true);
         setError(null);
-        const data = await getReadings(selectedSensorId, selectedLimit);
+        const data = await getReadings(selectedSensorId, selectedLimit, SAMPLE_WINDOW_HOURS);
         const mappedSamples = data.map(toSample);
 
         setSamples(mappedSamples);
@@ -182,11 +254,15 @@ function Dashboard() {
     .filter((entry) => entry.health.missingData);
 
   const summary = {
-    temp: latestSample.temp,
-    hum: latestSample.hum,
-    co2: latestSample.co2,
-    sensorId: latestSample.sensorId,
-    payloadLength: latestSample.payloadLength
+  sensorId: latestSample.sensorId,
+  
+  temp: latestSample.temp,
+  hum: latestSample.hum,
+  co2: latestSample.co2,
+
+  tvoc: latestSample.tvoc,
+  eco2: latestSample.eco2,
+  aqi: latestSample.aqi,
   };
 
   const pageTitles = {
@@ -198,7 +274,89 @@ function Dashboard() {
     Settings: "Settings",
   };
 
+  function getRecommendation(sample) {
+    if (!sample) return [];
+
+    const recs = [];
+    const co2 = Number(sample.co2 ?? 0);
+    const temp = Number(sample.temp ?? 0);
+    const hum = Number(sample.hum ?? 0);
+    const tvoc = Number(sample.tvoc ?? 0);
+    const eco2 = Number(sample.eco2 ?? 0);
+    const aqi = Number(sample.aqi ?? 0);
+    const classification = String(sample.classification ?? "Normal").toLowerCase();
+
+    if (classification !== "normal") {
+      recs.push({
+        level: "danger",
+        title: "Fire risk detected",
+        message: `Current classification is ${sample.classification}. Check the room immediately.`,
+      });
+    }
+
+    if (co2 > 2000) {
+      recs.push({
+        level: "danger",
+        title: "Unsafe CO2 level",
+        message: "CO2 is very high. Leave the room if symptoms occur and ventilate immediately.",
+      });
+    } else if (co2 > 1000) {
+      recs.push({
+        level: "warning",
+        title: "High CO2 level",
+        message: "Ventilate the room to improve air quality.",
+      });
+    }
+
+    if (temp > 35) {
+      recs.push({
+        level: "danger",
+        title: "Very high temperature",
+        message: "Temperature is unusually high. Check for heat sources or fire risk.",
+      });
+    } else if (temp > 30) {
+      recs.push({
+        level: "warning",
+        title: "High temperature",
+        message: "Consider cooling or increasing ventilation.",
+      });
+    }
+
+    if (hum > 70) {
+      recs.push({
+        level: "warning",
+        title: "High humidity",
+        message: "Humidity is high. This may reduce comfort and air quality.",
+      });
+    } else if (hum < 25) {
+      recs.push({
+        level: "info",
+        title: "Low humidity",
+        message: "Air is dry. Consider increasing humidity if people stay here longer.",
+      });
+    }
+
+    if (tvoc > 500 || eco2 > 1500 || aqi > 3) {
+      recs.push({
+        level: "warning",
+        title: "Air quality needs attention",
+        message: "VOC/eCO2/AQI values suggest poorer air quality. Ventilation is recommended.",
+      });
+    }
+
+    if (recs.length === 0) {
+      recs.push({
+        level: "success",
+        title: "All readings look normal",
+        message: "No immediate action is recommended.",
+      });
+    }
+
+    return recs;
+  }
+
   function HomeView() {
+    const recommendations = getRecommendation(latestSample);
     return (
       <>
         <section className="grid top-grid">
@@ -206,11 +364,46 @@ function Dashboard() {
           <PayloadCard payload={latestSample.payload} />
         </section>
 
+        <div className="section-spacer" />
+
+        <section className="grid">
+          <article className="card">
+            <h3>Room Environment Classification</h3>
+              <p>
+                {latestSample.classification ?? "No classification available yet"}
+              </p>
+          </article>
+        </section>
+        
+        <div className="section-spacer" />
+
+        <article className="card">
+          <h3>Recommendations</h3>
+
+          {recommendations.length === 0 ? (
+            <p className="muted">Everything looks normal.</p>
+          ) : (
+            <div className="recommendation-list">
+              {recommendations.map((rec, i) => (
+                <div className={`recommendation-item ${rec.level}`} key={`${rec.title}-${i}`}>
+                  <strong>{rec.title}</strong>
+                  <span>{rec.message}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </article>
+
+
+
         <section className="grid stats-grid">
           <StatCard title="Device ID" value={summary.sensorId} status="selected" statusType="success" />
           <StatCard title="Temperature" value={summary.temp} status="stable" statusType="success" />
           <StatCard title="Humidity" value={summary.hum} status="stable" statusType="success" />
           <StatCard title="CO2" value={summary.co2} status="watch" statusType="danger" />
+          <StatCard title="TVOC" value={summary.tvoc} status="watch" statusType="danger" />
+          <StatCard title="eCO2" value={summary.eco2} status="watch" statusType="danger" />
+          <StatCard title="AQI" value={summary.aqi ?? "-"} status="watch" statusType="danger" />
         </section>
       </>
     );
@@ -277,12 +470,28 @@ function Dashboard() {
     );
   }
 
+  function ClassificationView() {
+  return (
+    <section className="grid">
+      <article className="card">
+        <h3>Air Classification</h3>
+          <p>
+            {latestSample.classification ?? "No classification available yet"}
+          </p>
+      </article>
+    </section>
+  );
+  } 
+
   function ChartsView() {
     /* API returns newest-first. Reverse for left-to-right time progression. */
     const series = [...samples].reverse();
     const tempData = series.map((s) => ({ t: s.timestamp, v: Number(s.temp) }));
     const humData = series.map((s) => ({ t: s.timestamp, v: Number(s.hum) }));
     const co2Data = series.map((s) => ({ t: s.timestamp, v: Number(s.co2) }));
+    const tvocData = series.map(s => ({ t: s.timestamp, v: Number(s.tvoc) }));
+    const eco2Data = series.map(s => ({ t: s.timestamp, v: Number(s.eco2) }));
+    const aqiData = series.map(s => ({ t: s.timestamp, v: Number(s.aqi) }));
 
     const stats = (arr) => {
       const vals = arr.map((d) => d.v).filter((v) => Number.isFinite(v));
@@ -330,7 +539,7 @@ function Dashboard() {
           <div className="card-header">
             <div>
               <h3>Averages over {totalCount} samples</h3>
-              <p className="muted">Aggregated from the latest readings on the broker</p>
+              <p className="muted">Last 24 hours of readings (up to your sample cap)</p>
             </div>
             <span className="tag">Live</span>
           </div>
@@ -408,9 +617,70 @@ function Dashboard() {
     );
   }
 
+  async function runAlarmTest(level) {
+    if (selectedSensorId === "all") {
+      setAlarmTestMessage({ type: "error", text: "Choose a device in the sidebar first." });
+      return;
+    }
+    setAlarmTestBusy(true);
+    setAlarmTestMessage(null);
+    try {
+      await postAlarmTest(Number(selectedSensorId), level);
+      setAlarmTestMessage({ type: "ok", text: "MQTT command sent to the board." });
+    } catch (err) {
+      setAlarmTestMessage({
+        type: "error",
+        text: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setAlarmTestBusy(false);
+    }
+  }
+
   function SettingsView() {
     return (
       <section className="grid settings-grid">
+        <article className="card">
+          <h3>Buzzer test</h3>
+          <p className="muted">
+            Sends the same MQTT payloads as ML alarms (<code>iot/alarm/</code> + device id). Pick a device in the
+            sidebar.
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: 12 }}>
+            <button
+              type="button"
+              className="menu-item"
+              style={{ width: "auto", display: "inline-block", textAlign: "center" }}
+              disabled={alarmTestBusy}
+              onClick={() => runAlarmTest("critical")}
+            >
+              Critical pattern
+            </button>
+            <button
+              type="button"
+              className="menu-item"
+              style={{ width: "auto", display: "inline-block", textAlign: "center" }}
+              disabled={alarmTestBusy}
+              onClick={() => runAlarmTest("warn")}
+            >
+              Short warn
+            </button>
+            <button
+              type="button"
+              className="menu-item"
+              style={{ width: "auto", display: "inline-block", textAlign: "center" }}
+              disabled={alarmTestBusy}
+              onClick={() => runAlarmTest("off")}
+            >
+              Silence (OFF)
+            </button>
+          </div>
+          {alarmTestMessage ? (
+            <p className={alarmTestMessage.type === "error" ? "danger" : "muted"} style={{ marginTop: 12 }}>
+              {alarmTestMessage.text}
+            </p>
+          ) : null}
+        </article>
         <article className="card">
           <h3>Sensor Health</h3>
           <div className="summary-row">

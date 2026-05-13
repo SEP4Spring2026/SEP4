@@ -9,17 +9,17 @@ Content-Type: application/json
   "sensorId": 101,
   "timestamp": "2026-04-08T12:15:00Z",
   "sensors": {
-    "temperature": 24,
-    "humidity": 45,
-    "co2Level": 600,
+    "temperature": 24.5,
+    "humidity": 45.2,
+    "co2Level": 503,
     "tvoc": 28,
     "eco2": 410,
     "aqi": 1
   },
-  "classification": "No Smoke"
+  "classification": "Normal"
 }
 
-### Warning reading — high CO2 (>=1000) should classify as Warning/Medium
+### Cooking reading — warm + humid kitchen with elevated TVOC/eCO2 should classify as Cooking/Medium
 POST {{host}}/api/readings
 Content-Type: application/json
 
@@ -27,17 +27,17 @@ Content-Type: application/json
   "sensorId": 102,
   "timestamp": "2026-04-08T12:15:30Z",
   "sensors": {
-    "temperature": 25,
-    "humidity": 50,
+    "temperature": 28,
+    "humidity": 60,
     "co2Level": 1200,
-    "tvoc": 80,
-    "eco2": 900,
+    "tvoc": 800,
+    "eco2": 1200,
     "aqi": 3
   },
-  "classification": "No Smoke"
+  "classification": "Cooking"
 }
 
-### Fire reading — high temp (>=60) and danger CO2 (>=2000) should classify as Fire/High
+### Fire reading — hot, very dry, very high eCO2 should classify as Fire/High
 POST {{host}}/api/readings
 Content-Type: application/json
 
@@ -45,14 +45,14 @@ Content-Type: application/json
   "sensorId": 101,
   "timestamp": "2026-04-08T12:16:00Z",
   "sensors": {
-    "temperature": 65,
+    "temperature": 38,
     "humidity": 15,
     "co2Level": 2500,
-    "tvoc": 400,
-    "eco2": 2200,
+    "tvoc": 1000,
+    "eco2": 8000,
     "aqi": 5
   },
-  "classification": "Smoke"
+  "classification": "Fire"
 }
 
 ### Get latest 200 readings with their predictions (default limit)

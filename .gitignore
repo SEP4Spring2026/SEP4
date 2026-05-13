@@ -26,6 +26,7 @@ TestResults/
 !.vscode/launch.json
 !.vscode/tasks.json
 .idea/
+.history/
 *.code-workspace
 *.iml
 out/

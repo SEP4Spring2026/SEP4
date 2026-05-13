@@ -80,7 +80,7 @@ export function Sidebar({
       <div className="status-card device-card">
         <p className="muted">Sample window</p>
         <label className="device-select-label" htmlFor="sample-limit-select">
-          Last N samples
+          Max samples (last 24 h)
         </label>
         <select
           id="sample-limit-select"
