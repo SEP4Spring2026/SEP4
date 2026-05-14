@@ -1,7 +1,28 @@
 @startuml
 start
+:Building administrator plugs device to an energy source;
 :Building administrator connects device to the internet;
-:Device sends measurements to the main server;
-:Server sends predictions to resident, building administrator and the device;
+
+if(Connection succesful?) then (Yes)
+:Device sends measurements to the main server every 5 seconds;
+else(No)
+:Building administrator tries to connect the device again #Change arrow pointer to start;
+endif
+
+:Main Server receives the measurements and sends them foward to the ML Server;
+if(Received?) then (Yes)
+:ML Server predicts the most probable category/state of the room;
+:ML Server sends prediction to Main Server;
+else(No)
+:Main Server sends an error message to the front-end #Debatable (maybe just keep going silently);
+stop
+endif
+:Main server sends prediction to the front-end and the device;
+:Front-end displays results;
+if(Dangerous fire?) then (Yes)
+:Buzzer in device beeps;
+else(No)
+:Do not do anything;
+endif
 stop
 @enduml
