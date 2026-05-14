@@ -6,8 +6,9 @@ using MQTTnet.Client;
 namespace MainServer.Services;
 
 /// <summary>
-/// Publishes ML-derived risk to MQTT so boards can sound the buzzer.
-/// Payloads align with <see cref="MlServerThresholds"/> (MlServer /predict → riskLevel).
+/// Publishes ML classification to MQTT for the IoT buzzer.
+/// Buzzer sounds only when <c>predictedCategory</c> is Fire → payload <c>CRITICAL</c>;
+/// Normal and Cooking (and unknown) → <c>OFF</c> to silence the buzzer.
 /// Topic: <c>iot/alarm/{sensorId}</c> — ASCII payloads: <c>CRITICAL</c>, <c>WARN</c>, <c>OFF</c>.
 /// </summary>
 public sealed class AlarmMqttPublisher : IAsyncDisposable
@@ -74,6 +75,38 @@ public sealed class AlarmMqttPublisher : IAsyncDisposable
             "off" or "silence" => "OFF",
             _ => null,
         };
+    }
+
+    /// <summary>
+    /// Maps ML <c>predictedCategory</c> (Normal, Cooking, Fire) to MQTT buzzer payload.
+    /// Only Fire triggers CRITICAL; all other values send OFF.
+    /// </summary>
+    public static string MapPredictedCategoryToAlarmPayload(string? predictedCategory)
+    {
+        if (string.Equals(predictedCategory?.Trim(), "Fire", StringComparison.OrdinalIgnoreCase))
+            return "CRITICAL";
+        return "OFF";
+    }
+
+    /// <summary>Publishes buzzer state from ML classification (Fire → CRITICAL, else OFF).</summary>
+    public async Task PublishForPredictedCategoryAsync(
+        int sensorId,
+        string? predictedCategory,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsEnabled || Volatile.Read(ref _disposedFlag) != 0)
+            return;
+
+        var payload = MapPredictedCategoryToAlarmPayload(predictedCategory);
+
+        try
+        {
+            await PublishPayloadCoreAsync(sensorId, payload, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Alarm MQTT publish failed for sensor {SensorId}, payload {Payload}", sensorId, payload);
+        }
     }
 
     public async Task PublishRiskLevelAsync(int sensorId, string riskLevel, CancellationToken cancellationToken = default)
