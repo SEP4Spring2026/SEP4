@@ -1,0 +1,35 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: kamtjatka-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: kamtjatka_fire_db
+      MYSQL_USER: kamtjatka_user
+      MYSQL_PASSWORD: kamtjatka_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - kamtjatka_mysql_data:/var/lib/mysql
+      - ./Implementation/Database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./Implementation/Database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+    networks:
+      - kamtjatka-network
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: kamtjatka-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - kamtjatka-network
+
+volumes:
+  kamtjatka_mysql_data:
+
+networks:
+  kamtjatka-network:
+    driver: bridge

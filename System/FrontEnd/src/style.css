@@ -131,6 +131,59 @@ p {
   padding: 24px;
 }
 
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: #111827;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  display: grid;
+  gap: 28px;
+}
+
+.login-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.login-copy {
+  display: grid;
+  gap: 8px;
+}
+
+.login-field {
+  display: grid;
+  gap: 8px;
+}
+
+.login-copy h2 {
+  margin: 0;
+  font-size: 30px;
+}
+
+.login-button {
+  width: 100%;
+  border: 0;
+  border-radius: 10px;
+  padding: 14px 18px;
+  background: #22d3ee;
+  color: #082f49;
+  font: inherit;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.login-button:hover {
+  background: #67e8f9;
+}
+
 .topbar {
   display: flex;
   align-items: center;
