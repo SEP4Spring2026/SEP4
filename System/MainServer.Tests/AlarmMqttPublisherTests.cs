@@ -30,4 +30,15 @@ public class AlarmMqttPublisherTests
     [Fact]
     public void NormalizeAlarmTestLevel_Invalid_ReturnsNull() =>
         Assert.Null(AlarmMqttPublisher.NormalizeAlarmTestLevel("nope"));
+
+    [Theory]
+    [InlineData("Fire", "CRITICAL")]
+    [InlineData("fire", "CRITICAL")]
+    [InlineData("FIRE", "CRITICAL")]
+    [InlineData("Normal", "OFF")]
+    [InlineData("Cooking", "OFF")]
+    [InlineData("", "OFF")]
+    [InlineData(null, "OFF")]
+    public void MapPredictedCategoryToAlarmPayload_FireOnlyCritical(string? category, string expected) =>
+        Assert.Equal(expected, AlarmMqttPublisher.MapPredictedCategoryToAlarmPayload(category));
 }

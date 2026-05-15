@@ -1,0 +1,147 @@
+' =========================
+' Domain model v2 for Kamtjatka Fire Detection System
+' Updated from the project description and current backend sensor fields.
+' Focus: monitoring rooms, distinguishing real fire risks from common false alarms,
+' and supporting residents/managers with alerts and incident documentation.
+' =========================
+
+@startuml
+title Kamtjatka Fire Detection System - Domain Model v2
+
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam monochrome true
+skinparam linetype ortho
+skinparam nodesep 90
+skinparam ranksep 90
+skinparam packageStyle rectangle
+
+left to right direction
+
+package "Building" {
+  class Residence {
+    residenceId : int
+    name : String
+    address : String
+  }
+
+  class Room {
+    roomId : int
+    roomNumber : String
+    floor : int
+    roomType : String
+    occupancyStatus : String
+  }
+}
+
+package "Users" {
+  abstract class User {
+    userId : int
+    fullName : String
+    email : String
+    passwordHash : String
+    phoneNumber : String
+    role : String
+  }
+
+  class Resident {
+    studentId : String
+  }
+
+  class Manager {
+    employeeId : String
+    officeLocation : String
+  }
+}
+
+package "Monitoring" {
+  class SensorDevice {
+    sensorId : int
+    serialNumber : String
+    sensorType : String
+    installedAt : DateTime
+    status : String
+    firmwareVersion : String
+  }
+
+  class SensorReading {
+    readingId : int
+    timestamp : DateTime
+    temperature : double
+    humidity : double
+    co2Level : double
+    smokeLevel : double
+    tvoc : double
+    eco2 : double
+    aqi : int
+    classification : String
+  }
+
+  class Prediction {
+    predictionId : int
+    predictionTime : DateTime
+    predictedCategory : String
+    confidenceScore : double
+    riskLevel : String
+  }
+
+  class DetectionEvent {
+    eventId : int
+    startTime : DateTime
+    endTime : DateTime
+    eventStatus : String
+    severityLevel : String
+    detectedAs : String
+    suspectedCause : String
+  }
+
+  class Alert {
+    alertId : int
+    createdAt : DateTime
+    alertType : String
+    message : String
+    priority : String
+    status : String
+  }
+
+  class IncidentReport {
+    reportId : int
+    createdAt : DateTime
+    description : String
+    outcome : String
+    costAmount : double
+  }
+}
+
+Residence -[hidden]down- Room
+User -[hidden]down- Resident
+Resident -[hidden]right- Manager
+SensorDevice -[hidden]down- SensorReading
+SensorReading -[hidden]down- Prediction
+DetectionEvent -[hidden]down- Alert
+Alert -[hidden]right- IncidentReport
+
+User <|-- Resident
+User <|-- Manager
+
+Residence "1" --> "1..*" Room : contains
+Residence "1" --> "1..*" Manager : managed by
+
+Room "1" --> "0..*" Resident : occupied by
+Room "1" --> "1..*" SensorDevice : equipped with
+Room "1" --> "0..*" DetectionEvent : has
+
+SensorDevice "1" --> "0..*" SensorReading : produces
+SensorReading "1" --> "0..1" Prediction : analyzed as
+
+DetectionEvent "1" --> "1..*" SensorReading : based on
+DetectionEvent "1" --> "0..1" Prediction : supported by
+DetectionEvent "1" --> "0..*" Alert : triggers
+DetectionEvent "1" --> "0..1" IncidentReport : documented in
+
+Manager "1" --> "0..*" Alert : monitors
+Manager "1" --> "0..*" IncidentReport : reviews
+Resident "1" --> "0..*" Alert : receives
+Resident "1" --> "0..*" IncidentReport : involved in
+
+@enduml

@@ -94,7 +94,7 @@ var alarmMqtt = Environment.GetEnvironmentVariable("ALARM_MQTT_HOST")?.Trim();
 if (!string.IsNullOrEmpty(alarmMqtt))
 {
     startupLogger.LogInformation(
-        "Alarm MQTT: {Host} (ML risk High→CRITICAL, Low→OFF; Medium→WARN only if ALARM_PUBLISH_MEDIUM=true)",
+        "Alarm MQTT: {Host} (ML predictedCategory Fire→CRITICAL; Normal/Cooking→OFF)",
         alarmMqtt);
 }
 

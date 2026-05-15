@@ -16,10 +16,8 @@ SCALER_FILE = "scaler.joblib"
 FEATURE_ORDER = ("temperature", "humidity", "tvoc", "eco2")
 
 # Class id -> labels returned to MainServer.
-# riskLevel drives the MQTT buzzer (see AlarmMqttPublisher.MapRiskToPayload):
-#   High   -> CRITICAL
-#   Medium -> WARN (only if ALARM_PUBLISH_MEDIUM=true)
-#   Low    -> OFF
+# MainServer maps predictedCategory to MQTT: Fire -> CRITICAL; Normal/Cooking -> OFF.
+# riskLevel is informational for dashboards.
 CATEGORY_BY_CLASS = {0: "Normal", 1: "Cooking", 2: "Fire"}
 RISK_BY_CLASS = {0: "Low", 1: "Medium", 2: "High"}
 
