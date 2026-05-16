@@ -1,0 +1,202 @@
+@startuml iot_system_design
+title System Design Diagram (Runtime)
+
+skinparam shadowing false
+skinparam linetype ortho
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam defaultTextAlignment center
+
+skinparam class {
+  BackgroundColor #FFF8C6
+  BorderColor Black
+  FontSize 12
+}
+
+skinparam package {
+  BackgroundColor #F7F7F7
+  BorderColor Black
+  FontSize 13
+}
+
+skinparam note {
+  BackgroundColor #FFD6D6
+  BorderColor #A05050
+  FontSize 11
+}
+
+' =========================================================
+' MAIN RUNTIME DIAGRAM
+' =========================================================
+
+package "Runtime Firmware on ATmega2560" as RUNTIME {
+
+  package "Application Controller" as APP {
+    class "main.c" as MAIN <<module>> {
+      + main() : int
+      --
+      - app_enable_global_interrupts()
+      - app_delay_ms()
+      - app_serial_debug_flush()
+      - app_log_wifi_step()
+      - mqtt_build_alarm_topic()
+      - mqtt_build_client_id()
+      - mqtt_rx_callback()
+      - mqtt_connect_over_tcp()
+      - mqtt_publish_over_tcp()
+    }
+
+    note right of MAIN
+      main.c is the application controller.
+
+      It initializes serial debug, WiFi, MQTT and sensors.
+      It runs the main loop.
+      It reads sensor values.
+      It calls build_payload() from sensors.c/h.
+      It publishes readings to MQTT.
+      It receives alarm messages through mqtt_rx_callback().
+      It controls buzzer reaction.
+    end note
+  }
+
+  package "Driver / Service Modules" as DRV {
+    class "sensors.c / sensors.h" as SENSORS <<driver facade>> {
+      + sensors_init()
+      + read_co2() : int
+      + read_temperature() : float
+      + read_humidity() : float
+      + read_air_quality() : int
+      + build_payload(buffer, sensor_id) : void
+    }
+
+    class "wifi.c / wifi.h" as WIFI <<driver>> {
+      + wifi_init()
+      + wifi_command_AT()
+      + wifi_command_join_AP()
+      + wifi_command_create_TCP_connection()
+      + wifi_command_TCP_transmit()
+      + wifi_command_close_TCP_connection()
+    }
+
+    class "buzzer.c / buzzer.h" as BUZZER <<driver>> {
+      + buzzer_init_silent()
+      + buzzer_beep()
+    }
+
+    class "uart_stdio.c / uart_stdio.h" as UARTSTDIO <<support>> {
+      + uart_stdio_init()
+    }
+
+    class "uart.c / uart.h" as UART <<driver>> {
+      + UART communication
+    }
+
+    class "ringbuffer.c / ringbuffer.h" as RBUF <<runtime support>> {
+      + ringbuffer_create()
+      + ringbuffer_push()
+      + ringbuffer_destroy()
+    }
+  }
+
+  package "Sensor / Bus Drivers" as SDRV {
+    class "dht11.c / dht11.h" as DHT11 <<driver>> {
+      + DHT11 temperature/humidity
+    }
+
+    class "co2.c / co2.h" as CO2 <<driver>> {
+      + MH-Z19B CO2
+    }
+
+    class "ens160.c / ens160.h" as ENS160 <<driver>> {
+      + ENS160 TVOC/eCO2/AQI
+    }
+
+    class "i2c.c / i2c.h" as I2C <<driver>> {
+      + I2C bus
+    }
+  }
+
+  package "Hardware" as HW {
+    class "ATmega2560 Board" as BOARD <<hardware>>
+    class "DHT11 Sensor" as DHT11_HW <<hardware>>
+    class "MH-Z19B CO2 Sensor" as CO2_HW <<hardware>>
+    class "ENS160 Sensor" as ENS160_HW <<hardware>>
+    class "ESP8266 WiFi Module" as ESP8266_HW <<hardware>>
+    class "Buzzer" as BUZZER_HW <<hardware>>
+  }
+}
+
+class "MQTT Broker / VPS\n<<external service>>\n\nPublish topic: iot/readings\nAlarm topic: iot/alarm/{id}" as BROKER
+
+package "Unity Test Modules" as TESTS {
+  class "PlatformIO native + Unity" as UNITY <<test runner>> {
+    + 30 test cases
+    + pure logic tests
+    + no hardware required
+  }
+
+  class "payload_builder.c / .h" as TPAY <<test utility>>
+  class "alarm_logic.c / .h" as TALARM <<test utility>>
+  class "sensor_validation.c / .h" as TVAL <<test utility>>
+  class "sensor_fallback.c / .h" as TFALL <<test utility>>
+  class "buzzer_behavior.c / .h" as TBUZ <<test utility>>
+  class "mqtt_message_format.c / .h" as TMQTT <<test utility>>
+
+  note right of UNITY
+    These modules are used only for Unity testing.
+
+    They are not part of the runtime firmware flow.
+
+    Important:
+    main.c still uses build_payload()
+    from sensors.c/h, not payload_builder_build().
+  end note
+}
+
+' =========================================================
+' LAYOUT HELPERS
+' =========================================================
+
+APP -[hidden]down- DRV
+DRV -[hidden]down- HW
+DRV -[hidden]right- TESTS
+DRV -[hidden]down- SDRV
+HW -[hidden]right- SDRV
+
+' =========================================================
+' RUNTIME RELATIONSHIPS
+' =========================================================
+
+MAIN --> SENSORS : reads values\nbuilds payload
+MAIN --> WIFI : WiFi / TCP / MQTT
+MAIN --> BUZZER : alarm reaction
+MAIN --> UARTSTDIO : serial debug
+MAIN --> BROKER : publish readings
+BROKER --> MAIN : alarm message
+
+WIFI --> UART : uses UART
+UARTSTDIO --> UART : uses UART
+SENSORS --> DHT11 : temperature / humidity
+SENSORS --> CO2 : CO2
+SENSORS --> ENS160 : TVOC / eCO2 / AQI
+ENS160 --> I2C : uses I2C
+
+MAIN --> BOARD : runs on
+WIFI --> ESP8266_HW
+BUZZER --> BUZZER_HW
+DHT11 --> DHT11_HW
+CO2 --> CO2_HW
+ENS160 --> ENS160_HW
+
+' =========================================================
+' TEST RELATIONSHIPS
+' =========================================================
+
+UNITY ..> TPAY : tests
+UNITY ..> TALARM : tests
+UNITY ..> TVAL : tests
+UNITY ..> TFALL : tests
+UNITY ..> TBUZ : tests
+UNITY ..> TMQTT : tests
+
+@enduml
