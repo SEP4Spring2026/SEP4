@@ -1,0 +1,59 @@
+.status-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #111827;
+  color: #f8fafc;
+}
+
+.status-panel {
+  width: min(440px, 100%);
+  padding: 24px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 20px;
+  background: #1e293b;
+  text-align: left;
+}
+
+.status-panel-badge {
+  width: 42px;
+  height: 42px;
+  margin-bottom: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #22d3ee;
+  color: #082f49;
+  font-weight: 700;
+}
+
+.status-panel h1 {
+  margin: 8px 0 10px;
+  color: #f8fafc;
+  font-size: 30px;
+  line-height: 1.15;
+}
+
+.status-panel-copy {
+  margin: 0;
+  color: #b6c7dc;
+  font-size: 15px;
+}
+
+.status-panel-button {
+  margin-top: 22px;
+  border: 0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: #22d3ee;
+  color: #082f49;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.status-panel-button:hover {
+  background: #67e8f9;
+}
