@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Sidebar } from "./components/Sidebar.jsx";
 import { Topbar } from "./components/Topbar.jsx";
 import { OverviewCard } from "./components/OverviewCard.jsx";
@@ -6,6 +6,8 @@ import { PayloadCard } from "./components/PayloadCard.jsx";
 import { StatCard } from "./components/StatCard.jsx";
 import { SampleCard } from "./components/SampleCard.jsx";
 import { LineChart } from "./components/LineChart.jsx";
+import { LoginPage } from "./components/Login/index.js";
+import { StatusScreen } from "./components/StatusScreen/index.js";
 import { connectReadingsStream, getDevices, getReadings, postAlarmTest } from "./services/api.js";
 
 /** Passed to GET /api/readings so charts cover the last day of data. */
@@ -135,7 +137,7 @@ function getDeviceHealth(device, nowMs) {
   };
 }
 
-function App() {
+function Dashboard({ onBackToLogin }) {
   const [activeView, setActiveView] = useState("Home");
   const [samples, setSamples] = useState([]);
   const [devices, setDevices] = useState([]);
@@ -239,9 +241,31 @@ function App() {
     };
   }, [selectedSensorId, selectedLimit]);
 
-  if (loading) return <div style={{ padding: 24 }}>Loading...</div>;
-  if (error) return <div style={{ padding: 24 }}>Failed to reach the API. Is the main server running?</div>;
-  if (!samples.length) return <div style={{ padding: 24 }}>No readings found for this device selection.</div>;
+  if (loading) {
+    return <StatusScreen title="Loading dashboard" message="Preparing the latest sensor readings." />;
+  }
+
+  if (error) {
+    return (
+      <StatusScreen
+        title="Dashboard offline"
+        message="The frontend is running, but the backend API is not reachable right now."
+        actionLabel="Back to sign in"
+        onAction={onBackToLogin}
+      />
+    );
+  }
+
+  if (!samples.length) {
+    return (
+      <StatusScreen
+        title="No readings found"
+        message="There are no readings for this device selection yet."
+        actionLabel="Back to sign in"
+        onAction={onBackToLogin}
+      />
+    );
+  }
 
   const latestSample = samples[0];
   const latestDeviceHealth = getDeviceHealth(
@@ -744,6 +768,16 @@ function App() {
       </main>
     </div>
   );
+}
+
+function App() {
+  const [userRole, setUserRole] = useState(null);
+
+  if (!userRole) {
+    return <LoginPage onSignIn={setUserRole} />;
+  }
+
+  return <Dashboard onBackToLogin={() => setUserRole(null)} />;
 }
 
 export default App;
