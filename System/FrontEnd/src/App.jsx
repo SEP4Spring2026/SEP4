@@ -9,8 +9,8 @@ import { LineChart } from "./components/LineChart.jsx";
 import { LoginPage } from "./components/LoginPage.jsx";
 import { connectReadingsStream, getDevices, getReadings, postAlarmTest } from "./services/api.js";
 
-/** Passed to GET /api/readings so charts cover the last day of data. */
-const SAMPLE_WINDOW_HOURS = 24;
+/** Passed to GET /api/readings so charts cover the last week of demo data. */
+const SAMPLE_WINDOW_HOURS = 168;
 const SAMPLE_LIMIT_OPTIONS = [200, 500, 1000, 2500, 5000];
 const DEFAULT_SAMPLE_LIMIT = 1000;
 const OFFLINE_AFTER_SECONDS = 120;
@@ -136,6 +136,86 @@ function getDeviceHealth(device, nowMs) {
   };
 }
 
+function buildDisplayAlerts(samples, offlineAlerts) {
+  const latestBySensor = new Map();
+  samples.forEach((sample) => {
+    if (!latestBySensor.has(sample.sensorId)) {
+      latestBySensor.set(sample.sensorId, sample);
+    }
+  });
+
+  const alerts = offlineAlerts.map((alert) => ({
+    id: `offline-${alert.sensorId}`,
+    severity: "critical",
+    title: `Device ${alert.sensorId} is offline`,
+    message: `Last seen ${alert.health.lastSeenLabel}. Check the sensor connection or power.`,
+    sensorId: alert.sensorId,
+  }));
+
+  latestBySensor.forEach((sample) => {
+    const sensorId = sample.sensorId;
+    const classification = String(sample.classification ?? "Normal");
+    const normalizedClassification = classification.toLowerCase();
+    const co2 = Number(sample.co2 ?? 0);
+    const temp = Number(sample.temp ?? 0);
+    const tvoc = Number(sample.tvoc ?? 0);
+    const eco2 = Number(sample.eco2 ?? 0);
+    const aqi = Number(sample.aqi ?? 0);
+
+    if (normalizedClassification !== "normal") {
+      const isFire = normalizedClassification.includes("fire");
+      alerts.push({
+        id: `classification-${sensorId}-${normalizedClassification}`,
+        severity: isFire ? "critical" : "warning",
+        title: `${classification} classification detected`,
+        message: `Device ${sensorId} reported ${classification}. Inspect the room status.`,
+        sensorId,
+      });
+    }
+
+    if (co2 > 2000) {
+      alerts.push({
+        id: `co2-critical-${sensorId}`,
+        severity: "critical",
+        title: "Unsafe CO2 level",
+        message: `Device ${sensorId} reports ${co2} ppm CO2. Ventilate immediately.`,
+        sensorId,
+      });
+    } else if (co2 > 1000) {
+      alerts.push({
+        id: `co2-warning-${sensorId}`,
+        severity: "warning",
+        title: "High CO2 level",
+        message: `Device ${sensorId} reports ${co2} ppm CO2. Ventilation is recommended.`,
+        sensorId,
+      });
+    }
+
+    if (temp > 35) {
+      alerts.push({
+        id: `temperature-${sensorId}`,
+        severity: temp > 50 ? "critical" : "warning",
+        title: "High temperature",
+        message: `Device ${sensorId} reports ${temp} C. Check for heat sources.`,
+        sensorId,
+      });
+    }
+
+    if (tvoc > 500 || eco2 > 1500 || aqi > 3) {
+      alerts.push({
+        id: `air-quality-${sensorId}`,
+        severity: "warning",
+        title: "Air quality needs attention",
+        message: `Device ${sensorId} reports TVOC ${tvoc}, eCO2 ${eco2}, AQI ${aqi}.`,
+        sensorId,
+      });
+    }
+  });
+
+  const severityRank = { critical: 0, warning: 1, info: 2 };
+  return alerts.sort((a, b) => severityRank[a.severity] - severityRank[b.severity]);
+}
+
 function Dashboard() {
   const [activeView, setActiveView] = useState("Home");
   const [samples, setSamples] = useState([]);
@@ -147,6 +227,7 @@ function Dashboard() {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [alarmTestMessage, setAlarmTestMessage] = useState(null);
   const [alarmTestBusy, setAlarmTestBusy] = useState(false);
+  const [dismissedAlertIds, setDismissedAlertIds] = useState([]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNowMs(Date.now()), 10000);
@@ -252,6 +333,9 @@ function Dashboard() {
   const offlineAlerts = devices
     .map((device) => ({ sensorId: device.sensorId, health: getDeviceHealth(device, nowMs) }))
     .filter((entry) => entry.health.missingData);
+  const displayAlerts = buildDisplayAlerts(samples, offlineAlerts).filter(
+    (alert) => !dismissedAlertIds.includes(alert.id)
+  );
 
   const summary = {
   sensorId: latestSample.sensorId,
@@ -267,6 +351,7 @@ function Dashboard() {
 
   const pageTitles = {
     Home: "Home Overview",
+    Alerts: "Alerts",
     Sensors: "Sensor Details",
     Samples: "Sample History",
     Charts: "Charts & Trends",
@@ -416,6 +501,53 @@ function Dashboard() {
         <StatCard title="Temperature" value={summary.temp} status="DHT sensor" statusType="success" />
         <StatCard title="Humidity" value={summary.hum} status="DHT sensor" statusType="success" />
         <StatCard title="CO2" value={summary.co2} status="air quality" statusType="danger" />
+      </section>
+    );
+  }
+
+  function AlertsView() {
+    return (
+      <section className="grid alerts-grid">
+        <article className="card alerts-summary-card">
+          <div className="card-header">
+            <div>
+              <h3>Active Alerts</h3>
+              <p className="muted">Generated from latest readings and device health</p>
+            </div>
+            <span className={displayAlerts.length ? "danger" : "success"}>
+              {displayAlerts.length}
+            </span>
+          </div>
+        </article>
+
+        {displayAlerts.length === 0 ? (
+          <article className="card">
+            <h3>No active alerts</h3>
+            <p className="muted">All current readings are within the configured alert rules.</p>
+          </article>
+        ) : (
+          displayAlerts.map((alert) => (
+            <article className={`card alert-card ${alert.severity}`} key={alert.id}>
+              <div>
+                <div className="alert-heading">
+                  <span className={`alert-severity ${alert.severity}`}>
+                    {alert.severity}
+                  </span>
+                  <span className="muted">Device {alert.sensorId}</span>
+                </div>
+                <h3>{alert.title}</h3>
+                <p>{alert.message}</p>
+              </div>
+              <button
+                type="button"
+                className="alert-dismiss"
+                onClick={() => setDismissedAlertIds((prev) => [...prev, alert.id])}
+              >
+                Dismiss
+              </button>
+            </article>
+          ))
+        )}
       </section>
     );
   }
@@ -737,6 +869,7 @@ function Dashboard() {
         <Topbar title={pageTitles[activeView]} activeView={activeView} />
 
         {activeView === "Home" && <HomeView />}
+        {activeView === "Alerts" && <AlertsView />}
         {activeView === "Sensors" && <SensorsView />}
         {activeView === "Samples" && <SamplesView />}
         {activeView === "Charts" && <ChartsView />}
