@@ -11,7 +11,7 @@ import { StatusScreen } from "./components/StatusScreen/index.js";
 import { connectReadingsStream, getDevices, getReadings, postAlarmTest } from "./services/api.js";
 
 /** Passed to GET /api/readings so charts cover the last day of data. */
-const SAMPLE_WINDOW_HOURS = 24;
+const SAMPLE_WINDOW_HOURS = 168;
 const SAMPLE_LIMIT_OPTIONS = [200, 500, 1000, 2500, 5000];
 const DEFAULT_SAMPLE_LIMIT = 1000;
 const OFFLINE_AFTER_SECONDS = 120;
