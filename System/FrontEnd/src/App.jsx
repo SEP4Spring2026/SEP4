@@ -6,10 +6,11 @@ import { PayloadCard } from "./components/PayloadCard.jsx";
 import { StatCard } from "./components/StatCard.jsx";
 import { SampleCard } from "./components/SampleCard.jsx";
 import { LineChart } from "./components/LineChart.jsx";
-import { LoginPage } from "./components/LoginPage.jsx";
+import { LoginPage } from "./components/Login/index.js";
+import { StatusScreen } from "./components/StatusScreen/index.js";
 import { connectReadingsStream, getDevices, getReadings, postAlarmTest } from "./services/api.js";
 
-/** Passed to GET /api/readings so charts cover the last week of demo data. */
+/** Passed to GET /api/readings so charts cover the last day of data. */
 const SAMPLE_WINDOW_HOURS = 168;
 const SAMPLE_LIMIT_OPTIONS = [200, 500, 1000, 2500, 5000];
 const DEFAULT_SAMPLE_LIMIT = 1000;
@@ -136,87 +137,7 @@ function getDeviceHealth(device, nowMs) {
   };
 }
 
-function buildDisplayAlerts(samples, offlineAlerts) {
-  const latestBySensor = new Map();
-  samples.forEach((sample) => {
-    if (!latestBySensor.has(sample.sensorId)) {
-      latestBySensor.set(sample.sensorId, sample);
-    }
-  });
-
-  const alerts = offlineAlerts.map((alert) => ({
-    id: `offline-${alert.sensorId}`,
-    severity: "critical",
-    title: `Device ${alert.sensorId} is offline`,
-    message: `Last seen ${alert.health.lastSeenLabel}. Check the sensor connection or power.`,
-    sensorId: alert.sensorId,
-  }));
-
-  latestBySensor.forEach((sample) => {
-    const sensorId = sample.sensorId;
-    const classification = String(sample.classification ?? "Normal");
-    const normalizedClassification = classification.toLowerCase();
-    const co2 = Number(sample.co2 ?? 0);
-    const temp = Number(sample.temp ?? 0);
-    const tvoc = Number(sample.tvoc ?? 0);
-    const eco2 = Number(sample.eco2 ?? 0);
-    const aqi = Number(sample.aqi ?? 0);
-
-    if (normalizedClassification !== "normal") {
-      const isFire = normalizedClassification.includes("fire");
-      alerts.push({
-        id: `classification-${sensorId}-${normalizedClassification}`,
-        severity: isFire ? "critical" : "warning",
-        title: `${classification} classification detected`,
-        message: `Device ${sensorId} reported ${classification}. Inspect the room status.`,
-        sensorId,
-      });
-    }
-
-    if (co2 > 2000) {
-      alerts.push({
-        id: `co2-critical-${sensorId}`,
-        severity: "critical",
-        title: "Unsafe CO2 level",
-        message: `Device ${sensorId} reports ${co2} ppm CO2. Ventilate immediately.`,
-        sensorId,
-      });
-    } else if (co2 > 1000) {
-      alerts.push({
-        id: `co2-warning-${sensorId}`,
-        severity: "warning",
-        title: "High CO2 level",
-        message: `Device ${sensorId} reports ${co2} ppm CO2. Ventilation is recommended.`,
-        sensorId,
-      });
-    }
-
-    if (temp > 35) {
-      alerts.push({
-        id: `temperature-${sensorId}`,
-        severity: temp > 50 ? "critical" : "warning",
-        title: "High temperature",
-        message: `Device ${sensorId} reports ${temp} C. Check for heat sources.`,
-        sensorId,
-      });
-    }
-
-    if (tvoc > 500 || eco2 > 1500 || aqi > 3) {
-      alerts.push({
-        id: `air-quality-${sensorId}`,
-        severity: "warning",
-        title: "Air quality needs attention",
-        message: `Device ${sensorId} reports TVOC ${tvoc}, eCO2 ${eco2}, AQI ${aqi}.`,
-        sensorId,
-      });
-    }
-  });
-
-  const severityRank = { critical: 0, warning: 1, info: 2 };
-  return alerts.sort((a, b) => severityRank[a.severity] - severityRank[b.severity]);
-}
-
-function Dashboard() {
+function Dashboard({ onBackToLogin }) {
   const [activeView, setActiveView] = useState("Home");
   const [samples, setSamples] = useState([]);
   const [devices, setDevices] = useState([]);
@@ -321,9 +242,31 @@ function Dashboard() {
     };
   }, [selectedSensorId, selectedLimit]);
 
-  if (loading) return <div style={{ padding: 24 }}>Loading...</div>;
-  if (error) return <div style={{ padding: 24 }}>Failed to reach the API. Is the main server running?</div>;
-  if (!samples.length) return <div style={{ padding: 24 }}>No readings found for this device selection.</div>;
+  if (loading) {
+    return <StatusScreen title="Loading dashboard" message="Preparing the latest sensor readings." />;
+  }
+
+  if (error) {
+    return (
+      <StatusScreen
+        title="Dashboard offline"
+        message="The frontend is running, but the backend API is not reachable right now."
+        actionLabel="Back to sign in"
+        onAction={onBackToLogin}
+      />
+    );
+  }
+
+  if (!samples.length) {
+    return (
+      <StatusScreen
+        title="No readings found"
+        message="There are no readings for this device selection yet."
+        actionLabel="Back to sign in"
+        onAction={onBackToLogin}
+      />
+    );
+  }
 
   const latestSample = samples[0];
   const latestDeviceHealth = getDeviceHealth(
@@ -881,28 +824,13 @@ function Dashboard() {
 }
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    if (window.location.search.includes("logout=1")) {
-      window.localStorage.removeItem("sep4LoggedIn");
-      window.localStorage.removeItem("sep4Role");
-      window.history.replaceState(null, "", window.location.pathname);
-      return false;
-    }
+  const [userRole, setUserRole] = useState(null);
 
-    return window.localStorage.getItem("sep4LoggedIn") === "true";
-  });
-
-  function handleLogin(role) {
-    window.localStorage.setItem("sep4LoggedIn", "true");
-    window.localStorage.setItem("sep4Role", role);
-    setIsLoggedIn(true);
+  if (!userRole) {
+    return <LoginPage onSignIn={setUserRole} />;
   }
 
-  if (!isLoggedIn) {
-    return <LoginPage onLogin={handleLogin} />;
-  }
-
-  return <Dashboard />;
+  return <Dashboard onBackToLogin={() => setUserRole(null)} />;
 }
 
 export default App;
