@@ -11,6 +11,7 @@
 deepchecks==0.19.1
 scikit-learn==1.7.2
 numpy<2
-setuptools<81
+setuptools<81      # deepchecks 0.19.1 imports pkg_resources
+anywidget>=0.9     # deepchecks HTML export (plotly FigureWidget) needs it
 pandas>=2.0
 openpyxl>=3.1

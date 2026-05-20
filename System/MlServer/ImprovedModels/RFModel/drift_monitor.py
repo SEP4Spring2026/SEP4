@@ -54,6 +54,11 @@ from deepchecks.tabular.checks import FeatureDrift, PredictionDrift
 # model exactly as it was trained.
 FEATURES = ["temperature", "humidity", "tvoc_ppb", "eco2_ppm"]
 
+# The deployed server (main.py) receives sensor payloads that spell two of these
+# features differently (tvoc, eco2). Production logs therefore use those names,
+# so accept either spelling when reading a "current" batch.
+FEATURE_ALIASES = {"tvoc": "tvoc_ppb", "eco2": "eco2_ppm"}
+
 HERE = Path(__file__).resolve().parent
 
 
@@ -67,12 +72,15 @@ def load_table(path: Path) -> pd.DataFrame:
 
 
 def require_features(df: pd.DataFrame, source: Path) -> pd.DataFrame:
-    """Return just the model features, erroring clearly if any are missing."""
+    """Return just the model features, accepting production payload aliases."""
+    df = df.rename(
+        columns={a: f for a, f in FEATURE_ALIASES.items() if a in df.columns and f not in df.columns}
+    )
     missing = [c for c in FEATURES if c not in df.columns]
     if missing:
         raise ValueError(
             f"{source} is missing required feature column(s): {missing}\n"
-            f"Expected columns: {FEATURES}"
+            f"Expected columns {FEATURES} (aliases accepted: {FEATURE_ALIASES})"
         )
     return df[FEATURES].copy()
 
