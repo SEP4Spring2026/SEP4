@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Sidebar } from "./components/Sidebar.jsx";
 import { Topbar } from "./components/Topbar.jsx";
 import { OverviewCard } from "./components/OverviewCard.jsx";
@@ -6,10 +6,12 @@ import { PayloadCard } from "./components/PayloadCard.jsx";
 import { StatCard } from "./components/StatCard.jsx";
 import { SampleCard } from "./components/SampleCard.jsx";
 import { LineChart } from "./components/LineChart.jsx";
+import { LoginPage } from "./components/Login/index.js";
+import { StatusScreen } from "./components/StatusScreen/index.js";
 import { connectReadingsStream, getDevices, getReadings, postAlarmTest } from "./services/api.js";
 
 /** Passed to GET /api/readings so charts cover the last day of data. */
-const SAMPLE_WINDOW_HOURS = 24;
+const SAMPLE_WINDOW_HOURS = 168;
 const SAMPLE_LIMIT_OPTIONS = [200, 500, 1000, 2500, 5000];
 const DEFAULT_SAMPLE_LIMIT = 1000;
 const OFFLINE_AFTER_SECONDS = 120;
@@ -135,7 +137,7 @@ function getDeviceHealth(device, nowMs) {
   };
 }
 
-function App() {
+function Dashboard({ onBackToLogin }) {
   const [activeView, setActiveView] = useState("Home");
   const [samples, setSamples] = useState([]);
   const [devices, setDevices] = useState([]);
@@ -239,9 +241,31 @@ function App() {
     };
   }, [selectedSensorId, selectedLimit]);
 
-  if (loading) return <div style={{ padding: 24 }}>Loading...</div>;
-  if (error) return <div style={{ padding: 24 }}>Failed to reach the API. Is the main server running?</div>;
-  if (!samples.length) return <div style={{ padding: 24 }}>No readings found for this device selection.</div>;
+  if (loading) {
+    return <StatusScreen title="Loading dashboard" message="Preparing the latest sensor readings." />;
+  }
+
+  if (error) {
+    return (
+      <StatusScreen
+        title="Dashboard offline"
+        message="The frontend is running, but the backend API is not reachable right now."
+        actionLabel="Back to sign in"
+        onAction={onBackToLogin}
+      />
+    );
+  }
+
+  if (!samples.length) {
+    return (
+      <StatusScreen
+        title="No readings found"
+        message="There are no readings for this device selection yet."
+        actionLabel="Back to sign in"
+        onAction={onBackToLogin}
+      />
+    );
+  }
 
   const latestSample = samples[0];
   const latestDeviceHealth = getDeviceHealth(
@@ -253,11 +277,15 @@ function App() {
     .filter((entry) => entry.health.missingData);
 
   const summary = {
-    temp: latestSample.temp,
-    hum: latestSample.hum,
-    co2: latestSample.co2,
-    sensorId: latestSample.sensorId,
-    payloadLength: latestSample.payloadLength
+  sensorId: latestSample.sensorId,
+  
+  temp: latestSample.temp,
+  hum: latestSample.hum,
+  co2: latestSample.co2,
+
+  tvoc: latestSample.tvoc,
+  eco2: latestSample.eco2,
+  aqi: latestSample.aqi,
   };
 
   const pageTitles = {
@@ -270,27 +298,84 @@ function App() {
   };
 
   function getRecommendation(sample) {
-  if (!sample) return [];
+    if (!sample) return [];
 
-  const recs = [];
+    const recs = [];
+    const co2 = Number(sample.co2 ?? 0);
+    const temp = Number(sample.temp ?? 0);
+    const hum = Number(sample.hum ?? 0);
+    const tvoc = Number(sample.tvoc ?? 0);
+    const eco2 = Number(sample.eco2 ?? 0);
+    const aqi = Number(sample.aqi ?? 0);
+    const classification = String(sample.classification ?? "Normal").toLowerCase();
 
-  if (sample.co2 > 1000) {
-    recs.push("High CO2 detected — ventilate the room");
-  }
+    if (classification !== "normal") {
+      recs.push({
+        level: "danger",
+        title: "Fire risk detected",
+        message: `Current classification is ${sample.classification}. Check the room immediately.`,
+      });
+    }
 
-  if (sample.temp > 30) {
-    recs.push("High temperature — consider cooling or ventilation");
-  }
+    if (co2 > 2000) {
+      recs.push({
+        level: "danger",
+        title: "Unsafe CO2 level",
+        message: "CO2 is very high. Leave the room if symptoms occur and ventilate immediately.",
+      });
+    } else if (co2 > 1000) {
+      recs.push({
+        level: "warning",
+        title: "High CO2 level",
+        message: "Ventilate the room to improve air quality.",
+      });
+    }
 
-  if (sample.hum > 70) {
-    recs.push("High humidity — risk of poor air quality");
-  }
+    if (temp > 35) {
+      recs.push({
+        level: "danger",
+        title: "Very high temperature",
+        message: "Temperature is unusually high. Check for heat sources or fire risk.",
+      });
+    } else if (temp > 30) {
+      recs.push({
+        level: "warning",
+        title: "High temperature",
+        message: "Consider cooling or increasing ventilation.",
+      });
+    }
 
-  if (sample.co2 > 2000) {
-    recs.push("⚠ Possible unsafe air quality — take immediate action");
-  }
+    if (hum > 70) {
+      recs.push({
+        level: "warning",
+        title: "High humidity",
+        message: "Humidity is high. This may reduce comfort and air quality.",
+      });
+    } else if (hum < 25) {
+      recs.push({
+        level: "info",
+        title: "Low humidity",
+        message: "Air is dry. Consider increasing humidity if people stay here longer.",
+      });
+    }
 
-  return recs;
+    if (tvoc > 500 || eco2 > 1500 || aqi > 3) {
+      recs.push({
+        level: "warning",
+        title: "Air quality needs attention",
+        message: "VOC/eCO2/AQI values suggest poorer air quality. Ventilation is recommended.",
+      });
+    }
+
+    if (recs.length === 0) {
+      recs.push({
+        level: "success",
+        title: "All readings look normal",
+        message: "No immediate action is recommended.",
+      });
+    }
+
+    return recs;
   }
 
   function HomeView() {
@@ -304,26 +389,44 @@ function App() {
 
         <div className="section-spacer" />
 
+        <section className="grid">
+          <article className="card">
+            <h3>Room Environment Classification</h3>
+              <p>
+                {latestSample.classification ?? "No classification available yet"}
+              </p>
+          </article>
+        </section>
+        
+        <div className="section-spacer" />
+
         <article className="card">
           <h3>Recommendations</h3>
 
           {recommendations.length === 0 ? (
             <p className="muted">Everything looks normal.</p>
           ) : (
-            recommendations.map((rec, i) => (
-              <div className="summary-row" key={i}>
-                <span>•</span>
-                <strong>{rec}</strong>
-              </div>
-            ))
+            <div className="recommendation-list">
+              {recommendations.map((rec, i) => (
+                <div className={`recommendation-item ${rec.level}`} key={`${rec.title}-${i}`}>
+                  <strong>{rec.title}</strong>
+                  <span>{rec.message}</span>
+                </div>
+              ))}
+            </div>
           )}
         </article>
+
+
 
         <section className="grid stats-grid">
           <StatCard title="Device ID" value={summary.sensorId} status="selected" statusType="success" />
           <StatCard title="Temperature" value={summary.temp} status="stable" statusType="success" />
           <StatCard title="Humidity" value={summary.hum} status="stable" statusType="success" />
           <StatCard title="CO2" value={summary.co2} status="watch" statusType="danger" />
+          <StatCard title="TVOC" value={summary.tvoc} status="watch" statusType="danger" />
+          <StatCard title="eCO2" value={summary.eco2} status="watch" statusType="danger" />
+          <StatCard title="AQI" value={summary.aqi ?? "-"} status="watch" statusType="danger" />
         </section>
       </>
     );
@@ -390,12 +493,28 @@ function App() {
     );
   }
 
+  function ClassificationView() {
+  return (
+    <section className="grid">
+      <article className="card">
+        <h3>Air Classification</h3>
+          <p>
+            {latestSample.classification ?? "No classification available yet"}
+          </p>
+      </article>
+    </section>
+  );
+  } 
+
   function ChartsView() {
     /* API returns newest-first. Reverse for left-to-right time progression. */
     const series = [...samples].reverse();
     const tempData = series.map((s) => ({ t: s.timestamp, v: Number(s.temp) }));
     const humData = series.map((s) => ({ t: s.timestamp, v: Number(s.hum) }));
     const co2Data = series.map((s) => ({ t: s.timestamp, v: Number(s.co2) }));
+    const tvocData = series.map(s => ({ t: s.timestamp, v: Number(s.tvoc) }));
+    const eco2Data = series.map(s => ({ t: s.timestamp, v: Number(s.eco2) }));
+    const aqiData = series.map(s => ({ t: s.timestamp, v: Number(s.aqi) }));
 
     const stats = (arr) => {
       const vals = arr.map((d) => d.v).filter((v) => Number.isFinite(v));
@@ -649,6 +768,16 @@ function App() {
       </main>
     </div>
   );
+}
+
+function App() {
+  const [userRole, setUserRole] = useState(null);
+
+  if (!userRole) {
+    return <LoginPage onSignIn={setUserRole} />;
+  }
+
+  return <Dashboard onBackToLogin={() => setUserRole(null)} />;
 }
 
 export default App;

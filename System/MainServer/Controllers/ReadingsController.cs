@@ -45,6 +45,7 @@ public class ReadingsController : ControllerBase
 
     private static readonly JsonSerializerOptions StreamJsonOptions = new(JsonSerializerDefaults.Web);
 
+    /// <summary>Mqtt/firmware POST flat JSON; nested <see cref="SensorReadingDto.Sensors"/> when present.</summary>
     /// <summary>Nested <c>sensors</c> object or flat root metrics.</summary>
     private static SensorPayloadDto ResolveSensorPayload(SensorReadingDto dto)
     {
@@ -155,7 +156,7 @@ public class ReadingsController : ControllerBase
                 prediction.ConfidenceScore
             }));
 
-        await _alarmMqtt.PublishRiskLevelAsync(device.SensorId, predictionDto.RiskLevel, cancellationToken);
+        await _alarmMqtt.PublishForPredictedCategoryAsync(device.SensorId, predictionDto.PredictedCategory, cancellationToken);
 
         return Ok(predictionDto);
     }
