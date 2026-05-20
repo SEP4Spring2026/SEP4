@@ -1,3 +1,5 @@
+import csv
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -11,6 +13,20 @@ BASE_DIR = Path(__file__).resolve().parent
 MODEL_DIR = BASE_DIR / "model"
 MODEL_FILE = "model_random_forest.joblib"
 SCALER_FILE = "scaler.joblib"
+
+# Drift-monitor feed: every prediction's RAW features get appended here so the
+# label-free drift monitor (ImprovedModels/RFModel/drift_monitor.py --watch) has a
+# growing "current" batch to compare against the baseline. Plain CSV via the stdlib
+# only — deepchecks must NEVER be imported here (it needs numpy<2 / sklearn 1.7.x,
+# which conflicts with this server's runtime). The monitor runs in .venv-ml instead.
+DRIFT_LOG_ENABLED = os.getenv("DRIFT_LOG_ENABLED", "1") != "0"
+DRIFT_LOG_PATH = Path(os.getenv("DRIFT_LOG_PATH", str(BASE_DIR / "drift_data" / "incoming.csv")))
+# tvoc/eco2 use the production payload spelling; the monitor aliases them to
+# tvoc_ppb/eco2_ppm to match the model's training feature names.
+DRIFT_LOG_COLUMNS = (
+    "timestamp", "sensorId", "temperature", "humidity", "tvoc", "eco2",
+    "predictedCategory", "confidence",
+)
 
 # Trained features, order is load-bearing — must match scaler.fit_transform input.
 FEATURE_ORDER = ("temperature", "humidity", "tvoc", "eco2")
@@ -33,6 +49,35 @@ def _load_artifacts():
 
 
 _model, _scaler = _load_artifacts()
+
+
+def _log_for_drift(reading: "Reading", prediction: "Prediction") -> None:
+    """Append one raw-feature row to the drift feed. Best-effort: a logging failure
+    must never break a prediction, so all errors are swallowed."""
+    if not DRIFT_LOG_ENABLED:
+        return
+    try:
+        DRIFT_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        write_header = not DRIFT_LOG_PATH.exists()
+        s = reading.sensors
+        with DRIFT_LOG_PATH.open("a", newline="", encoding="utf-8") as fh:
+            writer = csv.writer(fh)
+            if write_header:
+                writer.writerow(DRIFT_LOG_COLUMNS)
+            writer.writerow([
+                reading.timestamp.isoformat(),
+                reading.sensorId,
+                s.temperature,
+                s.humidity,
+                s.tvoc,
+                s.eco2,
+                prediction.predictedCategory,
+                prediction.confidenceScore,
+            ])
+    except Exception:
+        # Drift logging is observability, not a hard dependency of /predict.
+        pass
+
 
 app = FastAPI()
 
@@ -78,8 +123,10 @@ def predict(reading: Reading):
     class_id = int(_model.classes_[best_index])
     confidence = float(probabilities[best_index])
 
-    return Prediction(
+    prediction = Prediction(
         predictedCategory=CATEGORY_BY_CLASS.get(class_id, "Unknown"),
         confidenceScore=confidence,
         riskLevel=RISK_BY_CLASS.get(class_id, "Low"),
     )
+    _log_for_drift(reading, prediction)
+    return prediction

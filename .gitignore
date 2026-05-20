@@ -20,6 +20,11 @@ coverage.xml
 
 # ML drift-monitor generated reports (keep the dir via .gitkeep)
 System/MlServer/ImprovedModels/RFModel/reports/*.html
+System/MlServer/ImprovedModels/RFModel/reports/drift_history.csv
+
+# ML drift-monitor live feed + watcher state (generated at runtime)
+System/MlServer/drift_data/
+System/MlServer/ImprovedModels/RFModel/.*_drift_state.json
 
 # Test output
 TestResults/
