@@ -11,11 +11,15 @@ __pycache__/
 *.pyc
 *.pyo
 .venv/
+.venv-ml/
 venv/
 .pytest_cache/
 .coverage
 htmlcov/
 coverage.xml
+
+# ML drift-monitor generated reports (keep the dir via .gitkeep)
+System/MlServer/ImprovedModels/RFModel/reports/*.html
 
 # Test output
 TestResults/
