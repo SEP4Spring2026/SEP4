@@ -755,7 +755,8 @@ function App() {
   const [session, setSession] = useState(() => {
     try {
       const stored = window.localStorage.getItem(SESSION_STORAGE_KEY);
-      return stored ? JSON.parse(stored) : null;
+      const parsed = stored ? JSON.parse(stored) : null;
+      return parsed?.role ? createDemoSession(parsed.role) : null;
     } catch {
       return null;
     }

@@ -4,7 +4,7 @@ export const ROLES = {
     label: "Resident",
     shortLabel: "Resident",
     initials: "RE",
-    assignedSensorId: "1",
+    assignedSensorId: "101",
     description: "Can view assigned room readings, warnings, and payload details.",
   },
   "building-admin": {
