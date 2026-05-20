@@ -156,7 +156,7 @@ public class ReadingsController : ControllerBase
                 prediction.ConfidenceScore
             }));
 
-        await _alarmMqtt.PublishRiskLevelAsync(device.SensorId, predictionDto.RiskLevel, cancellationToken);
+        await _alarmMqtt.PublishForPredictedCategoryAsync(device.SensorId, predictionDto.PredictedCategory, cancellationToken);
 
         return Ok(predictionDto);
     }
