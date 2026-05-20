@@ -1,0 +1,16 @@
+# Research / ops dependencies for ML model validation & drift monitoring.
+# NOT part of the deployed FastAPI server (see ../requirements.txt) — keep it that way
+# so the runtime image stays lean. Install into a separate Python 3.12 environment:
+#   uv venv --python 3.12 .venv-ml
+#   uv pip install --python .venv-ml/Scripts/python.exe -r ImprovedModels/requirements-ml.txt
+#
+# Version notes:
+#   deepchecks 0.19.1 (latest) still calls np.Inf -> requires numpy<2
+#   deepchecks imports pkg_resources -> requires setuptools<81
+#   scikit-learn pinned to the version model_rf.joblib was trained with
+deepchecks==0.19.1
+scikit-learn==1.7.2
+numpy<2
+setuptools<81
+pandas>=2.0
+openpyxl>=3.1
