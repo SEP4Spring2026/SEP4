@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { LoginHeader } from "./LoginHeader.jsx";
 import { LoginRoleSelect } from "./LoginRoleSelect.jsx";
+import { AccessNotice } from "../Auth/AccessNotice.jsx";
 import { accessRoles } from "./roles.js";
 import "./Login.css";
 
@@ -27,6 +28,8 @@ export function LoginPage({ onSignIn }) {
             selectedRole={selectedRole}
             onRoleChange={setSelectedRole}
           />
+
+          <AccessNotice />
 
           <button className="login-button" type="submit">
             Sign in

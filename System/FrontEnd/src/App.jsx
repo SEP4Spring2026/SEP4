@@ -8,6 +8,14 @@ import { SampleCard } from "./components/SampleCard.jsx";
 import { LineChart } from "./components/LineChart.jsx";
 import { LoginPage } from "./components/Login/index.js";
 import { StatusScreen } from "./components/StatusScreen/index.js";
+import { AdminControls } from "./components/Dashboard/AdminControls.jsx";
+import { RestrictedNotice } from "./components/Dashboard/RestrictedNotice.jsx";
+import {
+  canAccessView,
+  createDemoSession,
+  getDefaultView,
+  getPermissions,
+} from "./auth/accessControl.js";
 import { connectReadingsStream, getDevices, getReadings, postAlarmTest } from "./services/api.js";
 
 /** Passed to GET /api/readings so charts cover the last day of data. */
@@ -137,11 +145,16 @@ function getDeviceHealth(device, nowMs) {
   };
 }
 
-function Dashboard({ onBackToLogin }) {
-  const [activeView, setActiveView] = useState("Home");
+const SESSION_STORAGE_KEY = "sep4-demo-session";
+
+function Dashboard({ session, onLogout }) {
+  const permissions = getPermissions(session.role);
+  const [activeView, setActiveView] = useState(() => getDefaultView(session.role));
   const [samples, setSamples] = useState([]);
   const [devices, setDevices] = useState([]);
-  const [selectedSensorId, setSelectedSensorId] = useState("all");
+  const [selectedSensorId, setSelectedSensorId] = useState(() =>
+    permissions.canViewAllDevices ? "all" : session.assignedSensorId
+  );
   const [selectedLimit, setSelectedLimit] = useState(DEFAULT_SAMPLE_LIMIT);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -153,6 +166,18 @@ function Dashboard({ onBackToLogin }) {
     const timer = window.setInterval(() => setNowMs(Date.now()), 10000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!canAccessView(session.role, activeView)) {
+      setActiveView(getDefaultView(session.role));
+    }
+  }, [activeView, session.role]);
+
+  useEffect(() => {
+    if (!permissions.canViewAllDevices && selectedSensorId !== session.assignedSensorId) {
+      setSelectedSensorId(session.assignedSensorId);
+    }
+  }, [permissions.canViewAllDevices, selectedSensorId, session.assignedSensorId]);
 
   useEffect(() => {
     async function loadDevices() {
@@ -251,7 +276,7 @@ function Dashboard({ onBackToLogin }) {
         title="Dashboard offline"
         message="The frontend is running, but the backend API is not reachable right now."
         actionLabel="Back to sign in"
-        onAction={onBackToLogin}
+        onAction={onLogout}
       />
     );
   }
@@ -262,7 +287,7 @@ function Dashboard({ onBackToLogin }) {
         title="No readings found"
         message="There are no readings for this device selection yet."
         actionLabel="Back to sign in"
-        onAction={onBackToLogin}
+        onAction={onLogout}
       />
     );
   }
@@ -493,29 +518,12 @@ function Dashboard({ onBackToLogin }) {
     );
   }
 
-  function ClassificationView() {
-  return (
-    <section className="grid">
-      <article className="card">
-        <h3>Air Classification</h3>
-          <p>
-            {latestSample.classification ?? "No classification available yet"}
-          </p>
-      </article>
-    </section>
-  );
-  } 
-
   function ChartsView() {
     /* API returns newest-first. Reverse for left-to-right time progression. */
     const series = [...samples].reverse();
     const tempData = series.map((s) => ({ t: s.timestamp, v: Number(s.temp) }));
     const humData = series.map((s) => ({ t: s.timestamp, v: Number(s.hum) }));
     const co2Data = series.map((s) => ({ t: s.timestamp, v: Number(s.co2) }));
-    const tvocData = series.map(s => ({ t: s.timestamp, v: Number(s.tvoc) }));
-    const eco2Data = series.map(s => ({ t: s.timestamp, v: Number(s.eco2) }));
-    const aqiData = series.map(s => ({ t: s.timestamp, v: Number(s.aqi) }));
-
     const stats = (arr) => {
       const vals = arr.map((d) => d.v).filter((v) => Number.isFinite(v));
       if (vals.length === 0) {
@@ -661,49 +669,20 @@ function Dashboard({ onBackToLogin }) {
   }
 
   function SettingsView() {
+    if (!permissions.canViewAdminControls) {
+      return (
+        <RestrictedNotice message="Residents can view their assigned sensor and warnings, but alarm test and reset actions are admin-only." />
+      );
+    }
+
     return (
       <section className="grid settings-grid">
-        <article className="card">
-          <h3>Buzzer test</h3>
-          <p className="muted">
-            Sends the same MQTT payloads as ML alarms (<code>iot/alarm/</code> + device id). Pick a device in the
-            sidebar.
-          </p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: 12 }}>
-            <button
-              type="button"
-              className="menu-item"
-              style={{ width: "auto", display: "inline-block", textAlign: "center" }}
-              disabled={alarmTestBusy}
-              onClick={() => runAlarmTest("critical")}
-            >
-              Critical pattern
-            </button>
-            <button
-              type="button"
-              className="menu-item"
-              style={{ width: "auto", display: "inline-block", textAlign: "center" }}
-              disabled={alarmTestBusy}
-              onClick={() => runAlarmTest("warn")}
-            >
-              Short warn
-            </button>
-            <button
-              type="button"
-              className="menu-item"
-              style={{ width: "auto", display: "inline-block", textAlign: "center" }}
-              disabled={alarmTestBusy}
-              onClick={() => runAlarmTest("off")}
-            >
-              Silence (OFF)
-            </button>
-          </div>
-          {alarmTestMessage ? (
-            <p className={alarmTestMessage.type === "error" ? "danger" : "muted"} style={{ marginTop: 12 }}>
-              {alarmTestMessage.text}
-            </p>
-          ) : null}
-        </article>
+        <AdminControls
+          selectedSensorId={selectedSensorId}
+          alarmTestBusy={alarmTestBusy}
+          alarmTestMessage={alarmTestMessage}
+          onAlarmTest={runAlarmTest}
+        />
         <article className="card">
           <h3>Sensor Health</h3>
           <div className="summary-row">
@@ -744,6 +723,8 @@ function Dashboard({ onBackToLogin }) {
     <div className="page">
       <Sidebar
         activeView={activeView}
+        session={session}
+        permissions={permissions}
         devices={devices}
         selectedSensorId={selectedSensorId}
         sampleLimit={selectedLimit}
@@ -757,7 +738,7 @@ function Dashboard({ onBackToLogin }) {
       />
 
       <main className="content">
-        <Topbar title={pageTitles[activeView]} activeView={activeView} />
+        <Topbar title={pageTitles[activeView]} activeView={activeView} session={session} onLogout={onLogout} />
 
         {activeView === "Home" && <HomeView />}
         {activeView === "Sensors" && <SensorsView />}
@@ -771,13 +752,31 @@ function Dashboard({ onBackToLogin }) {
 }
 
 function App() {
-  const [userRole, setUserRole] = useState(null);
+  const [session, setSession] = useState(() => {
+    try {
+      const stored = window.localStorage.getItem(SESSION_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
 
-  if (!userRole) {
-    return <LoginPage onSignIn={setUserRole} />;
+  function handleSignIn(role) {
+    const nextSession = createDemoSession(role);
+    setSession(nextSession);
+    window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(nextSession));
   }
 
-  return <Dashboard onBackToLogin={() => setUserRole(null)} />;
+  function handleLogout() {
+    setSession(null);
+    window.localStorage.removeItem(SESSION_STORAGE_KEY);
+  }
+
+  if (!session) {
+    return <LoginPage onSignIn={handleSignIn} />;
+  }
+
+  return <Dashboard session={session} onLogout={handleLogout} />;
 }
 
 export default App;

@@ -1,5 +1,3 @@
-import { useState } from "react";
-
 const chartValues = [62, 64, 60, 72, 66, 69, 58, 56];
 
 export function OverviewCard({ summary }) {
