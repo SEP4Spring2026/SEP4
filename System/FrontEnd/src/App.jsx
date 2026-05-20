@@ -137,6 +137,96 @@ function getDeviceHealth(device, nowMs) {
   };
 }
 
+function buildDisplayAlerts(samples, offlineAlerts) {
+  const latestSample = samples[0];
+  const alerts = offlineAlerts.map(({ sensorId, health }) => ({
+    id: `device-offline-${sensorId}`,
+    severity: "critical",
+    sensorId,
+    title: "Device offline",
+    message: `No recent readings received. Last seen: ${health.lastSeenLabel}.`,
+  }));
+
+  if (!latestSample) return alerts;
+
+  const sensorId = latestSample.sensorId;
+  const classification = String(latestSample.classification ?? "Normal").toLowerCase();
+  const co2 = Number(latestSample.co2 ?? 0);
+  const temp = Number(latestSample.temp ?? 0);
+  const hum = Number(latestSample.hum ?? 0);
+  const tvoc = Number(latestSample.tvoc ?? 0);
+  const eco2 = Number(latestSample.eco2 ?? 0);
+  const aqi = Number(latestSample.aqi ?? 0);
+
+  if (classification !== "normal") {
+    alerts.push({
+      id: `classification-${sensorId}-${latestSample.name}`,
+      severity: "critical",
+      sensorId,
+      title: "Fire risk detected",
+      message: `Current classification is ${latestSample.classification}. Check the room immediately.`,
+    });
+  }
+
+  if (co2 > 2000) {
+    alerts.push({
+      id: `co2-critical-${sensorId}-${latestSample.name}`,
+      severity: "critical",
+      sensorId,
+      title: "Unsafe CO2 level",
+      message: `CO2 is ${Math.round(co2)} ppm. Ventilate immediately.`,
+    });
+  } else if (co2 > 1000) {
+    alerts.push({
+      id: `co2-warning-${sensorId}-${latestSample.name}`,
+      severity: "warning",
+      sensorId,
+      title: "High CO2 level",
+      message: `CO2 is ${Math.round(co2)} ppm. Ventilation is recommended.`,
+    });
+  }
+
+  if (temp > 35) {
+    alerts.push({
+      id: `temp-critical-${sensorId}-${latestSample.name}`,
+      severity: "critical",
+      sensorId,
+      title: "Very high temperature",
+      message: `Temperature is ${temp.toFixed(1)} C. Check for heat sources.`,
+    });
+  } else if (temp > 30) {
+    alerts.push({
+      id: `temp-warning-${sensorId}-${latestSample.name}`,
+      severity: "warning",
+      sensorId,
+      title: "High temperature",
+      message: `Temperature is ${temp.toFixed(1)} C.`,
+    });
+  }
+
+  if (hum > 70) {
+    alerts.push({
+      id: `humidity-warning-${sensorId}-${latestSample.name}`,
+      severity: "warning",
+      sensorId,
+      title: "High humidity",
+      message: `Humidity is ${Math.round(hum)}%.`,
+    });
+  }
+
+  if (tvoc > 500 || eco2 > 1500 || aqi > 3) {
+    alerts.push({
+      id: `air-quality-warning-${sensorId}-${latestSample.name}`,
+      severity: "warning",
+      sensorId,
+      title: "Air quality needs attention",
+      message: "VOC/eCO2/AQI values suggest poorer air quality.",
+    });
+  }
+
+  return alerts;
+}
+
 function Dashboard({ onBackToLogin }) {
   const [activeView, setActiveView] = useState("Home");
   const [samples, setSamples] = useState([]);
