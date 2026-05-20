@@ -94,7 +94,7 @@ var alarmMqtt = Environment.GetEnvironmentVariable("ALARM_MQTT_HOST")?.Trim();
 if (!string.IsNullOrEmpty(alarmMqtt))
 {
     startupLogger.LogInformation(
-        "Alarm MQTT: {Host} (ML risk High→CRITICAL, Low→OFF; Medium→WARN only if ALARM_PUBLISH_MEDIUM=true)",
+        "Alarm MQTT: {Host} (ML predictedCategory Fire→CRITICAL; Normal/Cooking→OFF)",
         alarmMqtt);
 }
 
@@ -128,6 +128,15 @@ static async Task ApplyMigrationsWithRepairAsync(WebApplication application, ILo
     }
     catch (Exception ex)
     {
+        Console.WriteLine($"[startup] migrate failed, falling back to EnsureCreated: {ex}");
+        try
+        {
+            db.Database.EnsureCreated();
+        }
+        catch (Exception ex2)
+        {
+            Console.WriteLine($"[startup] EnsureCreated failed (continuing anyway): {ex2}");
+        }
         startupLog.LogWarning(ex, "Database.MigrateAsync failed; attempting legacy schema repair");
         await DbSchemaRepair.RepairAfterMigrateFailureAsync(db, startupLog).ConfigureAwait(false);
         await db.Database.MigrateAsync().ConfigureAwait(false);

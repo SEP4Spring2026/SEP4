@@ -30,10 +30,21 @@ TestResults/
 !.vscode/launch.json
 !.vscode/tasks.json
 .idea/
+.history/
+*.code-workspace
+*.iml
+out/
+
+# Java / Maven
+target/
+*.class
+*.jar
+*.war
 
 # Env / secrets
 .env
 *.env
+.env.*
 !.env.example
 
 # AI tooling artifacts
@@ -46,3 +57,9 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Generated docs
+Documentation/Styles/*.log
+
+# Docker volumes / temp
+mysql_data/
