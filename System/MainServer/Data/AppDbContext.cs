@@ -11,6 +11,7 @@ public class AppDbContext : DbContext
     public DbSet<SensorReading> Readings => Set<SensorReading>();
     public DbSet<Prediction> Predictions => Set<Prediction>();
     
+    public DbSet<User> Users => Set<User>();
     public DbSet<Room> Rooms { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
