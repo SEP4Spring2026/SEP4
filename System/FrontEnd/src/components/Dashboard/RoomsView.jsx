@@ -4,7 +4,7 @@ import {
   createRoom,
   assignSensorToRoom,
   unassignSensor,
-} from "../services/api.js";
+} from "../../services/api.js";
 
 export function RoomsView() {
   const [rooms, setRooms] = useState([]);

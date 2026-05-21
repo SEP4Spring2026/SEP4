@@ -46,9 +46,7 @@ var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "MainServer";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "MainClient";
 
 if (string.IsNullOrWhiteSpace(jwtKey))
-{
     throw new Exception("JWT key is missing. Set Jwt:Key or JWT_KEY.");
-}
 
 var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
 var signingKey = new SymmetricSecurityKey(keyBytes);
@@ -63,16 +61,34 @@ builder.Services
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-
             ValidIssuer = jwtIssuer,
             ValidAudience = jwtAudience,
             IssuerSigningKey = signingKey,
-
             ClockSkew = TimeSpan.Zero
         };
     });
 
-builder.Services.AddAuthorization();
+// -------------------- AUTHORIZATION POLICIES --------------------
+// Role values must match exactly what JwtService puts in the Role claim
+// and what AuthController stores in User.Role (all lowercase).
+builder.Services.AddAuthorization(options =>
+{
+    // Any authenticated user
+    options.AddPolicy("AnyRole", policy =>
+        policy.RequireAuthenticatedUser());
+
+    // Residents and above (all roles)
+    options.AddPolicy("ResidentOrAbove", policy =>
+        policy.RequireRole("resident", "building-administrator", "admin"));
+
+    // Building admins and system admins only
+    options.AddPolicy("AdminOrAbove", policy =>
+        policy.RequireRole("building-administrator", "admin"));
+
+    // System admin only
+    options.AddPolicy("SystemAdmin", policy =>
+        policy.RequireRole("admin"));
+});
 
 // -------------------- SERVICES --------------------
 builder.Services.AddScoped<JwtService>();
@@ -100,33 +116,27 @@ builder.Services.AddCors(options =>
         policy.AllowAnyHeader().AllowAnyMethod();
 
         if (allowedOrigins.Length > 0)
-        {
             policy.WithOrigins(allowedOrigins);
-        }
         else if (builder.Environment.IsDevelopment())
-        {
             policy.SetIsOriginAllowed(_ => true);
-        }
         else
-        {
             policy.AllowAnyOrigin();
-        }
     });
 });
 
 var app = builder.Build();
 
-// -------------------- MIDDLEWARE ORDER (IMPORTANT) --------------------
+// -------------------- MIDDLEWARE ORDER --------------------
 app.UseCors("AllowFrontend");
-
-app.UseAuthentication();   // MUST be before authorization
+app.UseAuthentication();
 app.UseAuthorization();
 
 // -------------------- ROUTES --------------------
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 app.MapGet("/api/logs", (InMemoryLogBuffer logs) =>
-    Results.Text(string.Join(Environment.NewLine, logs.Snapshot()), "text/plain; charset=utf-8"));
+    Results.Text(string.Join(Environment.NewLine, logs.Snapshot()), "text/plain; charset=utf-8"))
+    .RequireAuthorization("SystemAdmin");
 
 app.MapControllers();
 
@@ -135,13 +145,10 @@ var startupLogger = app.Services.GetRequiredService<ILoggerFactory>()
     .CreateLogger("Startup");
 
 startupLogger.LogInformation("MainServer starting...");
-
 await ApplyMigrationsWithRepairAsync(app, startupLogger);
-
 startupLogger.LogInformation("MainServer ready.");
 
 app.Run();
-
 
 // -------------------- DB MIGRATION --------------------
 static async Task ApplyMigrationsWithRepairAsync(WebApplication application, ILogger startupLog)
@@ -156,7 +163,6 @@ static async Task ApplyMigrationsWithRepairAsync(WebApplication application, ILo
     catch (Exception ex)
     {
         startupLog.LogWarning(ex, "Migration failed, falling back to EnsureCreated");
-
         try
         {
             db.Database.EnsureCreated();

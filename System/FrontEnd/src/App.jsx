@@ -10,182 +10,150 @@ import { LoginPage } from "./components/Login/index.js";
 import { StatusScreen } from "./components/StatusScreen/index.js";
 import { AdminControls } from "./components/Dashboard/AdminControls.jsx";
 import { RestrictedNotice } from "./components/Dashboard/RestrictedNotice.jsx";
-import { RoomsView } from "./components/RoomsView.jsx";
-import { connectReadingsStream, getDevices, getReadings, postAlarmTest } from "./services/api.js";
+import { RoomsView } from "./components/Dashboard/RoomsView.jsx";
+import {
+  connectReadingsStream,
+  getDevices,
+  getReadings,
+  postAlarmTest,
+  getAlerts,
+  getUsers,
+  changeUserRole,
+  deleteUser,
+  getLogs,
+} from "./services/api.js";
 
-/** Passed to GET /api/readings so charts cover the last day of data. */
 const SAMPLE_WINDOW_HOURS = 168;
 const SAMPLE_LIMIT_OPTIONS = [200, 500, 1000, 2500, 5000];
 const DEFAULT_SAMPLE_LIMIT = 1000;
 const OFFLINE_AFTER_SECONDS = 120;
-
 const DISPLAY_TIMEZONE = "Europe/Rome";
-
 const SESSION_STORAGE_KEY = "sep4-session";
 
 // ---------------------------------------------------------------------------
-// Role-derived permissions (replaces the old accessControl.js dependency)
+// Role config — drives nav tabs and feature flags
 // ---------------------------------------------------------------------------
-
 const ROLE_CONFIG = {
-  admin: {
-    shortLabel: "System Admin",
-    initials: "SA",
-    views: ["Home", "Sensors", "Samples", "Charts", "Payload", "Rooms", "Settings"],
-    canViewAllDevices: true,
-    canViewAdminControls: true,
+  resident: {
+    shortLabel: "Resident",
+    initials: "RS",
+    views: ["Home", "Sensors", "Samples", "Charts", "Payload", "Alarm"],
+    canViewAllDevices: false,
+    canViewAdminControls: false,
+    canManageRooms: false,
+    canViewAlerts: false,
+    canManageUsers: false,
+    canViewLogs: false,
+    canManageDevices: false,
   },
   "building-administrator": {
     shortLabel: "Building Admin",
     initials: "BA",
-    views: ["Home", "Sensors", "Samples", "Charts", "Payload", "Rooms", "Settings"],
+    views: ["Home", "Sensors", "Samples", "Charts", "Payload", "Rooms", "Alerts", "Alarm"],
     canViewAllDevices: true,
     canViewAdminControls: true,
+    canManageRooms: true,
+    canViewAlerts: true,
+    canManageUsers: false,
+    canViewLogs: false,
+    canManageDevices: false,
   },
-  resident: {
-    shortLabel: "Resident",
-    initials: "RS",
-    views: ["Home", "Sensors", "Samples", "Charts", "Payload"],
-    canViewAllDevices: false,
-    canViewAdminControls: false,
+  admin: {
+    shortLabel: "System Admin",
+    initials: "SA",
+    views: ["Home", "Sensors", "Samples", "Charts", "Payload", "Rooms", "Alerts", "Alarm", "Users", "Devices", "Logs"],
+    canViewAllDevices: true,
+    canViewAdminControls: true,
+    canManageRooms: true,
+    canViewAlerts: true,
+    canManageUsers: true,
+    canViewLogs: true,
+    canManageDevices: true,
   },
-  // Fallback for any unknown role value coming from the backend
   default: {
     shortLabel: "User",
     initials: "U",
-    views: ["Home", "Sensors", "Samples", "Charts", "Payload"],
+    views: ["Home"],
     canViewAllDevices: false,
     canViewAdminControls: false,
+    canManageRooms: false,
+    canViewAlerts: false,
+    canManageUsers: false,
+    canViewLogs: false,
+    canManageDevices: false,
   },
 };
 
-function getRoleConfig(role) {
-  const key = (role ?? "").toLowerCase();
-  return ROLE_CONFIG[key] ?? ROLE_CONFIG.default;
-}
-
 function getPermissions(role) {
-  return getRoleConfig(role);
+  return ROLE_CONFIG[(role ?? "").toLowerCase()] ?? ROLE_CONFIG.default;
 }
 
 // ---------------------------------------------------------------------------
 // Timestamp helpers
 // ---------------------------------------------------------------------------
-
 function formatTimestampEuropeRome(date) {
   const d = date instanceof Date ? date : new Date(date);
   const instant = Number.isFinite(d.getTime()) ? d : new Date();
-
   const wall = new Intl.DateTimeFormat("sv-SE", {
-    timeZone: DISPLAY_TIMEZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
+    timeZone: DISPLAY_TIMEZONE, year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
   }).format(instant);
-  const isoLocal = wall.replace(" ", "T");
-
-  const tzName =
-    new Intl.DateTimeFormat("en-US", {
-      timeZone: DISPLAY_TIMEZONE,
-      timeZoneName: "longOffset",
-    })
-      .formatToParts(instant)
-      .find((p) => p.type === "timeZoneName")?.value ?? "GMT+00";
-
-  return `${isoLocal}${offsetLongGmtToIso(tzName)}`;
+  const tzName = new Intl.DateTimeFormat("en-US", { timeZone: DISPLAY_TIMEZONE, timeZoneName: "longOffset" })
+    .formatToParts(instant).find((p) => p.type === "timeZoneName")?.value ?? "GMT+00";
+  return `${wall.replace(" ", "T")}${offsetLongGmtToIso(tzName)}`;
 }
-
 function offsetLongGmtToIso(label) {
   const s = String(label).trim();
   const bare = s.match(/^([+-])(\d{2}):(\d{2})$/);
   if (bare) return `${bare[1]}${bare[2]}:${bare[3]}`;
   const m = s.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/i);
   if (!m) return "+00:00";
-  const hh = m[2].padStart(2, "0");
-  const mm = (m[3] ?? "00").padStart(2, "0");
-  return `${m[1]}${hh}:${mm}`;
+  return `${m[1]}${m[2].padStart(2,"0")}:${(m[3]??"00").padStart(2,"0")}`;
 }
-
 function readingToContractPayload(r) {
   const ts = r.timestamp ? new Date(r.timestamp) : null;
-  const timestamp =
-    ts && Number.isFinite(ts.getTime())
-      ? formatTimestampEuropeRome(ts)
-      : formatTimestampEuropeRome(new Date());
+  const timestamp = ts && Number.isFinite(ts.getTime())
+    ? formatTimestampEuropeRome(ts) : formatTimestampEuropeRome(new Date());
   return {
-    sensorId: r.sensorId,
-    timestamp,
+    sensorId: r.sensorId, timestamp,
     sensors: {
-      temperature: Number(r.temperature ?? 0),
-      humidity: Number(r.humidity ?? 0),
-      co2Level: Math.round(Number(r.co2Level ?? 0)),
-      tvoc: Math.round(Number(r.tvoc ?? 0)),
-      eco2: Math.round(Number(r.eco2 ?? 0)),
-      aqi: Math.round(Number(r.aqi ?? 1)),
+      temperature: Number(r.temperature ?? 0), humidity: Number(r.humidity ?? 0),
+      co2Level: Math.round(Number(r.co2Level ?? 0)), tvoc: Math.round(Number(r.tvoc ?? 0)),
+      eco2: Math.round(Number(r.eco2 ?? 0)), aqi: Math.round(Number(r.aqi ?? 1)),
     },
     classification: r.classification ?? "Normal",
   };
 }
-
 function toSample(r) {
   const contract = readingToContractPayload(r);
   return {
-    name: `Sample ${r.readingId}`,
-    sensorId: r.sensorId,
-    timestamp: r.timestamp,
-    temp: r.temperature,
-    hum: r.humidity,
-    co2: r.co2Level,
-    tvoc: r.tvoc ?? 0,
-    eco2: r.eco2 ?? 0,
-    aqi: r.aqi ?? 1,
+    name: `Sample ${r.readingId}`, sensorId: r.sensorId, timestamp: r.timestamp,
+    temp: r.temperature, hum: r.humidity, co2: r.co2Level,
+    tvoc: r.tvoc ?? 0, eco2: r.eco2 ?? 0, aqi: r.aqi ?? 1,
     classification: r.classification ?? "Normal",
     payload: JSON.stringify(contract, null, 2),
     payloadLength: JSON.stringify(contract).length,
     dhtStatus: "online",
   };
 }
-
-function toDateMs(value) {
-  if (!value) return null;
-  const ms = Date.parse(value);
-  return Number.isFinite(ms) ? ms : null;
+function toDateMs(v) { if (!v) return null; const ms = Date.parse(v); return Number.isFinite(ms) ? ms : null; }
+function formatDuration(s) {
+  if (!Number.isFinite(s) || s < 0) return "n/a";
+  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+  if (d > 0) return `${d}d ${h}h`; if (h > 0) return `${h}h ${m}m`; return `${m}m`;
 }
-
-function formatDuration(totalSeconds) {
-  if (!Number.isFinite(totalSeconds) || totalSeconds < 0) return "n/a";
-  const days = Math.floor(totalSeconds / 86400);
-  const hours = Math.floor((totalSeconds % 86400) / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  if (days > 0) return `${days}d ${hours}h`;
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  return `${minutes}m`;
+function formatLastSeen(s) {
+  if (!Number.isFinite(s)) return "never"; if (s < 5) return "just now";
+  if (s < 60) return `${s}s ago`; return `${Math.floor(s / 60)}m ago`;
 }
-
-function formatLastSeen(lastSeenSeconds) {
-  if (!Number.isFinite(lastSeenSeconds)) return "never";
-  if (lastSeenSeconds < 5) return "just now";
-  if (lastSeenSeconds < 60) return `${lastSeenSeconds}s ago`;
-  return `${Math.floor(lastSeenSeconds / 60)}m ago`;
-}
-
 function getDeviceHealth(device, nowMs) {
   const latestMs = toDateMs(device.latestTimestamp);
-  const firstMs = toDateMs(device.firstTimestamp);
-  const lastSeenSeconds =
-    latestMs == null ? null : Math.max(0, Math.floor((nowMs - latestMs) / 1000));
+  const firstMs  = toDateMs(device.firstTimestamp);
+  const lastSeenSeconds = latestMs == null ? null : Math.max(0, Math.floor((nowMs - latestMs) / 1000));
   const isOnline = lastSeenSeconds != null && lastSeenSeconds <= OFFLINE_AFTER_SECONDS;
-  const uptimeSeconds =
-    firstMs != null && latestMs != null
-      ? Math.max(0, Math.floor((latestMs - firstMs) / 1000))
-      : 0;
+  const uptimeSeconds = firstMs != null && latestMs != null ? Math.max(0, Math.floor((latestMs - firstMs) / 1000)) : 0;
   return {
-    isOnline,
-    missingData: !isOnline,
+    isOnline, missingData: !isOnline,
     statusLabel: isOnline ? "online" : "offline",
     statusType: isOnline ? "success" : "danger",
     lastSeenLabel: formatLastSeen(lastSeenSeconds),
@@ -194,274 +162,115 @@ function getDeviceHealth(device, nowMs) {
 }
 
 // ---------------------------------------------------------------------------
+// Recommendation engine (shared)
+// ---------------------------------------------------------------------------
+function getRecommendations(sample) {
+  if (!sample) return [];
+  const recs = [];
+  const co2 = Number(sample.co2 ?? 0), temp = Number(sample.temp ?? 0);
+  const hum = Number(sample.hum ?? 0), tvoc = Number(sample.tvoc ?? 0);
+  const eco2 = Number(sample.eco2 ?? 0), aqi = Number(sample.aqi ?? 0);
+  const cls = String(sample.classification ?? "Normal").toLowerCase();
+
+  if (cls !== "normal") recs.push({ level: "danger", title: "Fire risk detected", message: `Classification is ${sample.classification}. Check the room immediately.` });
+  if (co2 > 2000) recs.push({ level: "danger", title: "Unsafe CO2 level", message: "CO2 is very high. Evacuate and ventilate immediately." });
+  else if (co2 > 1000) recs.push({ level: "warning", title: "High CO2 level", message: "Ventilate the room to improve air quality." });
+  if (temp > 35) recs.push({ level: "danger", title: "Very high temperature", message: "Check for heat sources or fire risk." });
+  else if (temp > 30) recs.push({ level: "warning", title: "High temperature", message: "Consider cooling or increasing ventilation." });
+  if (hum > 70) recs.push({ level: "warning", title: "High humidity", message: "Humidity may reduce comfort and air quality." });
+  else if (hum < 25) recs.push({ level: "info", title: "Low humidity", message: "Consider increasing humidity for comfort." });
+  if (tvoc > 500 || eco2 > 1500 || aqi > 3) recs.push({ level: "warning", title: "Air quality needs attention", message: "Ventilation recommended. VOC/eCO2/AQI are elevated." });
+  if (recs.length === 0) recs.push({ level: "success", title: "All readings normal", message: "No immediate action needed." });
+  return recs;
+}
+
+// ---------------------------------------------------------------------------
 // Dashboard
 // ---------------------------------------------------------------------------
-
 function Dashboard({ session, onLogout }) {
   const permissions = getPermissions(session.role);
   const defaultView = permissions.views[0] ?? "Home";
 
-  const [activeView, setActiveView] = useState(defaultView);
-  const [samples, setSamples] = useState([]);
-  const [devices, setDevices] = useState([]);
-  const [selectedSensorId, setSelectedSensorId] = useState(() =>
-    permissions.canViewAllDevices ? "all" : session.assignedSensorId ?? "all"
+  const [activeView, setActiveView]       = useState(defaultView);
+  const [samples, setSamples]             = useState([]);
+  const [devices, setDevices]             = useState([]);
+  const [selectedSensorId, setSelectedSensorId] = useState(
+    () => permissions.canViewAllDevices ? "all" : (session.assignedSensorId ?? "all")
   );
   const [selectedLimit, setSelectedLimit] = useState(DEFAULT_SAMPLE_LIMIT);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [nowMs, setNowMs] = useState(() => Date.now());
+  const [loading, setLoading]             = useState(true);
+  const [error, setError]                 = useState(null);
+  const [nowMs, setNowMs]                 = useState(() => Date.now());
   const [alarmTestMessage, setAlarmTestMessage] = useState(null);
-  const [alarmTestBusy, setAlarmTestBusy] = useState(false);
+  const [alarmTestBusy, setAlarmTestBusy]       = useState(false);
 
-  // Tick nowMs every 10 s for health display
-  useEffect(() => {
-    const timer = window.setInterval(() => setNowMs(Date.now()), 10000);
-    return () => window.clearInterval(timer);
-  }, []);
+  useEffect(() => { const t = window.setInterval(() => setNowMs(Date.now()), 10000); return () => clearInterval(t); }, []);
 
-  // Guard: if role loses access to current view, reset
   useEffect(() => {
-    if (!permissions.views.includes(activeView)) {
-      setActiveView(defaultView);
-    }
+    if (!permissions.views.includes(activeView)) setActiveView(defaultView);
   }, [activeView, permissions.views, defaultView]);
 
-  // Sync sensor filter to role
   useEffect(() => {
-    if (!permissions.canViewAllDevices && selectedSensorId !== session.assignedSensorId) {
+    if (!permissions.canViewAllDevices && selectedSensorId !== session.assignedSensorId)
       setSelectedSensorId(session.assignedSensorId ?? "all");
-    }
   }, [permissions.canViewAllDevices, selectedSensorId, session.assignedSensorId]);
 
   useEffect(() => {
-    async function loadDevices() {
-      try {
-        const data = await getDevices();
-        setDevices(data);
-      } catch (err) {
-        console.error("Device API error:", err);
-      }
-    }
-    loadDevices();
-  }, []);
+    if (!permissions.canViewAllDevices) return; // residents get devices from readings
+    getDevices().then(setDevices).catch((e) => console.error("Device API error:", e));
+  }, [permissions.canViewAllDevices]);
 
   useEffect(() => {
-    async function loadReadings() {
-      try {
-        setLoading(true);
-        setError(null);
+    async function load() {
+      try { setLoading(true); setError(null);
         const data = await getReadings(selectedSensorId, selectedLimit, SAMPLE_WINDOW_HOURS);
         setSamples(data.map(toSample));
-      } catch (err) {
-        console.error("API error:", err);
-        setError(err);
-      } finally {
-        setLoading(false);
-      }
+      } catch (e) { setError(e); } finally { setLoading(false); }
     }
-    loadReadings();
+    load();
   }, [selectedSensorId, selectedLimit]);
 
   useEffect(() => {
     const stream = connectReadingsStream(selectedSensorId);
-
     const onReading = (event) => {
       try {
-        const reading = JSON.parse(event.data);
-        setSamples((prev) => {
-          const next = [
-            toSample(reading),
-            ...prev.filter((s) => s.name !== `Sample ${reading.readingId}`),
-          ];
-          return next.slice(0, selectedLimit);
-        });
+        const r = JSON.parse(event.data);
+        setSamples((prev) => [toSample(r), ...prev.filter((s) => s.name !== `Sample ${r.readingId}`)].slice(0, selectedLimit));
         setDevices((prev) => {
-          const idx = prev.findIndex((d) => d.sensorId === reading.sensorId);
-          if (idx < 0) {
-            return [
-              ...prev,
-              {
-                sensorId: reading.sensorId,
-                status: "active",
-                readingCount: 1,
-                firstTimestamp: reading.timestamp,
-                latestTimestamp: reading.timestamp,
-              },
-            ].sort((a, b) => a.sensorId - b.sensorId);
-          }
-          const updated = [...prev];
-          updated[idx] = {
-            ...updated[idx],
-            status: "active",
-            readingCount: (updated[idx].readingCount ?? 0) + 1,
-            firstTimestamp: updated[idx].firstTimestamp ?? reading.timestamp,
-            latestTimestamp: reading.timestamp,
-          };
-          return updated;
+          const idx = prev.findIndex((d) => d.sensorId === r.sensorId);
+          if (idx < 0) return [...prev, { sensorId: r.sensorId, status: "active", readingCount: 1, firstTimestamp: r.timestamp, latestTimestamp: r.timestamp }].sort((a,b) => a.sensorId - b.sensorId);
+          const u = [...prev];
+          u[idx] = { ...u[idx], status: "active", readingCount: (u[idx].readingCount ?? 0) + 1, firstTimestamp: u[idx].firstTimestamp ?? r.timestamp, latestTimestamp: r.timestamp };
+          return u;
         });
-      } catch (streamErr) {
-        console.error("Stream parse error:", streamErr);
-      }
+      } catch (e) { console.error("Stream parse error:", e); }
     };
-
     stream.addEventListener("reading", onReading);
-    stream.onerror = () =>
-      console.error("Readings SSE disconnected, browser will retry automatically.");
-
-    return () => {
-      stream.removeEventListener("reading", onReading);
-      stream.close();
-    };
+    stream.onerror = () => console.error("SSE disconnected, will retry.");
+    return () => { stream.removeEventListener("reading", onReading); stream.close(); };
   }, [selectedSensorId, selectedLimit]);
 
-  // ---------------------------------------------------------------------------
-  // Status screens
-  // ---------------------------------------------------------------------------
-
-  if (loading) {
-    return <StatusScreen title="Loading dashboard" message="Preparing the latest sensor readings." />;
-  }
-
-  if (error) {
-    return (
-      <StatusScreen
-        title="Dashboard offline"
-        message="The frontend is running, but the backend API is not reachable right now."
-        actionLabel="Back to sign in"
-        onAction={onLogout}
-      />
-    );
-  }
-
-  if (!samples.length) {
-    return (
-      <StatusScreen
-        title="No readings found"
-        message="There are no readings for this device selection yet."
-        actionLabel="Back to sign in"
-        onAction={onLogout}
-      />
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Derived data
-  // ---------------------------------------------------------------------------
+  if (loading) return <StatusScreen title="Loading dashboard" message="Preparing sensor readings." />;
+  if (error)   return <StatusScreen title="Dashboard offline" message="Backend API not reachable." actionLabel="Sign out" onAction={onLogout} />;
+  if (!samples.length) return <StatusScreen title="No readings found" message="No readings for this selection." actionLabel="Sign out" onAction={onLogout} />;
 
   const latestSample = samples[0];
-  const latestDeviceHealth = getDeviceHealth(
-    devices.find((d) => d.sensorId === latestSample.sensorId) ?? {},
-    nowMs
-  );
-  const offlineAlerts = devices
-    .map((device) => ({ sensorId: device.sensorId, health: getDeviceHealth(device, nowMs) }))
-    .filter((entry) => entry.health.missingData);
-
-  const summary = {
-    sensorId: latestSample.sensorId,
-    temp: latestSample.temp,
-    hum: latestSample.hum,
-    co2: latestSample.co2,
-    tvoc: latestSample.tvoc,
-    eco2: latestSample.eco2,
-    aqi: latestSample.aqi,
-  };
+  const latestDeviceHealth = getDeviceHealth(devices.find((d) => d.sensorId === latestSample.sensorId) ?? {}, nowMs);
+  const offlineAlerts = devices.map((d) => ({ sensorId: d.sensorId, health: getDeviceHealth(d, nowMs) })).filter((e) => e.health.missingData);
+  const summary = { sensorId: latestSample.sensorId, temp: latestSample.temp, hum: latestSample.hum, co2: latestSample.co2, tvoc: latestSample.tvoc, eco2: latestSample.eco2, aqi: latestSample.aqi };
 
   const pageTitles = {
-    Home: "Home Overview",
-    Sensors: "Sensor Details",
-    Samples: "Sample History",
-    Charts: "Charts & Trends",
-    Payload: "Payload Viewer",
-    Rooms: "Room Management",
-    Settings: "Settings",
+    Home: "Home Overview", Sensors: "Sensor Details", Samples: "Sample History",
+    Charts: "Charts & Trends", Payload: "Payload Viewer", Rooms: "Room Management",
+    Alerts: "Alert History", Alarm: "Alarm Controls", Users: "User Management",
+    Devices: "Device Management", Logs: "System Logs",
   };
 
-  // ---------------------------------------------------------------------------
-  // Recommendations
-  // ---------------------------------------------------------------------------
-
-  function getRecommendation(sample) {
-    if (!sample) return [];
-    const recs = [];
-    const co2 = Number(sample.co2 ?? 0);
-    const temp = Number(sample.temp ?? 0);
-    const hum = Number(sample.hum ?? 0);
-    const tvoc = Number(sample.tvoc ?? 0);
-    const eco2 = Number(sample.eco2 ?? 0);
-    const aqi = Number(sample.aqi ?? 0);
-    const classification = String(sample.classification ?? "Normal").toLowerCase();
-
-    if (classification !== "normal") {
-      recs.push({
-        level: "danger",
-        title: "Fire risk detected",
-        message: `Current classification is ${sample.classification}. Check the room immediately.`,
-      });
-    }
-    if (co2 > 2000) {
-      recs.push({
-        level: "danger",
-        title: "Unsafe CO2 level",
-        message: "CO2 is very high. Leave the room if symptoms occur and ventilate immediately.",
-      });
-    } else if (co2 > 1000) {
-      recs.push({
-        level: "warning",
-        title: "High CO2 level",
-        message: "Ventilate the room to improve air quality.",
-      });
-    }
-    if (temp > 35) {
-      recs.push({
-        level: "danger",
-        title: "Very high temperature",
-        message: "Temperature is unusually high. Check for heat sources or fire risk.",
-      });
-    } else if (temp > 30) {
-      recs.push({
-        level: "warning",
-        title: "High temperature",
-        message: "Consider cooling or increasing ventilation.",
-      });
-    }
-    if (hum > 70) {
-      recs.push({
-        level: "warning",
-        title: "High humidity",
-        message: "Humidity is high. This may reduce comfort and air quality.",
-      });
-    } else if (hum < 25) {
-      recs.push({
-        level: "info",
-        title: "Low humidity",
-        message: "Air is dry. Consider increasing humidity if people stay here longer.",
-      });
-    }
-    if (tvoc > 500 || eco2 > 1500 || aqi > 3) {
-      recs.push({
-        level: "warning",
-        title: "Air quality needs attention",
-        message: "VOC/eCO2/AQI values suggest poorer air quality. Ventilation is recommended.",
-      });
-    }
-    if (recs.length === 0) {
-      recs.push({
-        level: "success",
-        title: "All readings look normal",
-        message: "No immediate action is recommended.",
-      });
-    }
-    return recs;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Sub-views
-  // ---------------------------------------------------------------------------
+  // ── Sub-views ──────────────────────────────────────────────────────────────
 
   function HomeView() {
-    const recommendations = getRecommendation(latestSample);
+    const recs = getRecommendations(latestSample);
+    const isAdmin = permissions.canViewAllDevices;
     return (
       <>
         <section className="grid top-grid">
@@ -469,36 +278,69 @@ function Dashboard({ session, onLogout }) {
           <PayloadCard payload={latestSample.payload} />
         </section>
         <div className="section-spacer" />
+
+        {/* Classification + recommendations — relevant to all roles */}
         <section className="grid">
           <article className="card">
-            <h3>Room Environment Classification</h3>
-            <p>{latestSample.classification ?? "No classification available yet"}</p>
+            <h3>Room Classification</h3>
+            <p style={{ marginTop: 8 }}>
+              Current status:{" "}
+              <strong className={latestSample.classification === "Normal" ? "success" : "danger"}>
+                {latestSample.classification ?? "Unknown"}
+              </strong>
+            </p>
+            {latestSample.classification === "Cooking" && (
+              <p className="muted" style={{ marginTop: 8 }}>
+                Cooking activity detected. Increased smoke/CO2 is expected. Ventilate if needed.
+              </p>
+            )}
+            {latestSample.classification === "Fire" && (
+              <p className="danger" style={{ marginTop: 8, fontWeight: 600 }}>
+                ⚠ Possible fire detected. Verify the room immediately and trigger the alarm if necessary.
+              </p>
+            )}
           </article>
-        </section>
-        <div className="section-spacer" />
-        <article className="card">
-          <h3>Recommendations</h3>
-          {recommendations.length === 0 ? (
-            <p className="muted">Everything looks normal.</p>
-          ) : (
-            <div className="recommendation-list">
-              {recommendations.map((rec, i) => (
-                <div className={`recommendation-item ${rec.level}`} key={`${rec.title}-${i}`}>
+
+          <article className="card">
+            <h3>Recommendations</h3>
+            <div className="recommendation-list" style={{ marginTop: 8 }}>
+              {recs.map((rec, i) => (
+                <div className={`recommendation-item ${rec.level}`} key={i}>
                   <strong>{rec.title}</strong>
                   <span>{rec.message}</span>
                 </div>
               ))}
             </div>
-          )}
-        </article>
+          </article>
+        </section>
+        <div className="section-spacer" />
+
+        {/* Multi-room overview for admins */}
+        {isAdmin && offlineAlerts.length > 0 && (
+          <>
+            <article className="card" style={{ marginBottom: 24 }}>
+              <h3>⚠ Offline Devices ({offlineAlerts.length})</h3>
+              <p className="muted">These devices have not reported within {OFFLINE_AFTER_SECONDS}s.</p>
+              <div style={{ marginTop: 12 }}>
+                {offlineAlerts.map((a) => (
+                  <div className="summary-row" key={a.sensorId}>
+                    <span>Device {a.sensorId}</span>
+                    <strong className="danger">{a.health.lastSeenLabel}</strong>
+                  </div>
+                ))}
+              </div>
+            </article>
+          </>
+        )}
+
         <section className="grid stats-grid">
-          <StatCard title="Device ID" value={summary.sensorId} status="selected" statusType="success" />
-          <StatCard title="Temperature" value={summary.temp} status="stable" statusType="success" />
-          <StatCard title="Humidity" value={summary.hum} status="stable" statusType="success" />
-          <StatCard title="CO2" value={summary.co2} status="watch" statusType="danger" />
-          <StatCard title="TVOC" value={summary.tvoc} status="watch" statusType="danger" />
-          <StatCard title="eCO2" value={summary.eco2} status="watch" statusType="danger" />
-          <StatCard title="AQI" value={summary.aqi ?? "-"} status="watch" statusType="danger" />
+          <StatCard title="Device ID"    value={summary.sensorId} status="selected"   statusType="success" />
+          <StatCard title="Temperature"  value={summary.temp}     status="stable"     statusType="success" />
+          <StatCard title="Humidity"     value={summary.hum}      status="stable"     statusType="success" />
+          <StatCard title="CO2"          value={summary.co2}      status="watch"      statusType="danger"  />
+          <StatCard title="TVOC"         value={summary.tvoc}     status="watch"      statusType="danger"  />
+          <StatCard title="eCO2"         value={summary.eco2}     status="watch"      statusType="danger"  />
+          <StatCard title="AQI"          value={summary.aqi ?? "-"} status="watch"    statusType="danger"  />
         </section>
       </>
     );
@@ -507,10 +349,10 @@ function Dashboard({ session, onLogout }) {
   function SensorsView() {
     return (
       <section className="grid stats-grid">
-        <StatCard title="Device ID" value={summary.sensorId} status="sensorId" statusType="success" />
-        <StatCard title="Temperature" value={summary.temp} status="DHT sensor" statusType="success" />
-        <StatCard title="Humidity" value={summary.hum} status="DHT sensor" statusType="success" />
-        <StatCard title="CO2" value={summary.co2} status="air quality" statusType="danger" />
+        <StatCard title="Device ID"   value={summary.sensorId} status="sensorId"   statusType="success" />
+        <StatCard title="Temperature" value={summary.temp}     status="DHT sensor" statusType="success" />
+        <StatCard title="Humidity"    value={summary.hum}      status="DHT sensor" statusType="success" />
+        <StatCard title="CO2"         value={summary.co2}      status="air quality" statusType="danger" />
       </section>
     );
   }
@@ -519,16 +361,7 @@ function Dashboard({ session, onLogout }) {
     return (
       <section className="grid bottom-grid view-grid">
         {samples.map((sample) => (
-          <SampleCard
-            key={sample.name}
-            sample={{
-              ...sample,
-              dhtStatus: getDeviceHealth(
-                devices.find((d) => d.sensorId === sample.sensorId) ?? {},
-                nowMs
-              ).statusLabel,
-            }}
-          />
+          <SampleCard key={sample.name} sample={{ ...sample, dhtStatus: getDeviceHealth(devices.find((d) => d.sensorId === sample.sensorId) ?? {}, nowMs).statusLabel }} />
         ))}
       </section>
     );
@@ -540,224 +373,332 @@ function Dashboard({ session, onLogout }) {
         <PayloadCard payload={latestSample.payload} />
         <article className="card">
           <h3>Payload Details</h3>
-          <div className="summary-row">
-            <span>Device ID</span>
-            <strong>{latestSample.sensorId}</strong>
-          </div>
-          <div className="summary-row">
-            <span>Length</span>
-            <strong>{latestSample.payloadLength}</strong>
-          </div>
-          <div className="summary-row">
-            <span>CO2</span>
-            <strong>{latestSample.co2} ppm</strong>
-          </div>
-          <div className="summary-row">
-            <span>Temperature</span>
-            <strong>{latestSample.temp} C</strong>
-          </div>
-          <div className="summary-row">
-            <span>Humidity</span>
-            <strong>{latestSample.hum} %</strong>
-          </div>
+          {[["Device ID", latestSample.sensorId], ["Length", latestSample.payloadLength], ["CO2", `${latestSample.co2} ppm`], ["Temperature", `${latestSample.temp} °C`], ["Humidity", `${latestSample.hum} %`]].map(([k, v]) => (
+            <div className="summary-row" key={k}><span>{k}</span><strong>{v}</strong></div>
+          ))}
         </article>
       </section>
     );
   }
 
   function ChartsView() {
-    const series = [...samples].reverse();
+    const series   = [...samples].reverse();
     const tempData = series.map((s) => ({ t: s.timestamp, v: Number(s.temp) }));
-    const humData = series.map((s) => ({ t: s.timestamp, v: Number(s.hum) }));
-    const co2Data = series.map((s) => ({ t: s.timestamp, v: Number(s.co2) }));
-
+    const humData  = series.map((s) => ({ t: s.timestamp, v: Number(s.hum) }));
+    const co2Data  = series.map((s) => ({ t: s.timestamp, v: Number(s.co2) }));
     const stats = (arr) => {
-      const vals = arr.map((d) => d.v).filter((v) => Number.isFinite(v));
-      if (vals.length === 0) return { avg: 0, min: 0, max: 0, latest: 0, count: 0 };
-      return {
-        avg: vals.reduce((a, b) => a + b, 0) / vals.length,
-        min: Math.min(...vals),
-        max: Math.max(...vals),
-        latest: vals[vals.length - 1],
-        count: vals.length,
-      };
+      const vals = arr.map((d) => d.v).filter(Number.isFinite);
+      if (!vals.length) return { avg: 0, min: 0, max: 0, latest: 0, count: 0 };
+      return { avg: vals.reduce((a,b)=>a+b,0)/vals.length, min: Math.min(...vals), max: Math.max(...vals), latest: vals[vals.length-1], count: vals.length };
     };
-
-    const tStats = stats(tempData);
-    const hStats = stats(humData);
-    const cStats = stats(co2Data);
-    const totalCount = series.length;
-
+    const tS = stats(tempData), hS = stats(humData), cS = stats(co2Data);
+    const fmt = (n, d) => Number(n).toFixed(d);
+    function ChartCard({ title, unit, s, data, decimals = 1 }) {
+      return (
+        <article className="card chart-card">
+          <div className="card-header">
+            <div><h3>{title}</h3><p className="muted">Avg / min / max over {s.count} samples</p></div>
+            <span className="tag">{fmt(s.avg, decimals)}{unit}</span>
+          </div>
+          <div className="chart-stats">
+            {[["Avg", s.avg], ["Min", s.min], ["Max", s.max], ["Latest", s.latest]].map(([label, val]) => (
+              <div key={label}><span className="muted">{label}</span><strong>{fmt(val, decimals)}{unit}</strong></div>
+            ))}
+          </div>
+          <LineChart data={data} unit={unit} />
+        </article>
+      );
+    }
     return (
       <section className="grid charts-grid">
-        <ChartCard title="Temperature trend" unit="°C" stats={tStats} data={tempData} decimals={1} />
-        <ChartCard title="Humidity trend" unit="%" stats={hStats} data={humData} decimals={1} />
-        <ChartCard title="CO2 trend" unit=" ppm" stats={cStats} data={co2Data} decimals={0} />
+        <ChartCard title="Temperature trend" unit="°C"  s={tS} data={tempData} decimals={1} />
+        <ChartCard title="Humidity trend"    unit="%"   s={hS} data={humData}  decimals={1} />
+        <ChartCard title="CO2 trend"         unit=" ppm" s={cS} data={co2Data}  decimals={0} />
         <article className="card chart-summary-card">
-          <div className="card-header">
-            <div>
-              <h3>Averages over {totalCount} samples</h3>
-              <p className="muted">Last 24 hours of readings (up to your sample cap)</p>
-            </div>
-            <span className="tag">Live</span>
-          </div>
-          <div className="summary-row">
-            <span>Avg temperature</span>
-            <strong>{tStats.avg.toFixed(1)} °C</strong>
-          </div>
-          <div className="summary-row">
-            <span>Avg humidity</span>
-            <strong>{hStats.avg.toFixed(1)} %</strong>
-          </div>
-          <div className="summary-row">
-            <span>Avg CO2</span>
-            <strong>{cStats.avg.toFixed(0)} ppm</strong>
-          </div>
-          <div className="summary-row">
-            <span>Range CO2</span>
-            <strong>
-              {cStats.min.toFixed(0)} – {cStats.max.toFixed(0)} ppm
-            </strong>
-          </div>
+          <div className="card-header"><div><h3>Averages over {series.length} samples</h3><p className="muted">Last 7 days</p></div><span className="tag">Live</span></div>
+          {[["Avg temperature", `${fmt(tS.avg,1)} °C`], ["Avg humidity", `${fmt(hS.avg,1)} %`], ["Avg CO2", `${fmt(cS.avg,0)} ppm`], ["Range CO2", `${fmt(cS.min,0)} – ${fmt(cS.max,0)} ppm`]].map(([k,v]) => (
+            <div className="summary-row" key={k}><span>{k}</span><strong>{v}</strong></div>
+          ))}
         </article>
       </section>
     );
   }
 
-  function ChartCard({ title, unit, stats, data, decimals = 1 }) {
-    const fmt = (n) => Number(n).toFixed(decimals);
+  // ── Alarm view: available to ALL roles ─────────────────────────────────────
+  function AlarmView() {
+    const canTest = permissions.canViewAdminControls;
     return (
-      <article className="card chart-card">
-        <div className="card-header">
-          <div>
-            <h3>{title}</h3>
-            <p className="muted">Avg / min / max over {stats.count} samples</p>
-          </div>
-          <span className="tag">
-            {fmt(stats.avg)}
-            {unit}
-          </span>
-        </div>
-        <div className="chart-stats">
-          <div>
-            <span className="muted">Avg</span>
-            <strong>
-              {fmt(stats.avg)}
-              {unit}
+      <section className="grid settings-grid">
+        {canTest ? (
+          <AdminControls
+            selectedSensorId={selectedSensorId}
+            alarmTestBusy={alarmTestBusy}
+            alarmTestMessage={alarmTestMessage}
+            onAlarmTest={runAlarmTest}
+          />
+        ) : (
+          // Residents can only silence — send "off" to their assigned sensor
+          <article className="card">
+            <h3>Alarm controls</h3>
+            <p className="muted">Silence or reset the alarm for your room.</p>
+            <div className="button-row" style={{ marginTop: 12 }}>
+              <button
+                type="button"
+                className="menu-item inline-action"
+                disabled={alarmTestBusy}
+                onClick={() => runAlarmTest("off")}
+              >
+                Silence alarm
+              </button>
+            </div>
+            {alarmTestMessage && (
+              <p className={alarmTestMessage.type === "error" ? "danger action-hint" : "muted action-hint"}>
+                {alarmTestMessage.text}
+              </p>
+            )}
+          </article>
+        )}
+
+        <article className="card">
+          <h3>Current room status</h3>
+          <div className="summary-row"><span>Classification</span>
+            <strong className={latestSample.classification === "Normal" ? "success" : "danger"}>
+              {latestSample.classification ?? "Unknown"}
             </strong>
           </div>
-          <div>
-            <span className="muted">Min</span>
-            <strong>
-              {fmt(stats.min)}
-              {unit}
-            </strong>
+          <div className="summary-row"><span>Device status</span>
+            <strong className={latestDeviceHealth.statusType}>{latestDeviceHealth.statusLabel}</strong>
           </div>
-          <div>
-            <span className="muted">Max</span>
-            <strong>
-              {fmt(stats.max)}
-              {unit}
-            </strong>
-          </div>
-          <div>
-            <span className="muted">Latest</span>
-            <strong>
-              {fmt(stats.latest)}
-              {unit}
-            </strong>
-          </div>
-        </div>
-        <LineChart data={data} unit={unit} />
-      </article>
+          <div className="summary-row"><span>Last seen</span><strong>{latestDeviceHealth.lastSeenLabel}</strong></div>
+          <div className="summary-row"><span>Uptime</span><strong>{latestDeviceHealth.uptimeLabel}</strong></div>
+        </article>
+      </section>
     );
   }
 
-  async function runAlarmTest(level) {
-    if (selectedSensorId === "all") {
-      setAlarmTestMessage({ type: "error", text: "Choose a device in the sidebar first." });
-      return;
-    }
-    setAlarmTestBusy(true);
-    setAlarmTestMessage(null);
-    try {
-      await postAlarmTest(Number(selectedSensorId), level);
-      setAlarmTestMessage({ type: "ok", text: "MQTT command sent to the board." });
-    } catch (err) {
-      setAlarmTestMessage({
-        type: "error",
-        text: err instanceof Error ? err.message : String(err),
-      });
-    } finally {
-      setAlarmTestBusy(false);
-    }
-  }
+  // ── Alerts view: building-admin + system-admin ─────────────────────────────
+  function AlertsView() {
+    const [alerts, setAlerts]     = useState([]);
+    const [alertsLoading, setAlertsLoading] = useState(true);
+    const [alertsError, setAlertsError]     = useState(null);
 
-  function SettingsView() {
-    if (!permissions.canViewAdminControls) {
-      return (
-        <RestrictedNotice message="Residents can view their assigned sensor and warnings, but alarm test and reset actions are admin-only." />
-      );
-    }
+    useEffect(() => {
+      getAlerts(permissions.canViewAllDevices ? null : selectedSensorId, 100)
+        .then(setAlerts)
+        .catch((e) => setAlertsError(e.message))
+        .finally(() => setAlertsLoading(false));
+    }, []);
+
+    if (alertsLoading) return <p className="muted">Loading alerts…</p>;
+    if (alertsError)   return <p className="danger">{alertsError}</p>;
+
     return (
-      <section className="grid settings-grid">
-        <AdminControls
-          selectedSensorId={selectedSensorId}
-          alarmTestBusy={alarmTestBusy}
-          alarmTestMessage={alarmTestMessage}
-          onAlarmTest={runAlarmTest}
-        />
-        <article className="card">
-          <h3>Sensor Health</h3>
-          <div className="summary-row">
-            <span>Current device status</span>
-            <strong className={latestDeviceHealth.statusType}>{latestDeviceHealth.statusLabel}</strong>
-          </div>
-          <div className="summary-row">
-            <span>Last seen</span>
-            <strong>{latestDeviceHealth.lastSeenLabel}</strong>
-          </div>
-          <div className="summary-row">
-            <span>Uptime</span>
-            <strong>{latestDeviceHealth.uptimeLabel}</strong>
-          </div>
-          <div className="summary-row">
-            <span>Missing-data threshold</span>
-            <strong>{OFFLINE_AFTER_SECONDS}s</strong>
-          </div>
-        </article>
-        <article className="card">
-          <h3>Offline Alerts ({offlineAlerts.length})</h3>
-          {offlineAlerts.length === 0 ? (
-            <p className="muted">No offline devices detected.</p>
+      <section className="grid">
+        <article className="card" style={{ gridColumn: "1 / -1" }}>
+          <h3>Alert History ({alerts.length})</h3>
+          <p className="muted">Readings where classification was not Normal.</p>
+          {alerts.length === 0 ? (
+            <p className="muted" style={{ marginTop: 12 }}>No alerts recorded.</p>
           ) : (
-            offlineAlerts.map((alert) => (
-              <div className="summary-row" key={alert.sensorId}>
-                <span>Device {alert.sensorId}</span>
-                <strong className="danger">{alert.health.lastSeenLabel}</strong>
-              </div>
-            ))
+            <div style={{ marginTop: 12 }}>
+              {alerts.map((a) => (
+                <div key={a.readingId} className="summary-row" style={{ padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,.06)" }}>
+                  <span>
+                    Device {a.sensorId} &mdash;{" "}
+                    <span className="muted">{new Date(a.timestamp).toLocaleString()}</span>
+                  </span>
+                  <strong className="danger">{a.classification}</strong>
+                </div>
+              ))}
+            </div>
           )}
         </article>
       </section>
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Sidebar shape expected by the existing Sidebar component
-  // We pass a minimal session/permissions shim so Sidebar keeps working.
-  // ---------------------------------------------------------------------------
+  // ── Users view: system-admin only ─────────────────────────────────────────
+  function UsersView() {
+    const [users, setUsers]       = useState([]);
+    const [usersLoading, setUsersLoading] = useState(true);
+    const [usersError, setUsersError]     = useState(null);
+    const [busy, setBusy]         = useState({});
+    const ROLES = ["resident", "building-administrator", "admin"];
 
-  const sidebarSession = {
-    role: session.role,
-    assignedSensorId: session.assignedSensorId ?? null,
-  };
+    useEffect(() => {
+      getUsers().then(setUsers).catch((e) => setUsersError(e.message)).finally(() => setUsersLoading(false));
+    }, []);
 
-  const sidebarPermissions = {
-    views: permissions.views,
-    canViewAllDevices: permissions.canViewAllDevices,
-    canViewAdminControls: permissions.canViewAdminControls,
-  };
+    async function handleRoleChange(userId, newRole) {
+      setBusy((p) => ({ ...p, [userId]: true }));
+      try {
+        const updated = await changeUserRole(userId, newRole);
+        setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, role: updated.role } : u));
+      } catch (e) { alert(e.message); }
+      finally { setBusy((p) => ({ ...p, [userId]: false })); }
+    }
+
+    async function handleDelete(userId, username) {
+      if (!window.confirm(`Delete user "${username}"? This cannot be undone.`)) return;
+      setBusy((p) => ({ ...p, [userId]: true }));
+      try {
+        await deleteUser(userId);
+        setUsers((prev) => prev.filter((u) => u.id !== userId));
+      } catch (e) { alert(e.message); }
+      finally { setBusy((p) => ({ ...p, [userId]: false })); }
+    }
+
+    if (usersLoading) return <p className="muted">Loading users…</p>;
+    if (usersError)   return <p className="danger">{usersError}</p>;
+
+    return (
+      <section className="grid">
+        <article className="card" style={{ gridColumn: "1 / -1" }}>
+          <h3>User Accounts ({users.length})</h3>
+          <p className="muted">Change roles or remove accounts. New registrations default to Resident.</p>
+          <div style={{ marginTop: 16 }}>
+            {users.map((u) => (
+              <div key={u.id} className="summary-row" style={{ padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,.06)", alignItems: "center", gap: 12 }}>
+                <span style={{ minWidth: 140 }}><strong>{u.username}</strong></span>
+                <select
+                  className="device-select"
+                  style={{ flex: 1, maxWidth: 220 }}
+                  value={u.role}
+                  disabled={busy[u.id] || u.id === session.userId}
+                  onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                >
+                  {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                </select>
+                <button
+                  className="menu-item inline-action"
+                  type="button"
+                  disabled={busy[u.id] || u.id === session.userId}
+                  onClick={() => handleDelete(u.id, u.username)}
+                  style={{ background: "rgba(239,68,68,.15)", color: "#f87171", borderColor: "rgba(239,68,68,.3)" }}
+                >
+                  Delete
+                </button>
+                {u.id === session.userId && <span className="muted" style={{ fontSize: 12 }}>(you)</span>}
+              </div>
+            ))}
+          </div>
+        </article>
+      </section>
+    );
+  }
+
+  // ── Devices view: system-admin only ───────────────────────────────────────
+  function DevicesView() {
+    return (
+      <section className="grid stats-grid">
+        <article className="card" style={{ gridColumn: "1 / -1" }}>
+          <h3>IoT Devices ({devices.length})</h3>
+          <p className="muted">Live connectivity status for all registered sensors.</p>
+          <div style={{ marginTop: 16 }}>
+            {devices.length === 0 ? <p className="muted">No devices registered.</p> : devices.map((d) => {
+              const health = getDeviceHealth(d, nowMs);
+              return (
+                <div key={d.sensorId} className="summary-row" style={{ padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,.06)" }}>
+                  <span>Device {d.sensorId}</span>
+                  <span className="muted">{d.readingCount} readings</span>
+                  <span className="muted">First: {d.firstTimestamp ? new Date(d.firstTimestamp).toLocaleDateString() : "—"}</span>
+                  <span className="muted">Last: {health.lastSeenLabel}</span>
+                  <strong className={health.statusType}>{health.statusLabel}</strong>
+                </div>
+              );
+            })}
+          </div>
+        </article>
+        <article className="card">
+          <h3>Offline Alerts ({offlineAlerts.length})</h3>
+          {offlineAlerts.length === 0
+            ? <p className="muted">All devices reporting.</p>
+            : offlineAlerts.map((a) => (
+                <div className="summary-row" key={a.sensorId}>
+                  <span>Device {a.sensorId}</span>
+                  <strong className="danger">{a.health.lastSeenLabel}</strong>
+                </div>
+              ))}
+        </article>
+      </section>
+    );
+  }
+
+  // ── Logs view: system-admin only ──────────────────────────────────────────
+  function LogsView() {
+    const [logs, setLogs]       = useState("");
+    const [logsLoading, setLogsLoading] = useState(true);
+    const [logsError, setLogsError]     = useState(null);
+
+    useEffect(() => {
+      getLogs().then(setLogs).catch((e) => setLogsError(e.message)).finally(() => setLogsLoading(false));
+    }, []);
+
+    if (logsLoading) return <p className="muted">Loading logs…</p>;
+    if (logsError)   return <p className="danger">{logsError}</p>;
+
+    return (
+      <section className="grid">
+        <article className="card" style={{ gridColumn: "1 / -1" }}>
+          <div className="card-header">
+            <h3>System Logs</h3>
+            <button className="menu-item inline-action" onClick={() => { setLogsLoading(true); getLogs().then(setLogs).catch((e)=>setLogsError(e.message)).finally(()=>setLogsLoading(false)); }}>
+              Refresh
+            </button>
+          </div>
+          <pre style={{ marginTop: 12, fontSize: 12, lineHeight: 1.6, color: "#9ca3af", maxHeight: 600, overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
+            {logs || "No log entries."}
+          </pre>
+        </article>
+      </section>
+    );
+  }
+
+  // ── Alarm helpers ──────────────────────────────────────────────────────────
+  async function runAlarmTest(level) {
+    const targetSensor = permissions.canViewAllDevices ? selectedSensorId : session.assignedSensorId;
+    if (!targetSensor || targetSensor === "all") {
+      setAlarmTestMessage({ type: "error", text: "Choose a specific device first." });
+      return;
+    }
+    setAlarmTestBusy(true);
+    setAlarmTestMessage(null);
+    try {
+      await postAlarmTest(Number(targetSensor), level);
+      setAlarmTestMessage({ type: "ok", text: "MQTT command sent." });
+    } catch (e) {
+      setAlarmTestMessage({ type: "error", text: e instanceof Error ? e.message : String(e) });
+    } finally { setAlarmTestBusy(false); }
+  }
+
+  // ── Settings view (admin only — sensor health + offline alerts) ────────────
+  function SettingsView() {
+    if (!permissions.canViewAdminControls) return <RestrictedNotice message="Settings are available to building administrators and above." />;
+    return (
+      <section className="grid settings-grid">
+        <article className="card">
+          <h3>Sensor Health</h3>
+          {[["Status", <strong className={latestDeviceHealth.statusType}>{latestDeviceHealth.statusLabel}</strong>],
+            ["Last seen", latestDeviceHealth.lastSeenLabel],
+            ["Uptime", latestDeviceHealth.uptimeLabel],
+            ["Offline threshold", `${OFFLINE_AFTER_SECONDS}s`]].map(([k,v]) => (
+              <div className="summary-row" key={k}><span>{k}</span>{typeof v === "string" ? <strong>{v}</strong> : v}</div>
+          ))}
+        </article>
+        <article className="card">
+          <h3>Offline Alerts ({offlineAlerts.length})</h3>
+          {offlineAlerts.length === 0 ? <p className="muted">All sensors reporting.</p>
+            : offlineAlerts.map((a) => (
+                <div className="summary-row" key={a.sensorId}><span>Device {a.sensorId}</span><strong className="danger">{a.health.lastSeenLabel}</strong></div>
+              ))}
+        </article>
+      </section>
+    );
+  }
+
+  // ── Layout ─────────────────────────────────────────────────────────────────
+  const sidebarSession = { role: session.role, assignedSensorId: session.assignedSensorId ?? null };
+  const sidebarPermissions = { views: permissions.views, canViewAllDevices: permissions.canViewAllDevices, canViewAdminControls: permissions.canViewAdminControls };
 
   return (
     <div className="page">
@@ -774,69 +715,47 @@ function Dashboard({ session, onLogout }) {
         offlineAlerts={offlineAlerts}
         onViewChange={setActiveView}
         onSensorChange={setSelectedSensorId}
-        onSampleLimitChange={(value) => setSelectedLimit(Number(value))}
+        onSampleLimitChange={(v) => setSelectedLimit(Number(v))}
       />
-
       <main className="content">
-        <Topbar
-          title={pageTitles[activeView] ?? activeView}
-          activeView={activeView}
-          session={sidebarSession}
-          onLogout={onLogout}
-        />
-
-        {activeView === "Home" && <HomeView />}
+        <Topbar title={pageTitles[activeView] ?? activeView} activeView={activeView} session={sidebarSession} onLogout={onLogout} />
+        {activeView === "Home"    && <HomeView />}
         {activeView === "Sensors" && <SensorsView />}
         {activeView === "Samples" && <SamplesView />}
-        {activeView === "Charts" && <ChartsView />}
+        {activeView === "Charts"  && <ChartsView />}
         {activeView === "Payload" && <PayloadView />}
-        {activeView === "Rooms" && <RoomsView />}
-        {activeView === "Settings" && <SettingsView />}
+        {activeView === "Rooms"   && <RoomsView />}
+        {activeView === "Alerts"  && <AlertsView />}
+        {activeView === "Alarm"   && <AlarmView />}
+        {activeView === "Users"   && <UsersView />}
+        {activeView === "Devices" && <DevicesView />}
+        {activeView === "Logs"    && <LogsView />}
       </main>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Root App — real JWT auth
+// Root App
 // ---------------------------------------------------------------------------
-
 function App() {
   const [session, setSession] = useState(() => {
-    try {
-      const stored = window.localStorage.getItem(SESSION_STORAGE_KEY);
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      return null;
-    }
+    try { const s = window.localStorage.getItem(SESSION_STORAGE_KEY); return s ? JSON.parse(s) : null; }
+    catch { return null; }
   });
 
-  /**
-   * Called by LoginPage after a successful login or register.
-   * `data` shape: { token: string, user: { id, username, role } }
-   */
   function handleAuth(data) {
-    if (!data?.token || !data?.user) {
-      console.error("Unexpected auth response shape:", data);
-      return;
-    }
-
-    // Persist the JWT so api.js can pick it up via getToken()
+    if (!data?.token || !data?.user) { console.error("Bad auth response:", data); return; }
     window.localStorage.setItem("token", data.token);
-
-    const nextSession = {
+    const next = {
       token: data.token,
       userId: data.user.id,
       username: data.user.username,
-      // Normalize role to lowercase so ROLE_CONFIG lookup works
       role: (data.user.role ?? "resident").toLowerCase(),
-      // assignedSensorId — not returned by current backend; residents fall back to "all"
-      // You can extend AuthController to return this if needed.
       assignedSensorId: data.user.assignedSensorId ?? null,
     };
-
-    window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(nextSession));
-    setSession(nextSession);
+    window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(next));
+    setSession(next);
   }
 
   function handleLogout() {
@@ -845,10 +764,7 @@ function App() {
     setSession(null);
   }
 
-  if (!session) {
-    return <LoginPage onAuth={handleAuth} />;
-  }
-
+  if (!session) return <LoginPage onAuth={handleAuth} />;
   return <Dashboard session={session} onLogout={handleLogout} />;
 }
 

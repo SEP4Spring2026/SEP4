@@ -9,26 +9,22 @@ namespace MainServer.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "admin,building-administrator")]  // residents cannot manage rooms
+[Authorize(Policy = "AdminOrAbove")]   // building-admin + system-admin only
 public class RoomController : ControllerBase
 {
     private readonly AppDbContext _db;
+    public RoomController(AppDbContext db) => _db = db;
 
-    public RoomController(AppDbContext db)
-    {
-        _db = db;
-    }
-
-    // GET: api/room
+    // GET: api/room  — also available to residents (read-only)
     [HttpGet]
+    [Authorize(Policy = "ResidentOrAbove")]
     public async Task<IActionResult> GetRooms()
     {
         var rooms = await _db.Rooms
             .Include(r => r.Sensors)
             .Select(r => new
             {
-                r.RoomId,
-                r.Name,
+                r.RoomId, r.Name,
                 Sensors = r.Sensors.Select(s => new { s.SensorId, s.Status })
             })
             .ToListAsync();
@@ -59,7 +55,7 @@ public class RoomController : ControllerBase
         sensor.RoomId = roomId;
         await _db.SaveChangesAsync();
 
-        return Ok(new { message = "Sensor assigned to room.", sensor.SensorId, sensor.RoomId });
+        return Ok(new { message = "Sensor assigned.", sensor.SensorId, sensor.RoomId });
     }
 
     // PUT: api/room/unassign-sensor/{sensorId}

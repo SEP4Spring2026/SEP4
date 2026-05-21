@@ -20,15 +20,14 @@ public class AuthController : ControllerBase
         _jwt = jwt;
     }
 
-    // ─────────────────────────────────────────────
-    // POST /api/auth/login
-    // ─────────────────────────────────────────────
+    // ---------------- LOGIN ----------------
     public class LoginRequest
     {
         public string Username { get; set; } = null!;
         public string Password { get; set; } = null!;
     }
 
+    [AllowAnonymous]
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest req)
     {
@@ -45,19 +44,19 @@ public class AuthController : ControllerBase
         return Ok(new
         {
             token,
-            user = UserDto(user)
+            user = new { user.Id, user.Username, user.Role }
         });
     }
 
-    // ─────────────────────────────────────────────
-    // POST /api/auth/register
-    // ─────────────────────────────────────────────
+    // ---------------- REGISTER ----------------
+    // New accounts are always "resident". System admin promotes via UsersController.
     public class RegisterRequest
     {
         public string Username { get; set; } = null!;
         public string Password { get; set; } = null!;
     }
 
+    [AllowAnonymous]
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterRequest req)
     {
@@ -69,13 +68,13 @@ public class AuthController : ControllerBase
 
         var exists = await _db.Users.AnyAsync(u => u.Username == req.Username);
         if (exists)
-            return Conflict(new { message = "Username already exists." });
+            return Conflict(new { message = "Username already taken." });
 
         var user = new User
         {
             Username = req.Username,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.Password),
-            Role = "resident"   // all self-registered users start as residents
+            Role = "resident"
         };
 
         _db.Users.Add(user);
@@ -86,15 +85,13 @@ public class AuthController : ControllerBase
         return Ok(new
         {
             token,
-            user = UserDto(user)
+            user = new { user.Id, user.Username, user.Role }
         });
     }
 
-    // ─────────────────────────────────────────────
-    // GET /api/auth/me  — returns current user from token
-    // ─────────────────────────────────────────────
-    [HttpGet("me")]
+    // ---------------- CURRENT USER ----------------
     [Authorize]
+    [HttpGet("me")]
     public async Task<IActionResult> Me()
     {
         var idClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
@@ -104,117 +101,6 @@ public class AuthController : ControllerBase
         var user = await _db.Users.FindAsync(userId);
         if (user == null) return NotFound();
 
-        return Ok(UserDto(user));
+        return Ok(new { user.Id, user.Username, user.Role });
     }
-
-    // ─────────────────────────────────────────────
-    // GET /api/auth/users  — admin: list all users
-    // ─────────────────────────────────────────────
-    [HttpGet("users")]
-    [Authorize(Roles = "admin")]
-    public async Task<IActionResult> GetUsers()
-    {
-        var users = await _db.Users
-            .OrderBy(u => u.Id)
-            .Select(u => new
-            {
-                u.Id,
-                u.Username,
-                u.Role,
-                u.AssignedSensorId
-            })
-            .ToListAsync();
-
-        return Ok(users);
-    }
-
-    // ─────────────────────────────────────────────
-    // PUT /api/auth/users/{id}/role  — admin: change role
-    // ─────────────────────────────────────────────
-    public class UpdateRoleRequest
-    {
-        public string Role { get; set; } = null!;
-    }
-
-    [HttpPut("users/{id}/role")]
-    [Authorize(Roles = "admin")]
-    public async Task<IActionResult> UpdateRole(int id, [FromBody] UpdateRoleRequest req)
-    {
-        var validRoles = new[] { "resident", "building-administrator", "admin" };
-        var role = req.Role?.Trim().ToLowerInvariant();
-
-        if (string.IsNullOrWhiteSpace(role) || !Array.Exists(validRoles, r => r == role))
-            return BadRequest(new { message = $"Role must be one of: {string.Join(", ", validRoles)}" });
-
-        var user = await _db.Users.FindAsync(id);
-        if (user == null) return NotFound(new { message = "User not found." });
-
-        // Prevent removing the last admin
-        if (user.Role == "admin" && role != "admin")
-        {
-            var adminCount = await _db.Users.CountAsync(u => u.Role == "admin");
-            if (adminCount <= 1)
-                return BadRequest(new { message = "Cannot demote the last admin account." });
-        }
-
-        user.Role = role;
-        await _db.SaveChangesAsync();
-
-        return Ok(UserDto(user));
-    }
-
-    // ─────────────────────────────────────────────
-    // PUT /api/auth/users/{id}/sensor  — admin: assign sensor to resident
-    // ─────────────────────────────────────────────
-    public class UpdateSensorRequest
-    {
-        public int? SensorId { get; set; }
-    }
-
-    [HttpPut("users/{id}/sensor")]
-    [Authorize(Roles = "admin")]
-    public async Task<IActionResult> UpdateSensor(int id, [FromBody] UpdateSensorRequest req)
-    {
-        var user = await _db.Users.FindAsync(id);
-        if (user == null) return NotFound(new { message = "User not found." });
-
-        user.AssignedSensorId = req.SensorId; // null = unassign
-        await _db.SaveChangesAsync();
-
-        return Ok(UserDto(user));
-    }
-
-    // ─────────────────────────────────────────────
-    // DELETE /api/auth/users/{id}  — admin: delete user
-    // ─────────────────────────────────────────────
-    [HttpDelete("users/{id}")]
-    [Authorize(Roles = "admin")]
-    public async Task<IActionResult> DeleteUser(int id)
-    {
-        var user = await _db.Users.FindAsync(id);
-        if (user == null) return NotFound(new { message = "User not found." });
-
-        if (user.Role == "admin")
-        {
-            var adminCount = await _db.Users.CountAsync(u => u.Role == "admin");
-            if (adminCount <= 1)
-                return BadRequest(new { message = "Cannot delete the last admin account." });
-        }
-
-        _db.Users.Remove(user);
-        await _db.SaveChangesAsync();
-
-        return NoContent();
-    }
-
-    // ─────────────────────────────────────────────
-    // Shared DTO helper
-    // ─────────────────────────────────────────────
-    private static object UserDto(User u) => new
-    {
-        u.Id,
-        u.Username,
-        u.Role,
-        u.AssignedSensorId
-    };
 }
