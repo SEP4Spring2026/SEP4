@@ -2,15 +2,18 @@ using MainServer.Data;
 using MainServer.Dtos;
 using MainServer.Models;
 using MainServer.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using System.Text.Json;
 
 namespace MainServer.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]   // all endpoints require a valid JWT by default
 public class ReadingsController : ControllerBase
 {
     private static DateTime LocalReadingTimestamp()
@@ -26,9 +29,6 @@ public class ReadingsController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Rolling window cutoff using the same clock as stored readings (<see cref="LocalReadingTimestamp"/>).
-    /// </summary>
     private static DateTime CutoffForRollingHours(double hoursBack)
     {
         try
@@ -45,8 +45,6 @@ public class ReadingsController : ControllerBase
 
     private static readonly JsonSerializerOptions StreamJsonOptions = new(JsonSerializerDefaults.Web);
 
-    /// <summary>Mqtt/firmware POST flat JSON; nested <see cref="SensorReadingDto.Sensors"/> when present.</summary>
-    /// <summary>Nested <c>sensors</c> object or flat root metrics.</summary>
     private static SensorPayloadDto ResolveSensorPayload(SensorReadingDto dto)
     {
         if (dto.Sensors is not null)
@@ -62,6 +60,19 @@ public class ReadingsController : ControllerBase
             Aqi = dto.Aqi ?? 0,
         };
     }
+
+    // Helper: get the calling user's AssignedSensorId from the DB
+    private async Task<int?> GetCallerAssignedSensorAsync(CancellationToken ct = default)
+    {
+        var idClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!int.TryParse(idClaim, out var userId)) return null;
+        var user = await _db.Users.FindAsync(new object[] { userId }, ct);
+        return user?.AssignedSensorId;
+    }
+
+    // Helper: true if caller is admin or building-administrator
+    private bool CallerCanViewAllDevices() =>
+        User.IsInRole("admin") || User.IsInRole("building-administrator");
 
     private readonly AppDbContext _db;
     private readonly MlClient _ml;
@@ -80,7 +91,11 @@ public class ReadingsController : ControllerBase
         _alarmMqtt = alarmMqtt;
     }
 
+    // ─────────────────────────────────────────────
+    // POST /api/readings  — IoT device ingest (admin only; devices use a shared admin token)
+    // ─────────────────────────────────────────────
     [HttpPost]
+    [Authorize(Roles = "admin")]
     public async Task<ActionResult<PredictionDto>> Post(SensorReadingDto dto, CancellationToken cancellationToken)
     {
         var nowRome = LocalReadingTimestamp();
@@ -88,11 +103,7 @@ public class ReadingsController : ControllerBase
         var device = await _db.Sensors.FirstOrDefaultAsync(s => s.SensorId == dto.SensorId, cancellationToken);
         if (device == null)
         {
-            device = new SensorDevice
-            {
-                SensorId = dto.SensorId,
-                Status = "active"
-            };
+            device = new SensorDevice { SensorId = dto.SensorId, Status = "active" };
             _db.Sensors.Add(device);
             await _db.SaveChangesAsync(cancellationToken);
         }
@@ -161,8 +172,11 @@ public class ReadingsController : ControllerBase
         return Ok(predictionDto);
     }
 
-    /// <summary>MQTT-only buzzer test for Settings UI; requires ALLOW_ALARM_TEST=true and ALARM_MQTT_HOST.</summary>
+    // ─────────────────────────────────────────────
+    // POST /api/readings/alarm-test  — admin + building-admin
+    // ─────────────────────────────────────────────
     [HttpPost("alarm-test")]
+    [Authorize(Roles = "admin,building-administrator")]
     public async Task<IActionResult> PostAlarmTest(
         [FromQuery] int sensorId,
         CancellationToken cancellationToken,
@@ -199,9 +213,20 @@ public class ReadingsController : ControllerBase
         }
     }
 
+    // ─────────────────────────────────────────────
+    // GET /api/readings/stream  — SSE; all roles
+    // Residents are silently restricted to their assigned sensor.
+    // ─────────────────────────────────────────────
     [HttpGet("stream")]
     public async Task Stream([FromQuery] int? sensorId, CancellationToken cancellationToken)
     {
+        // Residents can only stream their assigned sensor
+        if (!CallerCanViewAllDevices())
+        {
+            var assigned = await GetCallerAssignedSensorAsync(cancellationToken);
+            sensorId = assigned; // override whatever was requested
+        }
+
         Response.Headers.CacheControl = "no-cache";
         Response.Headers.Append("Content-Type", "text/event-stream");
 
@@ -221,10 +246,7 @@ public class ReadingsController : ControllerBase
                     continue;
                 }
 
-                if (!await hasDataTask)
-                {
-                    break;
-                }
+                if (!await hasDataTask) break;
 
                 while (reader.TryRead(out var streamEvent))
                 {
@@ -242,12 +264,22 @@ public class ReadingsController : ControllerBase
         }
     }
 
+    // ─────────────────────────────────────────────
+    // GET /api/readings  — all roles; residents auto-filtered to their sensor
+    // ─────────────────────────────────────────────
     [HttpGet]
     public async Task<ActionResult<IEnumerable<object>>> GetLatest(
         [FromQuery] int? sensorId,
         [FromQuery] int? limit,
         [FromQuery] double? hours)
     {
+        // Enforce resident scope
+        if (!CallerCanViewAllDevices())
+        {
+            var assigned = await GetCallerAssignedSensorAsync();
+            sensorId = assigned; // residents always see only their sensor
+        }
+
         const int defaultLimit = 200;
         const int maxLimitNoWindow = 1000;
         const int maxLimitWithHours = 15000;
@@ -272,9 +304,7 @@ public class ReadingsController : ControllerBase
             .Include(r => r.Sensor);
 
         if (sensorId.HasValue)
-        {
             query = query.Where(r => r.SensorId == sensorId.Value);
-        }
 
         if (windowHours.HasValue)
         {
@@ -309,7 +339,11 @@ public class ReadingsController : ControllerBase
         return Ok(readings);
     }
 
+    // ─────────────────────────────────────────────
+    // GET /api/readings/devices  — admin + building-admin only
+    // ─────────────────────────────────────────────
     [HttpGet("devices")]
+    [Authorize(Roles = "admin,building-administrator")]
     public ActionResult<IEnumerable<object>> GetDevices()
     {
         var now = DateTime.UtcNow;
