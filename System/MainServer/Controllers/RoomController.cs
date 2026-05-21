@@ -1,6 +1,105 @@
+using MainServer.Data;
+using MainServer.Dtos;
+using MainServer.Models;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+
 namespace MainServer.Controllers;
 
-public class RoomController
+[ApiController]
+[Route("api/[controller]")]
+public class RoomController : ControllerBase
 {
-    
+    private readonly AppDbContext _db;
+
+    public RoomController(AppDbContext db)
+    {
+        _db = db;
+    }
+
+    // GET: api/room
+    [HttpGet]
+    public async Task<IActionResult> GetRooms()
+    {
+        var rooms = await _db.Rooms
+            .Include(r => r.Sensors)
+            .Select(r => new
+            {
+                r.RoomId,
+                r.Name,
+                Sensors = r.Sensors.Select(s => new
+                {
+                    s.SensorId,
+                    s.Status
+                })
+            })
+            .ToListAsync();
+
+        return Ok(rooms);
+    }
+
+    // POST: api/room
+    [HttpPost]
+    public async Task<IActionResult> CreateRoom([FromBody] CreateRoomDto dto)
+    {
+        var room = new Room
+        {
+            Name = dto.Name
+        };
+
+        _db.Rooms.Add(room);
+        await _db.SaveChangesAsync();
+
+        return Ok(new
+        {
+            room.RoomId,
+            room.Name
+        });
+    }
+
+    // PUT: api/room/{roomId}/assign-sensor
+    [HttpPut("{roomId}/assign-sensor")]
+    public async Task<IActionResult> AssignSensor(
+        int roomId,
+        [FromBody] AssignSensorDto dto)
+    {
+        var room = await _db.Rooms.FindAsync(roomId);
+        if (room == null)
+            return NotFound("Room not found");
+
+        var sensor = await _db.Sensors.FindAsync(dto.SensorId);
+        if (sensor == null)
+            return NotFound("Sensor not found");
+
+        sensor.RoomId = roomId;
+
+        await _db.SaveChangesAsync();
+
+        return Ok(new
+        {
+            message = "Sensor assigned to room",
+            sensor.SensorId,
+            sensor.RoomId
+        });
+    }
+
+    // OPTIONAL: remove sensor from room
+    // PUT: api/room/unassign-sensor/{sensorId}
+    [HttpPut("unassign-sensor/{sensorId}")]
+    public async Task<IActionResult> UnassignSensor(int sensorId)
+    {
+        var sensor = await _db.Sensors.FindAsync(sensorId);
+        if (sensor == null)
+            return NotFound("Sensor not found");
+
+        sensor.RoomId = null;
+
+        await _db.SaveChangesAsync();
+
+        return Ok(new
+        {
+            message = "Sensor unassigned",
+            sensor.SensorId
+        });
+    }
 }
