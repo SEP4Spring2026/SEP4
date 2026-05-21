@@ -1,4 +1,4 @@
-import { getRole } from "../auth/accessControl.js";
+const menuItems = ["Home", "Alerts", "Sensors", "Samples", "Charts", "Payload", "Settings"];
 
 export function Sidebar({
   activeView,
@@ -99,7 +99,7 @@ export function Sidebar({
       <div className="status-card device-card">
         <p className="muted">Sample window</p>
         <label className="device-select-label" htmlFor="sample-limit-select">
-          Max samples (last 24 h)
+          Max samples (last 7 days)
         </label>
         <select
           id="sample-limit-select"

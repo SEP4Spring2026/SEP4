@@ -145,11 +145,98 @@ function getDeviceHealth(device, nowMs) {
   };
 }
 
-const SESSION_STORAGE_KEY = "sep4-demo-session";
+function buildDisplayAlerts(samples, offlineAlerts) {
+  const latestSample = samples[0];
+  const alerts = offlineAlerts.map(({ sensorId, health }) => ({
+    id: `device-offline-${sensorId}`,
+    severity: "critical",
+    sensorId,
+    title: "Device offline",
+    message: `No recent readings received. Last seen: ${health.lastSeenLabel}.`,
+  }));
 
-function Dashboard({ session, onLogout }) {
-  const permissions = getPermissions(session.role);
-  const [activeView, setActiveView] = useState(() => getDefaultView(session.role));
+  if (!latestSample) return alerts;
+
+  const sensorId = latestSample.sensorId;
+  const classification = String(latestSample.classification ?? "Normal").toLowerCase();
+  const co2 = Number(latestSample.co2 ?? 0);
+  const temp = Number(latestSample.temp ?? 0);
+  const hum = Number(latestSample.hum ?? 0);
+  const tvoc = Number(latestSample.tvoc ?? 0);
+  const eco2 = Number(latestSample.eco2 ?? 0);
+  const aqi = Number(latestSample.aqi ?? 0);
+
+  if (classification !== "normal") {
+    alerts.push({
+      id: `classification-${sensorId}-${latestSample.name}`,
+      severity: "critical",
+      sensorId,
+      title: "Fire risk detected",
+      message: `Current classification is ${latestSample.classification}. Check the room immediately.`,
+    });
+  }
+
+  if (co2 > 2000) {
+    alerts.push({
+      id: `co2-critical-${sensorId}-${latestSample.name}`,
+      severity: "critical",
+      sensorId,
+      title: "Unsafe CO2 level",
+      message: `CO2 is ${Math.round(co2)} ppm. Ventilate immediately.`,
+    });
+  } else if (co2 > 1000) {
+    alerts.push({
+      id: `co2-warning-${sensorId}-${latestSample.name}`,
+      severity: "warning",
+      sensorId,
+      title: "High CO2 level",
+      message: `CO2 is ${Math.round(co2)} ppm. Ventilation is recommended.`,
+    });
+  }
+
+  if (temp > 35) {
+    alerts.push({
+      id: `temp-critical-${sensorId}-${latestSample.name}`,
+      severity: "critical",
+      sensorId,
+      title: "Very high temperature",
+      message: `Temperature is ${temp.toFixed(1)} C. Check for heat sources.`,
+    });
+  } else if (temp > 30) {
+    alerts.push({
+      id: `temp-warning-${sensorId}-${latestSample.name}`,
+      severity: "warning",
+      sensorId,
+      title: "High temperature",
+      message: `Temperature is ${temp.toFixed(1)} C.`,
+    });
+  }
+
+  if (hum > 70) {
+    alerts.push({
+      id: `humidity-warning-${sensorId}-${latestSample.name}`,
+      severity: "warning",
+      sensorId,
+      title: "High humidity",
+      message: `Humidity is ${Math.round(hum)}%.`,
+    });
+  }
+
+  if (tvoc > 500 || eco2 > 1500 || aqi > 3) {
+    alerts.push({
+      id: `air-quality-warning-${sensorId}-${latestSample.name}`,
+      severity: "warning",
+      sensorId,
+      title: "Air quality needs attention",
+      message: "VOC/eCO2/AQI values suggest poorer air quality.",
+    });
+  }
+
+  return alerts;
+}
+
+function Dashboard({ onBackToLogin }) {
+  const [activeView, setActiveView] = useState("Home");
   const [samples, setSamples] = useState([]);
   const [devices, setDevices] = useState([]);
   const [selectedSensorId, setSelectedSensorId] = useState(() =>
@@ -161,6 +248,7 @@ function Dashboard({ session, onLogout }) {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [alarmTestMessage, setAlarmTestMessage] = useState(null);
   const [alarmTestBusy, setAlarmTestBusy] = useState(false);
+  const [dismissedAlertIds, setDismissedAlertIds] = useState([]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNowMs(Date.now()), 10000);
@@ -300,6 +388,9 @@ function Dashboard({ session, onLogout }) {
   const offlineAlerts = devices
     .map((device) => ({ sensorId: device.sensorId, health: getDeviceHealth(device, nowMs) }))
     .filter((entry) => entry.health.missingData);
+  const displayAlerts = buildDisplayAlerts(samples, offlineAlerts).filter(
+    (alert) => !dismissedAlertIds.includes(alert.id)
+  );
 
   const summary = {
   sensorId: latestSample.sensorId,
@@ -315,6 +406,7 @@ function Dashboard({ session, onLogout }) {
 
   const pageTitles = {
     Home: "Home Overview",
+    Alerts: "Alerts",
     Sensors: "Sensor Details",
     Samples: "Sample History",
     Charts: "Charts & Trends",
@@ -464,6 +556,53 @@ function Dashboard({ session, onLogout }) {
         <StatCard title="Temperature" value={summary.temp} status="DHT sensor" statusType="success" />
         <StatCard title="Humidity" value={summary.hum} status="DHT sensor" statusType="success" />
         <StatCard title="CO2" value={summary.co2} status="air quality" statusType="danger" />
+      </section>
+    );
+  }
+
+  function AlertsView() {
+    return (
+      <section className="grid alerts-grid">
+        <article className="card alerts-summary-card">
+          <div className="card-header">
+            <div>
+              <h3>Active Alerts</h3>
+              <p className="muted">Generated from latest readings and device health</p>
+            </div>
+            <span className={displayAlerts.length ? "danger" : "success"}>
+              {displayAlerts.length}
+            </span>
+          </div>
+        </article>
+
+        {displayAlerts.length === 0 ? (
+          <article className="card">
+            <h3>No active alerts</h3>
+            <p className="muted">All current readings are within the configured alert rules.</p>
+          </article>
+        ) : (
+          displayAlerts.map((alert) => (
+            <article className={`card alert-card ${alert.severity}`} key={alert.id}>
+              <div>
+                <div className="alert-heading">
+                  <span className={`alert-severity ${alert.severity}`}>
+                    {alert.severity}
+                  </span>
+                  <span className="muted">Device {alert.sensorId}</span>
+                </div>
+                <h3>{alert.title}</h3>
+                <p>{alert.message}</p>
+              </div>
+              <button
+                type="button"
+                className="alert-dismiss"
+                onClick={() => setDismissedAlertIds((prev) => [...prev, alert.id])}
+              >
+                Dismiss
+              </button>
+            </article>
+          ))
+        )}
       </section>
     );
   }
@@ -741,6 +880,7 @@ function Dashboard({ session, onLogout }) {
         <Topbar title={pageTitles[activeView]} activeView={activeView} session={session} onLogout={onLogout} />
 
         {activeView === "Home" && <HomeView />}
+        {activeView === "Alerts" && <AlertsView />}
         {activeView === "Sensors" && <SensorsView />}
         {activeView === "Samples" && <SamplesView />}
         {activeView === "Charts" && <ChartsView />}
