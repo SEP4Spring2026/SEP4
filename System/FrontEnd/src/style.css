@@ -537,3 +537,33 @@ p {
 .recommendation-item .bullet {
   flex-shrink: 0;
 }
+
+.room-card {
+  border: 1px solid #ddd;
+  padding: 12px;
+  margin-bottom: 12px;
+  border-radius: 8px;
+}
+
+.sensor-item {
+  display: flex;
+  justify-content: space-between;
+  margin: 4px 0;
+}
+
+.assign-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.input {
+  width: 100%;
+  padding: 6px;
+  margin-bottom: 8px;
+}
+
+.btn {
+  padding: 6px 12px;
+  cursor: pointer;
+}

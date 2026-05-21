@@ -33,19 +33,19 @@ export const ACCESS_LEVELS = {
 
 const ROLE_PERMISSIONS = {
   resident: {
-    views: ["Home", "Sensors", "Samples", "Charts", "Payload"],
+    views: ["Home", "Sensors", "Samples", "Charts", "Rooms", "Payload"],
     canViewAllDevices: false,
     canUseAlarmControls: false,
     canViewAdminControls: false,
   },
   "building-admin": {
-    views: ["Home", "Sensors", "Samples", "Charts", "Payload", "Settings"],
+    views: ["Home", "Sensors", "Samples", "Charts", "Payload", "Rooms", "Settings"],
     canViewAllDevices: true,
     canUseAlarmControls: true,
     canViewAdminControls: true,
   },
   "system-admin": {
-    views: ["Home", "Sensors", "Samples", "Charts", "Payload", "Settings"],
+    views: ["Home", "Sensors", "Samples", "Charts", "Payload", "Rooms", "Settings"],
     canViewAllDevices: true,
     canUseAlarmControls: true,
     canViewAdminControls: true,

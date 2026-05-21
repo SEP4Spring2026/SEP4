@@ -16,7 +16,8 @@ import {
   getDefaultView,
   getPermissions,
 } from "./auth/accessControl.js";
-import { connectReadingsStream, getDevices, getReadings, postAlarmTest } from "./services/api.js";
+import { connectReadingsStream, getDevices, getReadings, postAlarmTest, getRooms } from "./services/api.js";
+import { RoomsView } from "./components/RoomsView.jsx";
 
 /** Passed to GET /api/readings so charts cover the last day of data. */
 const SAMPLE_WINDOW_HOURS = 168;
@@ -193,6 +194,21 @@ function Dashboard({ session, onLogout }) {
   }, []);
 
   useEffect(() => {
+  async function loadRooms() {
+    try {
+      const data = await getRooms();
+
+      setRooms(data);
+
+    } catch (err) {
+      console.error("Room API error:", err);
+    }
+  }
+
+  loadRooms();
+  }, []);
+
+  useEffect(() => {
     async function loadReadings() {
       try {
         setLoading(true);
@@ -319,6 +335,7 @@ function Dashboard({ session, onLogout }) {
     Samples: "Sample History",
     Charts: "Charts & Trends",
     Payload: "Payload Viewer",
+    Rooms: "Room Manager",
     Settings: "Settings",
   };
 
@@ -485,6 +502,10 @@ function Dashboard({ session, onLogout }) {
         ))}
       </section>
     );
+  }
+
+  function RoomsViewWrapper() {
+    return <RoomsView />
   }
 
   function PayloadView() {
@@ -745,6 +766,7 @@ function Dashboard({ session, onLogout }) {
         {activeView === "Samples" && <SamplesView />}
         {activeView === "Charts" && <ChartsView />}
         {activeView === "Payload" && <PayloadView />}
+        {activeView === "Rooms" && <RoomsViewWrapper />}
         {activeView === "Settings" && <SettingsView />}
       </main>
     </div>

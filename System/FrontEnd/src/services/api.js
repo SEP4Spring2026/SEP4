@@ -52,3 +52,36 @@ export function connectReadingsStream(sensorId = "all") {
   const query = params.toString();
   return new EventSource(`/api/readings/stream${query ? `?${query}` : ""}`);
 }
+
+export async function getRooms() {
+  const res = await fetch("/api/room");
+  return res.json();
+}
+
+export async function createRoom(name) {
+  const res = await fetch("/api/room", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+
+  return res.json();
+}
+
+export async function assignSensorToRoom(roomId, sensorId) {
+  const res = await fetch(`/api/room/${roomId}/assign-sensor`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sensorId }),
+  });
+
+  return res.json();
+}
+
+export async function unassignSensor(sensorId) {
+  const res = await fetch(`/api/room/unassign-sensor/${sensorId}`, {
+    method: "PUT",
+  });
+
+  return res.json();
+}
