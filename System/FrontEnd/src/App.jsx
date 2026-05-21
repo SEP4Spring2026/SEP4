@@ -745,7 +745,12 @@ function Dashboard({ session, onLogout }) {
 
   // ── Layout ─────────────────────────────────────────────────────────────────
   const sidebarSession = { role: session.role, assignedSensorId: session.assignedSensorId ?? null };
-  const sidebarPermissions = { views: permissions.views, canViewAllDevices: permissions.canViewAllDevices, canViewAdminControls: permissions.canViewAdminControls };
+  const sidebarPermissions = {
+    views: permissions.views,
+    shortLabel: permissions.shortLabel,
+    canViewAllDevices: permissions.canViewAllDevices,
+    canViewAdminControls: permissions.canViewAdminControls
+  };
 
   return (
     <div className="page">

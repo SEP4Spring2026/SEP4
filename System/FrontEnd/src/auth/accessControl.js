@@ -7,16 +7,16 @@ export const ROLES = {
     assignedSensorId: "101",
     description: "Can view assigned room readings, warnings, and payload details.",
   },
-  "building-admin": {
-    value: "building-admin",
+  "building-administrator": {
+    value: "building-administrator",
     label: "Building administrator",
     shortLabel: "Building admin",
     initials: "BA",
     assignedSensorId: "all",
     description: "Can view all rooms, devices, alerts, and alarm controls.",
   },
-  "system-admin": {
-    value: "system-admin",
+  admin: {
+    value: "admin",
     label: "System admin",
     shortLabel: "System admin",
     initials: "SA",
@@ -38,13 +38,13 @@ const ROLE_PERMISSIONS = {
     canUseAlarmControls: false,
     canViewAdminControls: false,
   },
-  "building-admin": {
+  "building-administrator": {
     views: ["Home", "Sensors", "Samples", "Charts", "Payload", "Rooms", "Settings"],
     canViewAllDevices: true,
     canUseAlarmControls: true,
     canViewAdminControls: true,
   },
-  "system-admin": {
+  admin: {
     views: ["Home", "Sensors", "Samples", "Charts", "Payload", "Rooms", "Settings"],
     canViewAllDevices: true,
     canUseAlarmControls: true,
@@ -53,7 +53,11 @@ const ROLE_PERMISSIONS = {
 };
 
 export function getRole(roleValue) {
-  return ROLES[roleValue] ?? ROLES.resident;
+  const aliases = {
+    "building-admin": "building-administrator",
+    "system-admin": "admin",
+  };
+  return ROLES[aliases[roleValue] ?? roleValue] ?? ROLES.resident;
 }
 
 export function getPermissions(roleValue) {

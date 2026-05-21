@@ -1,5 +1,3 @@
-const menuItems = ["Home", "Alerts", "Sensors", "Samples", "Charts", "Payload", "Settings"];
-
 export function Sidebar({
   activeView,
   session,
@@ -15,7 +13,7 @@ export function Sidebar({
   onSensorChange,
   onSampleLimitChange,
 }) {
-  const role = getRole(session.role);
+  const roleLabel = permissions.shortLabel ?? session.role ?? "User";
   const menuItems = permissions.views;
   const selectableDevices = permissions.canViewAllDevices
     ? devices
@@ -41,7 +39,7 @@ export function Sidebar({
 
       <div className="status-card">
         <p className="muted">Current role</p>
-        <strong>{role.shortLabel}</strong>
+        <strong>{roleLabel}</strong>
         <p className="device-meta">
           {permissions.canViewAllDevices ? "all devices allowed" : `assigned device ${session.assignedSensorId}`}
         </p>
