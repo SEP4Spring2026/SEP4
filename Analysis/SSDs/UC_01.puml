@@ -1,0 +1,10 @@
+@startuml SSD01 Make a prediction
+!include https://raw.githubusercontent.com/fredoslav2004/MinimalThemePUML/refs/heads/main/minimal-theme.puml
+//See is also an activity
+actor User
+participant Server
+
+Device -> Server: Send measurement (MQTT)
+Server --> Device: Send prediction (MQTT)
+
+@enduml

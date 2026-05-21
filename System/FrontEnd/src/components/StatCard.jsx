@@ -1,5 +1,3 @@
-import { useState } from "react";
-
 export function StatCard({ title, value, status, statusType }) {
   return (
     <article className="card small-card">

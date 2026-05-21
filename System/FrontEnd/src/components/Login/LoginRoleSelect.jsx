@@ -10,7 +10,7 @@ export function LoginRoleSelect({ roles, selectedRole, onRoleChange }) {
       >
         {roles.map((role) => (
           <option key={role.value} value={role.value}>
-            {role.label}
+            {role.label} - {role.description}
           </option>
         ))}
       </select>
