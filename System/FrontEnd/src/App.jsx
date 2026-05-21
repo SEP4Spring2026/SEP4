@@ -10,10 +10,8 @@ import { LoginPage } from "./components/Login/index.js";
 import { StatusScreen } from "./components/StatusScreen/index.js";
 import { AdminControls } from "./components/Dashboard/AdminControls.jsx";
 import { RestrictedNotice } from "./components/Dashboard/RestrictedNotice.jsx";
-import { canAccessView, getDefaultView, getPermissions } from "./auth/accessControl.js";
-import { connectReadingsStream, getDevices, getReadings, postAlarmTest, getRooms } from "./services/api.js";
 import { RoomsView } from "./components/RoomsView.jsx";
-import { login } from "./services/api.js";
+import { connectReadingsStream, getDevices, getReadings, postAlarmTest } from "./services/api.js";
 
 /** Passed to GET /api/readings so charts cover the last day of data. */
 const SAMPLE_WINDOW_HOURS = 168;
@@ -23,7 +21,57 @@ const OFFLINE_AFTER_SECONDS = 120;
 
 const DISPLAY_TIMEZONE = "Europe/Rome";
 
-/** ISO 8601 using Rome wall clock and offset (+01:00 / +02:00), matching MainServer LocalReadingTimestamp. */
+const SESSION_STORAGE_KEY = "sep4-session";
+
+// ---------------------------------------------------------------------------
+// Role-derived permissions (replaces the old accessControl.js dependency)
+// ---------------------------------------------------------------------------
+
+const ROLE_CONFIG = {
+  admin: {
+    shortLabel: "System Admin",
+    initials: "SA",
+    views: ["Home", "Sensors", "Samples", "Charts", "Payload", "Rooms", "Settings"],
+    canViewAllDevices: true,
+    canViewAdminControls: true,
+  },
+  "building-administrator": {
+    shortLabel: "Building Admin",
+    initials: "BA",
+    views: ["Home", "Sensors", "Samples", "Charts", "Payload", "Rooms", "Settings"],
+    canViewAllDevices: true,
+    canViewAdminControls: true,
+  },
+  resident: {
+    shortLabel: "Resident",
+    initials: "RS",
+    views: ["Home", "Sensors", "Samples", "Charts", "Payload"],
+    canViewAllDevices: false,
+    canViewAdminControls: false,
+  },
+  // Fallback for any unknown role value coming from the backend
+  default: {
+    shortLabel: "User",
+    initials: "U",
+    views: ["Home", "Sensors", "Samples", "Charts", "Payload"],
+    canViewAllDevices: false,
+    canViewAdminControls: false,
+  },
+};
+
+function getRoleConfig(role) {
+  const key = (role ?? "").toLowerCase();
+  return ROLE_CONFIG[key] ?? ROLE_CONFIG.default;
+}
+
+function getPermissions(role) {
+  return getRoleConfig(role);
+}
+
+// ---------------------------------------------------------------------------
+// Timestamp helpers
+// ---------------------------------------------------------------------------
+
 function formatTimestampEuropeRome(date) {
   const d = date instanceof Date ? date : new Date(date);
   const instant = Number.isFinite(d.getTime()) ? d : new Date();
@@ -62,7 +110,6 @@ function offsetLongGmtToIso(label) {
   return `${m[1]}${hh}:${mm}`;
 }
 
-/** Same nested JSON shape as the IoT → backend contract (for display). */
 function readingToContractPayload(r) {
   const ts = r.timestamp ? new Date(r.timestamp) : null;
   const timestamp =
@@ -129,9 +176,13 @@ function formatLastSeen(lastSeenSeconds) {
 function getDeviceHealth(device, nowMs) {
   const latestMs = toDateMs(device.latestTimestamp);
   const firstMs = toDateMs(device.firstTimestamp);
-  const lastSeenSeconds = latestMs == null ? null : Math.max(0, Math.floor((nowMs - latestMs) / 1000));
+  const lastSeenSeconds =
+    latestMs == null ? null : Math.max(0, Math.floor((nowMs - latestMs) / 1000));
   const isOnline = lastSeenSeconds != null && lastSeenSeconds <= OFFLINE_AFTER_SECONDS;
-  const uptimeSeconds = firstMs != null && latestMs != null ? Math.max(0, Math.floor((latestMs - firstMs) / 1000)) : 0;
+  const uptimeSeconds =
+    firstMs != null && latestMs != null
+      ? Math.max(0, Math.floor((latestMs - firstMs) / 1000))
+      : 0;
   return {
     isOnline,
     missingData: !isOnline,
@@ -142,13 +193,19 @@ function getDeviceHealth(device, nowMs) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Dashboard
+// ---------------------------------------------------------------------------
+
 function Dashboard({ session, onLogout }) {
   const permissions = getPermissions(session.role);
-  const [activeView, setActiveView] = useState(() => getDefaultView(session.role));
+  const defaultView = permissions.views[0] ?? "Home";
+
+  const [activeView, setActiveView] = useState(defaultView);
   const [samples, setSamples] = useState([]);
   const [devices, setDevices] = useState([]);
   const [selectedSensorId, setSelectedSensorId] = useState(() =>
-    permissions.canViewAllDevices ? "all" : session.assignedSensorId
+    permissions.canViewAllDevices ? "all" : session.assignedSensorId ?? "all"
   );
   const [selectedLimit, setSelectedLimit] = useState(DEFAULT_SAMPLE_LIMIT);
   const [loading, setLoading] = useState(true);
@@ -157,20 +214,23 @@ function Dashboard({ session, onLogout }) {
   const [alarmTestMessage, setAlarmTestMessage] = useState(null);
   const [alarmTestBusy, setAlarmTestBusy] = useState(false);
 
+  // Tick nowMs every 10 s for health display
   useEffect(() => {
     const timer = window.setInterval(() => setNowMs(Date.now()), 10000);
     return () => window.clearInterval(timer);
   }, []);
 
+  // Guard: if role loses access to current view, reset
   useEffect(() => {
-    if (!canAccessView(session.role, activeView)) {
-      setActiveView(getDefaultView(session.role));
+    if (!permissions.views.includes(activeView)) {
+      setActiveView(defaultView);
     }
-  }, [activeView, session.role]);
+  }, [activeView, permissions.views, defaultView]);
 
+  // Sync sensor filter to role
   useEffect(() => {
     if (!permissions.canViewAllDevices && selectedSensorId !== session.assignedSensorId) {
-      setSelectedSensorId(session.assignedSensorId);
+      setSelectedSensorId(session.assignedSensorId ?? "all");
     }
   }, [permissions.canViewAllDevices, selectedSensorId, session.assignedSensorId]);
 
@@ -183,23 +243,7 @@ function Dashboard({ session, onLogout }) {
         console.error("Device API error:", err);
       }
     }
-
     loadDevices();
-  }, []);
-
-  useEffect(() => {
-  async function loadRooms() {
-    try {
-      const data = await getRooms();
-
-      setRooms(data);
-
-    } catch (err) {
-      console.error("Room API error:", err);
-    }
-  }
-
-  loadRooms();
   }, []);
 
   useEffect(() => {
@@ -208,9 +252,7 @@ function Dashboard({ session, onLogout }) {
         setLoading(true);
         setError(null);
         const data = await getReadings(selectedSensorId, selectedLimit, SAMPLE_WINDOW_HOURS);
-        const mappedSamples = data.map(toSample);
-
-        setSamples(mappedSamples);
+        setSamples(data.map(toSample));
       } catch (err) {
         console.error("API error:", err);
         setError(err);
@@ -218,7 +260,6 @@ function Dashboard({ session, onLogout }) {
         setLoading(false);
       }
     }
-
     loadReadings();
   }, [selectedSensorId, selectedLimit]);
 
@@ -229,10 +270,12 @@ function Dashboard({ session, onLogout }) {
       try {
         const reading = JSON.parse(event.data);
         setSamples((prev) => {
-          const next = [toSample(reading), ...prev.filter((s) => s.name !== `Sample ${reading.readingId}`)];
+          const next = [
+            toSample(reading),
+            ...prev.filter((s) => s.name !== `Sample ${reading.readingId}`),
+          ];
           return next.slice(0, selectedLimit);
         });
-
         setDevices((prev) => {
           const idx = prev.findIndex((d) => d.sensorId === reading.sensorId);
           if (idx < 0) {
@@ -247,7 +290,6 @@ function Dashboard({ session, onLogout }) {
               },
             ].sort((a, b) => a.sensorId - b.sensorId);
           }
-
           const updated = [...prev];
           updated[idx] = {
             ...updated[idx],
@@ -263,18 +305,19 @@ function Dashboard({ session, onLogout }) {
       }
     };
 
-    const onError = () => {
-      console.error("Readings SSE disconnected, browser will retry automatically.");
-    };
-
     stream.addEventListener("reading", onReading);
-    stream.onerror = onError;
+    stream.onerror = () =>
+      console.error("Readings SSE disconnected, browser will retry automatically.");
 
     return () => {
       stream.removeEventListener("reading", onReading);
       stream.close();
     };
   }, [selectedSensorId, selectedLimit]);
+
+  // ---------------------------------------------------------------------------
+  // Status screens
+  // ---------------------------------------------------------------------------
 
   if (loading) {
     return <StatusScreen title="Loading dashboard" message="Preparing the latest sensor readings." />;
@@ -302,6 +345,10 @@ function Dashboard({ session, onLogout }) {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Derived data
+  // ---------------------------------------------------------------------------
+
   const latestSample = samples[0];
   const latestDeviceHealth = getDeviceHealth(
     devices.find((d) => d.sensorId === latestSample.sensorId) ?? {},
@@ -312,15 +359,13 @@ function Dashboard({ session, onLogout }) {
     .filter((entry) => entry.health.missingData);
 
   const summary = {
-  sensorId: latestSample.sensorId,
-  
-  temp: latestSample.temp,
-  hum: latestSample.hum,
-  co2: latestSample.co2,
-
-  tvoc: latestSample.tvoc,
-  eco2: latestSample.eco2,
-  aqi: latestSample.aqi,
+    sensorId: latestSample.sensorId,
+    temp: latestSample.temp,
+    hum: latestSample.hum,
+    co2: latestSample.co2,
+    tvoc: latestSample.tvoc,
+    eco2: latestSample.eco2,
+    aqi: latestSample.aqi,
   };
 
   const pageTitles = {
@@ -329,13 +374,16 @@ function Dashboard({ session, onLogout }) {
     Samples: "Sample History",
     Charts: "Charts & Trends",
     Payload: "Payload Viewer",
-    Rooms: "Room Manager",
+    Rooms: "Room Management",
     Settings: "Settings",
   };
 
+  // ---------------------------------------------------------------------------
+  // Recommendations
+  // ---------------------------------------------------------------------------
+
   function getRecommendation(sample) {
     if (!sample) return [];
-
     const recs = [];
     const co2 = Number(sample.co2 ?? 0);
     const temp = Number(sample.temp ?? 0);
@@ -352,7 +400,6 @@ function Dashboard({ session, onLogout }) {
         message: `Current classification is ${sample.classification}. Check the room immediately.`,
       });
     }
-
     if (co2 > 2000) {
       recs.push({
         level: "danger",
@@ -366,7 +413,6 @@ function Dashboard({ session, onLogout }) {
         message: "Ventilate the room to improve air quality.",
       });
     }
-
     if (temp > 35) {
       recs.push({
         level: "danger",
@@ -380,7 +426,6 @@ function Dashboard({ session, onLogout }) {
         message: "Consider cooling or increasing ventilation.",
       });
     }
-
     if (hum > 70) {
       recs.push({
         level: "warning",
@@ -394,7 +439,6 @@ function Dashboard({ session, onLogout }) {
         message: "Air is dry. Consider increasing humidity if people stay here longer.",
       });
     }
-
     if (tvoc > 500 || eco2 > 1500 || aqi > 3) {
       recs.push({
         level: "warning",
@@ -402,7 +446,6 @@ function Dashboard({ session, onLogout }) {
         message: "VOC/eCO2/AQI values suggest poorer air quality. Ventilation is recommended.",
       });
     }
-
     if (recs.length === 0) {
       recs.push({
         level: "success",
@@ -410,9 +453,12 @@ function Dashboard({ session, onLogout }) {
         message: "No immediate action is recommended.",
       });
     }
-
     return recs;
   }
+
+  // ---------------------------------------------------------------------------
+  // Sub-views
+  // ---------------------------------------------------------------------------
 
   function HomeView() {
     const recommendations = getRecommendation(latestSample);
@@ -422,23 +468,16 @@ function Dashboard({ session, onLogout }) {
           <OverviewCard summary={summary} />
           <PayloadCard payload={latestSample.payload} />
         </section>
-
         <div className="section-spacer" />
-
         <section className="grid">
           <article className="card">
             <h3>Room Environment Classification</h3>
-              <p>
-                {latestSample.classification ?? "No classification available yet"}
-              </p>
+            <p>{latestSample.classification ?? "No classification available yet"}</p>
           </article>
         </section>
-        
         <div className="section-spacer" />
-
         <article className="card">
           <h3>Recommendations</h3>
-
           {recommendations.length === 0 ? (
             <p className="muted">Everything looks normal.</p>
           ) : (
@@ -452,9 +491,6 @@ function Dashboard({ session, onLogout }) {
             </div>
           )}
         </article>
-
-
-
         <section className="grid stats-grid">
           <StatCard title="Device ID" value={summary.sensorId} status="selected" statusType="success" />
           <StatCard title="Temperature" value={summary.temp} status="stable" statusType="success" />
@@ -498,10 +534,6 @@ function Dashboard({ session, onLogout }) {
     );
   }
 
-  function RoomsViewWrapper() {
-    return <RoomsView />
-  }
-
   function PayloadView() {
     return (
       <section className="grid payload-grid">
@@ -534,16 +566,14 @@ function Dashboard({ session, onLogout }) {
   }
 
   function ChartsView() {
-    /* API returns newest-first. Reverse for left-to-right time progression. */
     const series = [...samples].reverse();
     const tempData = series.map((s) => ({ t: s.timestamp, v: Number(s.temp) }));
     const humData = series.map((s) => ({ t: s.timestamp, v: Number(s.hum) }));
     const co2Data = series.map((s) => ({ t: s.timestamp, v: Number(s.co2) }));
+
     const stats = (arr) => {
       const vals = arr.map((d) => d.v).filter((v) => Number.isFinite(v));
-      if (vals.length === 0) {
-        return { avg: 0, min: 0, max: 0, latest: 0, count: 0 };
-      }
+      if (vals.length === 0) return { avg: 0, min: 0, max: 0, latest: 0, count: 0 };
       return {
         avg: vals.reduce((a, b) => a + b, 0) / vals.length,
         min: Math.min(...vals),
@@ -560,27 +590,9 @@ function Dashboard({ session, onLogout }) {
 
     return (
       <section className="grid charts-grid">
-        <ChartCard
-          title="Temperature trend"
-          unit="°C"
-          stats={tStats}
-          data={tempData}
-          decimals={1}
-        />
-        <ChartCard
-          title="Humidity trend"
-          unit="%"
-          stats={hStats}
-          data={humData}
-          decimals={1}
-        />
-        <ChartCard
-          title="CO2 trend"
-          unit=" ppm"
-          stats={cStats}
-          data={co2Data}
-          decimals={0}
-        />
+        <ChartCard title="Temperature trend" unit="°C" stats={tStats} data={tempData} decimals={1} />
+        <ChartCard title="Humidity trend" unit="%" stats={hStats} data={humData} decimals={1} />
+        <ChartCard title="CO2 trend" unit=" ppm" stats={cStats} data={co2Data} decimals={0} />
         <article className="card chart-summary-card">
           <div className="card-header">
             <div>
@@ -619,9 +631,7 @@ function Dashboard({ session, onLogout }) {
         <div className="card-header">
           <div>
             <h3>{title}</h3>
-            <p className="muted">
-              Avg / min / max over {stats.count} samples
-            </p>
+            <p className="muted">Avg / min / max over {stats.count} samples</p>
           </div>
           <span className="tag">
             {fmt(stats.avg)}
@@ -689,7 +699,6 @@ function Dashboard({ session, onLogout }) {
         <RestrictedNotice message="Residents can view their assigned sensor and warnings, but alarm test and reset actions are admin-only." />
       );
     }
-
     return (
       <section className="grid settings-grid">
         <AdminControls
@@ -734,12 +743,28 @@ function Dashboard({ session, onLogout }) {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Sidebar shape expected by the existing Sidebar component
+  // We pass a minimal session/permissions shim so Sidebar keeps working.
+  // ---------------------------------------------------------------------------
+
+  const sidebarSession = {
+    role: session.role,
+    assignedSensorId: session.assignedSensorId ?? null,
+  };
+
+  const sidebarPermissions = {
+    views: permissions.views,
+    canViewAllDevices: permissions.canViewAllDevices,
+    canViewAdminControls: permissions.canViewAdminControls,
+  };
+
   return (
     <div className="page">
       <Sidebar
         activeView={activeView}
-        session={session}
-        permissions={permissions}
+        session={sidebarSession}
+        permissions={sidebarPermissions}
         devices={devices}
         selectedSensorId={selectedSensorId}
         sampleLimit={selectedLimit}
@@ -753,55 +778,75 @@ function Dashboard({ session, onLogout }) {
       />
 
       <main className="content">
-        <Topbar title={pageTitles[activeView]} activeView={activeView} session={session} onLogout={onLogout} />
+        <Topbar
+          title={pageTitles[activeView] ?? activeView}
+          activeView={activeView}
+          session={sidebarSession}
+          onLogout={onLogout}
+        />
 
         {activeView === "Home" && <HomeView />}
         {activeView === "Sensors" && <SensorsView />}
         {activeView === "Samples" && <SamplesView />}
         {activeView === "Charts" && <ChartsView />}
         {activeView === "Payload" && <PayloadView />}
-        {activeView === "Rooms" && <RoomsViewWrapper />}
+        {activeView === "Rooms" && <RoomsView />}
         {activeView === "Settings" && <SettingsView />}
       </main>
     </div>
   );
 }
 
-function App() {
-  const SESSION_STORAGE_KEY = "sep4-session";
+// ---------------------------------------------------------------------------
+// Root App — real JWT auth
+// ---------------------------------------------------------------------------
 
+function App() {
   const [session, setSession] = useState(() => {
     try {
-      const stored = localStorage.getItem(SESSION_STORAGE_KEY);
+      const stored = window.localStorage.getItem(SESSION_STORAGE_KEY);
       return stored ? JSON.parse(stored) : null;
     } catch {
       return null;
     }
   });
 
-  // ✅ LOGIN (JWT VERSION)
-  async function handleSignIn(data) {
-  const newSession = {
-    token: data.token,
-    id: data.user.id,
-    username: data.user.username,
-    role: data.user.role,
-  };
+  /**
+   * Called by LoginPage after a successful login or register.
+   * `data` shape: { token: string, user: { id, username, role } }
+   */
+  function handleAuth(data) {
+    if (!data?.token || !data?.user) {
+      console.error("Unexpected auth response shape:", data);
+      return;
+    }
 
-  setSession(newSession);
+    // Persist the JWT so api.js can pick it up via getToken()
+    window.localStorage.setItem("token", data.token);
 
-  localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(newSession));
-  localStorage.setItem("token", data.token);
-}
+    const nextSession = {
+      token: data.token,
+      userId: data.user.id,
+      username: data.user.username,
+      // Normalize role to lowercase so ROLE_CONFIG lookup works
+      role: (data.user.role ?? "resident").toLowerCase(),
+      // assignedSensorId — not returned by current backend; residents fall back to "all"
+      // You can extend AuthController to return this if needed.
+      assignedSensorId: data.user.assignedSensorId ?? null,
+    };
+
+    window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(nextSession));
+    setSession(nextSession);
+  }
 
   function handleLogout() {
+    window.localStorage.removeItem(SESSION_STORAGE_KEY);
+    window.localStorage.removeItem("token");
     setSession(null);
-    localStorage.removeItem(SESSION_STORAGE_KEY);
-    localStorage.removeItem("token");
   }
 
   if (!session) {
-    return <LoginPage onAuthIn={handleSignIn} />;
+    return <LoginPage onAuth={handleAuth} />;
   }
 
   return <Dashboard session={session} onLogout={handleLogout} />;
