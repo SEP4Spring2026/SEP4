@@ -255,6 +255,71 @@ p {
   margin-top: 16px;
 }
 
+.sensors-device-list {
+  grid-template-columns: 1fr;
+}
+
+.sensor-device-card {
+  display: grid;
+  gap: 16px;
+}
+
+.sensor-reading-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.sensor-reading {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 14px;
+  background: #0f172a;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.sensor-reading-grid strong {
+  font-size: 24px;
+}
+
+.sensor-reading small {
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.sensor-reading.reading-success {
+  border-color: rgba(74, 222, 128, 0.22);
+}
+
+.sensor-reading.reading-success small {
+  color: #4ade80;
+}
+
+.sensor-reading.reading-warning {
+  border-color: rgba(250, 204, 21, 0.28);
+}
+
+.sensor-reading.reading-warning small {
+  color: #facc15;
+}
+
+.sensor-reading.reading-danger {
+  border-color: rgba(248, 113, 113, 0.32);
+}
+
+.sensor-reading.reading-danger small {
+  color: #f87171;
+}
+
+.sensor-reading.reading-unknown small {
+  color: #94a3b8;
+}
+
+.sensor-empty-state {
+  margin: 0;
+}
+
 .bottom-grid {
   grid-template-columns: 1.4fr 1fr;
   margin-top: 16px;
@@ -618,6 +683,10 @@ p {
   }
 
   .hero-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .sensor-reading-grid {
     grid-template-columns: 1fr;
   }
 
