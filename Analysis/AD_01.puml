@@ -1,0 +1,54 @@
+@startuml
+start
+
+:Building administrator plugs device into an energy source;
+
+' Loop for internet connection
+repeat
+  :Building administrator attempts to connect device to the internet;
+repeat while (Connection successful?) is (No) not (Yes)
+
+' Main system loop (Every 5 seconds)
+repeat
+  :Wait 5 seconds;
+  :Device takes measurements;
+  :Device sends measurements to the Main Server;
+  
+  :Main Server receives measurements;
+  :Main Server forwards data to the ML Server;
+  
+  if (ML Server receives data?) then (Yes)
+    :ML Server calculates category and confidence score;
+    :ML Server sends prediction to Main Server;
+    
+    :Main Server sends info to Front-end and Device;
+    
+    ' Fork for simultaneous updates to device and front-end
+    fork
+      :Front-end evaluates category;
+      if (Category?) then (Fire)
+        :Front-end displays "Fire" warning;
+      elseif (Cooking)
+        :Front-end displays "Cooking";
+      else (Normal)
+        :Front-end displays "Normal";
+      endif
+      
+    fork again
+      :Device evaluates category;
+      if (Category is Fire?) then (Yes)
+        :Buzzer in device beeps;
+      else (No)
+        :Device does nothing;
+      endif
+    end fork
+    
+  else (No)
+    :Main Server logs error silently;
+    note right: Fails silently and tries again on the next 5-second cycle
+  endif
+
+repeat while (Device remains powered on?) is (Yes) not (No)
+
+stop
+@enduml

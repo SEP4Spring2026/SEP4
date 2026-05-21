@@ -10,19 +10,19 @@
 
 #### The device will send the information to the backend through MQTT, the backend will send the information to the frontend through gRPC (protobuf) for efficency and the frontend will provide REST (JSON) endpoint that the clients will access.
 
-### - Data payload example: 
+### - Data payload example:
 ### {
 ###  "sensorId":102,
 ###  "timestamp": "2026-04-08T12:15:00Z", // Current Timestamp, implement in backend
 ###  "sensors": {
-###    "temperature": 24.5,               // Temperature, measured in °C
+###    "temperature": 24.5,               // Temperature, measured in C
 ###    "humidity": 45.2,                  // Humidity, measured in %
 ###    "co2Level":503,                    // CO2, measured in ppm
-###    "tvoc":28,                         // Total Volatile Organic Compounds, Measured in ppb
+###    "tvoc":28,                         // Total Volatile Organic Compounds, measured in ppb
 ###    "eco2":410,                        // Estimated CO2, measured in ppm
 ###    "aqi":1                            // Air Quality Index, 1 = Excellent, 2 = Good, 3 = Moderate, 4 = Poor, 5 = Unhealthy
 ###  },
-###  "classification": "No Smoke"         // classification of data, how will ML implement the classification algorithms?
+###  "classification": "Normal"           // Normal, Cooking, or Fire
 ### }
 
 ## - How frequently is the data updated?

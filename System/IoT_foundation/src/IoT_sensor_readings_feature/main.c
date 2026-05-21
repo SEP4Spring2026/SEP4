@@ -29,15 +29,21 @@
 #endif
 
 
-#define WIFI_SSID "YOUR_WIFI_SSID" // Change this with your WIFI SSID
-#define WIFI_PASSWORD "YOUR_WIFI_PASSWORD" // Change this with your WIFI Password
+#define WIFI_SSID "whtver" /* Set locally before flashing; never commit real credentials */
+#define WIFI_PASSWORD "whtever" /* Set locally before flashing; never commit real credentials */
 #define MQTT_BROKER_HOST "159.195.147.132"
 #define MQTT_BROKER_PORT 1883
-#define MQTT_CLIENT_ID "iot-device-101" // Change this with Device 101 or 102
 #define MQTT_USERNAME ""
 #define MQTT_PASSWORD ""
 #define MQTT_TOPIC "iot/readings"
-#define LOCAL_DEVICE_ID 101U // Change this with Device 101 or 102
+/* Per board: JSON sensorId, SUBSCRIBE iot/alarm/{id}, and unique MQTT client id (see mqtt_build_client_id). */
+#define LOCAL_DEVICE_ID 101U
+
+/* Server publishes ML risk here after POST /api/readings ? /predict (ASCII payloads). */
+static char mqtt_alarm_topic[28];
+/* MQTT 3.1.1: client identifier <= 23 chars; must be unique per board or sessions kick each other off the broker. */
+static char mqtt_client_id[24];
+static volatile uint8_t g_alarm_pending;
 #define APP_SERIAL_BAUDRATE 115200UL
 
 #define APP_MODE_PRODUCTION 1
@@ -90,10 +96,93 @@ static void app_log_wifi_step(const char *step_name, WIFI_ERROR_MESSAGE_t result
     app_serial_debug_flush();
 }
 
-static char mqtt_rx_buffer[128];
+static char mqtt_rx_buffer[384];
+
+static void mqtt_build_alarm_topic(void)
+{
+    (void)snprintf(mqtt_alarm_topic, sizeof(mqtt_alarm_topic), "iot/alarm/%u", (unsigned)LOCAL_DEVICE_ID);
+}
+
+static void mqtt_build_client_id(void)
+{
+    (void)snprintf(mqtt_client_id, sizeof(mqtt_client_id), "sep4iot%u", (unsigned)LOCAL_DEVICE_ID);
+}
+
+static bool mqtt_binary_contains(const uint8_t *buf, uint16_t buflen, const char *needle)
+{
+    uint16_t nlen = (uint16_t)strlen(needle);
+    uint16_t i;
+
+    if (buflen < nlen || nlen == 0U)
+    {
+        return false;
+    }
+
+    for (i = 0; i + nlen <= buflen; i++)
+    {
+        if (memcmp(buf + i, needle, nlen) == 0)
+        {
+            return true;
+        }
+    }
+    return false;
+}
 
 static void mqtt_rx_callback(void)
 {
+    uint16_t len = wifi_last_ipd_payload_len;
+    const uint8_t *buf = (const uint8_t *)mqtt_rx_buffer;
+
+    if (len > (uint16_t)sizeof(mqtt_rx_buffer))
+    {
+        len = (uint16_t)sizeof(mqtt_rx_buffer);
+    }
+
+    printf("[MQTT-RX] +IPD payload=%u bytes\n", (unsigned)len);
+    app_serial_debug_flush();
+
+    /*
+     * Do not use strstr() on MQTT frames: PUBLISH packets contain embedded NUL bytes
+     * (e.g. topic length MSB), so strstr stops early and never reaches the ASCII payload.
+     */
+    if (mqtt_binary_contains(buf, len, "CRITICAL"))
+    {
+        g_alarm_pending = 2;
+    }
+    else if (mqtt_binary_contains(buf, len, "WARN"))
+    {
+        g_alarm_pending = 1;
+    }
+    else if (mqtt_binary_contains(buf, len, "OFF"))
+    {
+        g_alarm_pending = 3;
+    }
+}
+
+static WIFI_ERROR_MESSAGE_t mqtt_subscribe_over_tcp(const char *topic)
+{
+    uint8_t packet[96];
+    uint16_t idx = 0;
+    uint8_t topic_len = (uint8_t)strlen(topic);
+    const uint16_t packet_id = 1;
+    uint8_t remaining = (uint8_t)(2u + 2u + topic_len + 1u);
+
+    if (remaining >= 128U)
+    {
+        return WIFI_FAIL;
+    }
+
+    packet[idx++] = 0x82; /* SUBSCRIBE */
+    packet[idx++] = remaining;
+    packet[idx++] = (uint8_t)(packet_id >> 8);
+    packet[idx++] = (uint8_t)(packet_id & 0xFF);
+    packet[idx++] = 0;
+    packet[idx++] = topic_len;
+    memcpy(&packet[idx], topic, topic_len);
+    idx = (uint16_t)(idx + topic_len);
+    packet[idx++] = 0; /* requested QoS 0 */
+
+    return wifi_command_TCP_transmit(packet, idx);
 }
 
 static WIFI_ERROR_MESSAGE_t mqtt_connect_over_tcp(void)
@@ -101,7 +190,7 @@ static WIFI_ERROR_MESSAGE_t mqtt_connect_over_tcp(void)
     WIFI_ERROR_MESSAGE_t result;
     uint8_t packet[96];
     uint8_t idx = 0;
-    uint8_t client_id_len = (uint8_t)strlen(MQTT_CLIENT_ID);
+    uint8_t client_id_len = (uint8_t)strlen(mqtt_client_id);
     uint8_t remaining_length = (uint8_t)(10U + 2U + client_id_len);
 
     result = wifi_command_create_TCP_connection((char *)MQTT_BROKER_HOST, MQTT_BROKER_PORT, mqtt_rx_callback, mqtt_rx_buffer);
@@ -124,33 +213,76 @@ static WIFI_ERROR_MESSAGE_t mqtt_connect_over_tcp(void)
     packet[idx++] = 60;   /* Keep alive seconds */
     packet[idx++] = 0x00;
     packet[idx++] = client_id_len;
-    memcpy(&packet[idx], MQTT_CLIENT_ID, client_id_len);
+    memcpy(&packet[idx], mqtt_client_id, client_id_len);
     idx = (uint8_t)(idx + client_id_len);
 
-    return wifi_command_TCP_transmit(packet, idx);
+    {
+        WIFI_ERROR_MESSAGE_t conn_result = wifi_command_TCP_transmit(packet, idx);
+        if (conn_result != WIFI_OK)
+        {
+            return conn_result;
+        }
+    }
+
+    app_delay_ms(80);
+    return mqtt_subscribe_over_tcp(mqtt_alarm_topic);
+}
+
+/* MQTT 3.1.1 variable-byte encoding for the Remaining Length field (required when length >= 128). */
+static uint8_t mqtt_encode_remaining_length(uint8_t *dst, uint32_t remaining)
+{
+    uint8_t pos = 0;
+    do
+    {
+        if (pos >= 4U)
+        {
+            return 0;
+        }
+        uint8_t encoded = (uint8_t)(remaining % 128U);
+        remaining /= 128U;
+        if (remaining > 0U)
+        {
+            encoded |= 0x80;
+        }
+        dst[pos++] = encoded;
+    } while (remaining > 0U);
+
+    return pos;
 }
 
 static WIFI_ERROR_MESSAGE_t mqtt_publish_over_tcp(const char *topic, const char *payload)
 {
-    uint8_t packet[192];
-    uint8_t idx = 0;
+    uint8_t packet[512];
+    uint16_t idx = 0;
     uint8_t topic_len = (uint8_t)strlen(topic);
-    uint8_t payload_len = (uint8_t)strlen(payload);
-    uint8_t remaining_length = (uint8_t)(2U + topic_len + payload_len);
+    uint16_t payload_len = (uint16_t)strlen(payload);
 
-    if (remaining_length >= 128U)
+    if (topic_len == 0U || payload_len > 400U)
+    {
+        return WIFI_FAIL;
+    }
+
+    uint32_t remaining = (uint32_t)(2U + topic_len + payload_len);
+    uint8_t rl_enc[4];
+    uint8_t rl_n = mqtt_encode_remaining_length(rl_enc, remaining);
+
+    if (rl_n == 0U || (uint32_t)(1U + rl_n + remaining) > sizeof(packet))
     {
         return WIFI_FAIL;
     }
 
     packet[idx++] = 0x30; /* MQTT PUBLISH, QoS0, retain=0 */
-    packet[idx++] = remaining_length;
+    for (uint8_t i = 0; i < rl_n; i++)
+    {
+        packet[idx++] = rl_enc[i];
+    }
+
     packet[idx++] = 0x00;
     packet[idx++] = topic_len;
     memcpy(&packet[idx], topic, topic_len);
-    idx = (uint8_t)(idx + topic_len);
+    idx = (uint16_t)(idx + topic_len);
     memcpy(&packet[idx], payload, payload_len);
-    idx = (uint8_t)(idx + payload_len);
+    idx = (uint16_t)(idx + payload_len);
 
     return wifi_command_TCP_transmit(packet, idx);
 }
@@ -226,6 +358,8 @@ int main(void)
     wifi_result = wifi_command_join_AP(WIFI_SSID, WIFI_PASSWORD);
     app_log_wifi_step("CWJAP", wifi_result);
 
+    mqtt_build_alarm_topic();
+
     wifi_result = mqtt_connect_over_tcp();
     app_log_wifi_step("MQTT-TCP CONNECT", wifi_result);
     mqtt_ready = (wifi_result == WIFI_OK);
@@ -233,6 +367,8 @@ int main(void)
     printf("Production mode started (MQTT over TCP)\n");
     printf("MQTT broker       : %s:%u\n", MQTT_BROKER_HOST, (unsigned)MQTT_BROKER_PORT);
     printf("MQTT topic        : %s\n", MQTT_TOPIC);
+    printf("MQTT alarm topic  : %s\n", mqtt_alarm_topic);
+    printf("MQTT client id    : %s\n", mqtt_client_id);
     printf("Serial baud       : %lu\n", (unsigned long)APP_SERIAL_BAUDRATE);
     app_serial_debug_flush();
 
@@ -279,6 +415,36 @@ int main(void)
             app_log_wifi_step("MQTT-TCP RECONN", wifi_result);
             mqtt_ready = (wifi_result == WIFI_OK);
         }
+
+        {
+            uint8_t alarm = g_alarm_pending;
+            if (alarm != 0U)
+            {
+                g_alarm_pending = 0;
+                if (alarm == 3U)
+                {
+                    buzzer_init_silent();
+                    printf("[ALARM] Buzzer OFF (server risk Low)\n");
+                }
+                else if (alarm == 1U)
+                {
+                    buzzer_beep();
+                    printf("[ALARM] WARN beep (server risk Medium)\n");
+                }
+                else if (alarm == 2U)
+                {
+                    uint8_t k;
+                    printf("[ALARM] CRITICAL pattern (server risk High)\n");
+                    for (k = 0; k < 10U; k++)
+                    {
+                        buzzer_beep();
+                        app_delay_ms(100);
+                    }
+                }
+                app_serial_debug_flush();
+            }
+        }
+
         app_serial_debug_flush();
         app_delay_ms(5000);
     }
