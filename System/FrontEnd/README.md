@@ -1,5 +1,17 @@
 # React + Vite
 
+## Demo login and role handling
+
+This frontend implements prototype role selection only. It does not implement real backend authentication, password hashing, JWT tokens, protected API endpoints, or server-side RBAC enforcement.
+
+Roles available in the demo:
+
+- Resident: sees the assigned sensor/device only and does not see admin settings or alarm controls.
+- Building administrator: can see all devices and use admin-only alarm controls.
+- System admin: currently behaves like a full-access demo administrator.
+
+The selected demo session is stored in browser localStorage so refresh keeps the role. This is UI behavior for the SEP4 demo, not real security. Real RBAC would require backend user accounts, password hashing, login endpoint, JWT/session validation, role claims, and permission checks on the API endpoints.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:
