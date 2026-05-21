@@ -357,6 +357,53 @@ function Dashboard({ session, onLogout }) {
     );
   }
 
+  function AlertsView() {
+    return (
+      <section className="grid alerts-grid">
+        <article className="card alerts-summary-card">
+          <div className="card-header">
+            <div>
+              <h3>Active Alerts</h3>
+              <p className="muted">Generated from latest readings and device health</p>
+            </div>
+            <span className={displayAlerts.length ? "danger" : "success"}>
+              {displayAlerts.length}
+            </span>
+          </div>
+        </article>
+
+        {displayAlerts.length === 0 ? (
+          <article className="card">
+            <h3>No active alerts</h3>
+            <p className="muted">All current readings are within the configured alert rules.</p>
+          </article>
+        ) : (
+          displayAlerts.map((alert) => (
+            <article className={`card alert-card ${alert.severity}`} key={alert.id}>
+              <div>
+                <div className="alert-heading">
+                  <span className={`alert-severity ${alert.severity}`}>
+                    {alert.severity}
+                  </span>
+                  <span className="muted">Device {alert.sensorId}</span>
+                </div>
+                <h3>{alert.title}</h3>
+                <p>{alert.message}</p>
+              </div>
+              <button
+                type="button"
+                className="alert-dismiss"
+                onClick={() => setDismissedAlertIds((prev) => [...prev, alert.id])}
+              >
+                Dismiss
+              </button>
+            </article>
+          ))
+        )}
+      </section>
+    );
+  }
+
   function SamplesView() {
     return (
       <section className="grid bottom-grid view-grid">
