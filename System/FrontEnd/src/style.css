@@ -246,6 +246,10 @@ p {
   grid-template-columns: 1fr;
 }
 
+.home-action-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .stats-grid {
   grid-template-columns: repeat(4, 1fr);
   margin-top: 16px;
@@ -283,6 +287,10 @@ p {
   margin-top: 20px;
 }
 
+.sensor-readings-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .hero-stat {
   padding: 16px;
   border-radius: 16px;
@@ -311,6 +319,19 @@ p {
 
 .tag {
   color: #67e8f9;
+}
+
+.reading-device-badge {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  text-align: right;
+}
+
+.reading-device-badge strong {
+  color: #67e8f9;
+  font-size: 22px;
+  line-height: 1.1;
 }
 
 .success {
@@ -568,6 +589,7 @@ p {
 @media (max-width: 900px) {
   .page,
   .top-grid,
+  .home-action-grid,
   .stats-grid,
   .bottom-grid,
   .payload-grid,
@@ -579,6 +601,11 @@ p {
 
   .alert-card {
     flex-direction: column;
+  }
+
+  .reading-device-badge {
+    justify-items: start;
+    text-align: left;
   }
 
   .chart-stats {
@@ -593,9 +620,11 @@ p {
   .hero-stats {
     grid-template-columns: 1fr;
   }
+
 }
 
 .top-grid,
+.home-action-grid,
 .stats-grid,
 .bottom-grid,
 .payload-grid,

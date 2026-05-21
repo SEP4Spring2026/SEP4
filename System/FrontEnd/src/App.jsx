@@ -257,7 +257,17 @@ function Dashboard({ session, onLogout }) {
   const latestSample = samples[0];
   const latestDeviceHealth = getDeviceHealth(devices.find((d) => d.sensorId === latestSample.sensorId) ?? {}, nowMs);
   const offlineAlerts = devices.map((d) => ({ sensorId: d.sensorId, health: getDeviceHealth(d, nowMs) })).filter((e) => e.health.missingData);
-  const summary = { sensorId: latestSample.sensorId, temp: latestSample.temp, hum: latestSample.hum, co2: latestSample.co2, tvoc: latestSample.tvoc, eco2: latestSample.eco2, aqi: latestSample.aqi };
+  const summary = { 
+    sensorId: latestSample.sensorId, 
+    temp: latestSample.temp, 
+    hum: latestSample.hum, 
+    co2: latestSample.co2, 
+    tvoc: latestSample.tvoc, 
+    eco2: latestSample.eco2, 
+    aqi: latestSample.aqi,
+    classification: latestSample.classification,
+    selectedSensorId,
+  };
 
   const pageTitles = {
     Home: "Home Overview", Sensors: "Sensor Details", Samples: "Sample History",
@@ -275,32 +285,10 @@ function Dashboard({ session, onLogout }) {
       <>
         <section className="grid top-grid">
           <OverviewCard summary={summary} />
-          <PayloadCard payload={latestSample.payload} />
         </section>
         <div className="section-spacer" />
-
         {/* Classification + recommendations — relevant to all roles */}
-        <section className="grid">
-          <article className="card">
-            <h3>Room Classification</h3>
-            <p style={{ marginTop: 8 }}>
-              Current status:{" "}
-              <strong className={latestSample.classification === "Normal" ? "success" : "danger"}>
-                {latestSample.classification ?? "Unknown"}
-              </strong>
-            </p>
-            {latestSample.classification === "Cooking" && (
-              <p className="muted" style={{ marginTop: 8 }}>
-                Cooking activity detected. Increased smoke/CO2 is expected. Ventilate if needed.
-              </p>
-            )}
-            {latestSample.classification === "Fire" && (
-              <p className="danger" style={{ marginTop: 8, fontWeight: 600 }}>
-                ⚠ Possible fire detected. Verify the room immediately and trigger the alarm if necessary.
-              </p>
-            )}
-          </article>
-
+        <section className="grid home-action-grid">
           <article className="card">
             <h3>Recommendations</h3>
             <div className="recommendation-list" style={{ marginTop: 8 }}>
@@ -311,6 +299,26 @@ function Dashboard({ session, onLogout }) {
                 </div>
               ))}
             </div>
+          </article>
+
+          <article className="card">
+            <h3>Room Classification</h3>
+            <p style={{ marginTop: 8 }}>
+              Current status:{" "}
+              <strong className={latestSample.classification === "Normal" ? "success" : "danger"}>
+                {latestSample.classification ?? "Unknown"}
+              </strong>
+            </p>
+            {latestSample.classification === "Cooking" && (
+              <p className="muted" style={{ marginTop: 8 }}>
+                Cooking activity detected. Ventilate if needed.
+              </p>
+            )}
+            {latestSample.classification === "Fire" && (
+              <p className="danger" style={{ marginTop: 8, fontWeight: 600 }}>
+                Possible fire detected. Verify the room immediately and trigger the alarm if necessary.
+              </p>
+            )}
           </article>
         </section>
         <div className="section-spacer" />
@@ -333,15 +341,6 @@ function Dashboard({ session, onLogout }) {
           </>
         )}
 
-        <section className="grid stats-grid">
-          <StatCard title="Device ID"    value={summary.sensorId} status="selected"   statusType="success" />
-          <StatCard title="Temperature"  value={summary.temp}     status="stable"     statusType="success" />
-          <StatCard title="Humidity"     value={summary.hum}      status="stable"     statusType="success" />
-          <StatCard title="CO2"          value={summary.co2}      status="watch"      statusType="danger"  />
-          <StatCard title="TVOC"         value={summary.tvoc}     status="watch"      statusType="danger"  />
-          <StatCard title="eCO2"         value={summary.eco2}     status="watch"      statusType="danger"  />
-          <StatCard title="AQI"          value={summary.aqi ?? "-"} status="watch"    statusType="danger"  />
-        </section>
       </>
     );
   }
