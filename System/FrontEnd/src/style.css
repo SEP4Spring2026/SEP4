@@ -618,3 +618,161 @@ p {
 .recommendation-item .bullet {
   flex-shrink: 0;
 }
+
+.room-card {
+  border: 1px solid #ddd;
+  padding: 12px;
+  margin-bottom: 12px;
+  border-radius: 8px;
+}
+
+.sensor-item {
+  display: flex;
+  justify-content: space-between;
+  margin: 4px 0;
+}
+
+.assign-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.input {
+  width: 100%;
+  padding: 6px;
+  margin-bottom: 8px;
+}
+
+.btn {
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+/* Page background */
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0b1220;
+  padding: 24px;
+}
+
+/* Main card */
+.login-card.card {
+  width: 100%;
+  max-width: 420px;
+  padding: 28px;
+  border-radius: 14px;
+  background: #111827;
+  border: 1px solid #1f2937;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+
+/* Header */
+.login-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+/* Logo circle */
+.logo-badge {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: #3b82f6;
+  color: white;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+/* Title text */
+.login-header h1 {
+  font-size: 18px;
+  color: #f9fafb;
+  margin: 0;
+}
+
+.login-header .muted {
+  font-size: 12px;
+  margin: 0;
+}
+
+/* Copy section */
+.login-copy {
+  margin: 18px 0 22px;
+}
+
+.login-copy h2 {
+  font-size: 20px;
+  color: #f9fafb;
+  margin: 6px 0;
+}
+
+.login-copy .muted {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* Field wrapper */
+.login-field {
+  margin-bottom: 18px;
+}
+
+/* Label */
+.device-select-label {
+  display: block;
+  font-size: 12px;
+  color: #9ca3af;
+  margin-bottom: 6px;
+}
+
+/* Select input */
+.device-select {
+  width: 100%;
+  padding: 12px 12px;
+  border-radius: 10px;
+  border: 1px solid #374151;
+  background: #0b1220;
+  color: #e5e7eb;
+  outline: none;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.device-select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+/* Button */
+.login-button {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  background: #3b82f6;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.login-button:hover {
+  background: #2563eb;
+}
+
+.login-button:active {
+  transform: scale(0.98);
+}
+
+/* Muted helper text reuse */
+.muted {
+  color: #9ca3af;
+}
