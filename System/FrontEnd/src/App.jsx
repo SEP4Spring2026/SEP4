@@ -10,14 +10,10 @@ import { LoginPage } from "./components/Login/index.js";
 import { StatusScreen } from "./components/StatusScreen/index.js";
 import { AdminControls } from "./components/Dashboard/AdminControls.jsx";
 import { RestrictedNotice } from "./components/Dashboard/RestrictedNotice.jsx";
-import {
-  canAccessView,
-  createDemoSession,
-  getDefaultView,
-  getPermissions,
-} from "./auth/accessControl.js";
+import { canAccessView, getDefaultView, getPermissions } from "./auth/accessControl.js";
 import { connectReadingsStream, getDevices, getReadings, postAlarmTest, getRooms } from "./services/api.js";
 import { RoomsView } from "./components/RoomsView.jsx";
+import { login } from "./services/api.js";
 
 /** Passed to GET /api/readings so charts cover the last day of data. */
 const SAMPLE_WINDOW_HOURS = 168;
@@ -145,8 +141,6 @@ function getDeviceHealth(device, nowMs) {
     uptimeLabel: formatDuration(uptimeSeconds),
   };
 }
-
-const SESSION_STORAGE_KEY = "sep4-demo-session";
 
 function Dashboard({ session, onLogout }) {
   const permissions = getPermissions(session.role);
@@ -774,29 +768,40 @@ function Dashboard({ session, onLogout }) {
 }
 
 function App() {
+  const SESSION_STORAGE_KEY = "sep4-session";
+
   const [session, setSession] = useState(() => {
     try {
-      const stored = window.localStorage.getItem(SESSION_STORAGE_KEY);
-      const parsed = stored ? JSON.parse(stored) : null;
-      return parsed?.role ? createDemoSession(parsed.role) : null;
+      const stored = localStorage.getItem(SESSION_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : null;
     } catch {
       return null;
     }
   });
 
-  function handleSignIn(role) {
-    const nextSession = createDemoSession(role);
-    setSession(nextSession);
-    window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(nextSession));
-  }
+  // ✅ LOGIN (JWT VERSION)
+  async function handleSignIn(data) {
+  const newSession = {
+    token: data.token,
+    id: data.user.id,
+    username: data.user.username,
+    role: data.user.role,
+  };
+
+  setSession(newSession);
+
+  localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(newSession));
+  localStorage.setItem("token", data.token);
+}
 
   function handleLogout() {
     setSession(null);
-    window.localStorage.removeItem(SESSION_STORAGE_KEY);
+    localStorage.removeItem(SESSION_STORAGE_KEY);
+    localStorage.removeItem("token");
   }
 
   if (!session) {
-    return <LoginPage onSignIn={handleSignIn} />;
+    return <LoginPage onAuthIn={handleSignIn} />;
   }
 
   return <Dashboard session={session} onLogout={handleLogout} />;
