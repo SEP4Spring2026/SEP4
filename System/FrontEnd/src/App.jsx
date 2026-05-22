@@ -37,7 +37,7 @@ const ROLE_CONFIG = {
   resident: {
     shortLabel: "Resident",
     initials: "RS",
-    views: ["Home", "Sensors", "Samples", "Charts", "Payload", "Alarm"],
+    views: ["Home", "Sensors", "Samples", "Payload", "Alarm"],
     canViewAllDevices: false,
     canViewAdminControls: false,
     canManageRooms: false,
@@ -49,7 +49,7 @@ const ROLE_CONFIG = {
   "building-administrator": {
     shortLabel: "Building Admin",
     initials: "BA",
-    views: ["Home", "Sensors", "Samples", "Charts", "Payload", "Rooms", "Alerts", "Alarm"],
+    views: ["Home", "Sensors", "Samples", "Payload", "Rooms", "Alerts", "Alarm"],
     canViewAllDevices: true,
     canViewAdminControls: true,
     canManageRooms: true,
@@ -61,7 +61,7 @@ const ROLE_CONFIG = {
   admin: {
     shortLabel: "System Admin",
     initials: "SA",
-    views: ["Home", "Sensors", "Samples", "Charts", "Payload", "Rooms", "Alerts", "Alarm", "Users", "Devices", "Logs"],
+    views: ["Home", "Sensors", "Samples", "Payload", "Rooms", "Alerts", "Alarm", "Users", "Devices", "Logs"],
     canViewAllDevices: true,
     canViewAdminControls: true,
     canManageRooms: true,
@@ -243,6 +243,7 @@ function Dashboard({ session, onLogout }) {
   const [nowMs, setNowMs]                 = useState(() => Date.now());
   const [alarmTestMessage, setAlarmTestMessage] = useState(null);
   const [alarmTestBusy, setAlarmTestBusy]       = useState(false);
+  const [expandedChartSensorId, setExpandedChartSensorId] = useState(null);
 
   useEffect(() => { const t = window.setInterval(() => setNowMs(Date.now()), 10000); return () => clearInterval(t); }, []);
 
@@ -311,12 +312,68 @@ function Dashboard({ session, onLogout }) {
 
   const pageTitles = {
     Home: "Home Overview", Sensors: "Sensor Details", Samples: "Sample History",
-    Charts: "Charts & Trends", Payload: "Payload Viewer", Rooms: "Room Management",
+    Payload: "Payload Viewer", Rooms: "Room Management",
     Alerts: "Alert History", Alarm: "Alarm Controls", Users: "User Management",
     Devices: "Device Management", Logs: "System Logs",
   };
 
   // â”€â”€ Sub-views â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+  const stats = (arr) => {
+    const vals = arr.map((d) => d.v).filter(Number.isFinite);
+    if (!vals.length) return { avg: 0, min: 0, max: 0, latest: 0, count: 0 };
+    return {
+      avg: vals.reduce((a,b)=>a+b,0)/vals.length,
+      min: Math.min(...vals),
+      max: Math.max(...vals),
+      latest: vals[vals.length-1],
+      count: vals.length,
+    };
+  };
+  const fmt = (n, d) => Number(n).toFixed(d);
+  const buildTrendModel = (sourceSamples) => {
+    const series = [...sourceSamples].reverse();
+    const tempData = series.map((s) => ({ t: s.timestamp, v: Number(s.temp) }));
+    const humData = series.map((s) => ({ t: s.timestamp, v: Number(s.hum) }));
+    const co2Data = series.map((s) => ({ t: s.timestamp, v: Number(s.co2) }));
+    return {
+      series,
+      tempData,
+      humData,
+      co2Data,
+      tS: stats(tempData),
+      hS: stats(humData),
+      cS: stats(co2Data),
+    };
+  };
+
+  function TrendChartCard({ title, unit, s, data, decimals = 1, embedded = false }) {
+    return (
+      <article className={`${embedded ? "chart-panel" : "card"} chart-card`}>
+        <div className="card-header">
+          <div><h3>{title}</h3><p className="muted">Avg / min / max over {s.count} samples</p></div>
+          <span className="tag">{fmt(s.avg, decimals)}{unit}</span>
+        </div>
+        <div className="chart-stats">
+          {[["Avg", s.avg], ["Min", s.min], ["Max", s.max], ["Latest", s.latest]].map(([label, val]) => (
+            <div key={label}><span className="muted">{label}</span><strong>{fmt(val, decimals)}{unit}</strong></div>
+          ))}
+        </div>
+        <LineChart data={data} unit={unit} />
+      </article>
+    );
+  }
+
+  function DeviceCharts({ deviceSamples }) {
+    const { tempData, humData, co2Data, tS, hS, cS } = buildTrendModel(deviceSamples);
+    return (
+      <div className="grid charts-grid sensor-charts-grid">
+        <TrendChartCard title="Temperature trend" unit="C" s={tS} data={tempData} decimals={1} embedded />
+        <TrendChartCard title="Humidity trend" unit="%" s={hS} data={humData} decimals={1} embedded />
+        <TrendChartCard title="CO2 trend" unit=" ppm" s={cS} data={co2Data} decimals={0} embedded />
+      </div>
+    );
+  }
 
   function HomeView() {
     const recs = getRecommendations(latestSample);
@@ -393,7 +450,7 @@ function Dashboard({ session, onLogout }) {
         deviceMap.set(key, {
           sensorId: sample.sensorId,
           status: "active",
-          readingCount: samples.filter((s) => s.sensorId === sample.sensorId).length,
+          readingCount: samples.filter((s) => String(s.sensorId) === String(sample.sensorId)).length,
           firstTimestamp: sample.timestamp,
           latestTimestamp: sample.timestamp,
         });
@@ -405,10 +462,12 @@ function Dashboard({ session, onLogout }) {
     return (
       <section className="grid sensors-device-list">
         {deviceList.map((device) => {
+          const deviceSamples = samples.filter((sample) => String(sample.sensorId) === String(device.sensorId));
           const latestForDevice = samples.find((sample) => String(sample.sensorId) === String(device.sensorId));
           const health = getDeviceHealth(device, nowMs);
+          const isChartExpanded = String(expandedChartSensorId) === String(device.sensorId);
           const readings = latestForDevice ? [
-            { label: "Temperature", type: "temperature", value: latestForDevice.temp, unit: "°C" },
+            { label: "Temperature", type: "temperature", value: latestForDevice.temp, unit: "C" },
             { label: "Humidity", type: "humidity", value: latestForDevice.hum, unit: "%" },
             { label: "CO2", type: "co2", value: latestForDevice.co2, unit: "ppm" },
             { label: "TVOC", type: "tvoc", value: latestForDevice.tvoc, unit: "ppb" },
@@ -427,22 +486,36 @@ function Dashboard({ session, onLogout }) {
                       : "No readings available for this device."}
                   </p>
                 </div>
-                <span className={health.statusType}>{health.statusLabel}</span>
+                <div className="sensor-device-actions">
+                  <span className={health.statusType}>{health.statusLabel}</span>
+                  {latestForDevice && (
+                    <button
+                      type="button"
+                      className="menu-item inline-action"
+                      onClick={() => setExpandedChartSensorId(isChartExpanded ? null : device.sensorId)}
+                    >
+                      {isChartExpanded ? "Hide charts" : "Show charts"}
+                    </button>
+                  )}
+                </div>
               </div>
 
               {latestForDevice ? (
-                <div className="sensor-reading-grid">
-                  {readings.map((reading) => {
-                    const status = getReadingStatus(reading.type, reading.value);
-                    return (
-                      <div className={`sensor-reading ${status.className}`} key={reading.type}>
-                        <span className="muted">{reading.label}</span>
-                        <strong>{reading.value} {reading.unit}</strong>
-                        <small>{status.label}</small>
-                      </div>
-                    );
-                  })}
-                </div>
+                <>
+                  <div className="sensor-reading-grid">
+                    {readings.map((reading) => {
+                      const status = getReadingStatus(reading.type, reading.value);
+                      return (
+                        <div className={`sensor-reading ${status.className}`} key={reading.type}>
+                          <span className="muted">{reading.label}</span>
+                          <strong>{reading.value} {reading.unit}</strong>
+                          <small>{status.label}</small>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {isChartExpanded && <DeviceCharts deviceSamples={deviceSamples} />}
+                </>
               ) : (
                 <p className="muted sensor-empty-state">Waiting for the first reading from this device.</p>
               )}
@@ -516,49 +589,6 @@ function Dashboard({ session, onLogout }) {
         <article className="card">
           <h3>Payload Details</h3>
           {[["Device ID", latestSample.sensorId], ["Length", latestSample.payloadLength], ["CO2", `${latestSample.co2} ppm`], ["Temperature", `${latestSample.temp} Â°C`], ["Humidity", `${latestSample.hum} %`]].map(([k, v]) => (
-            <div className="summary-row" key={k}><span>{k}</span><strong>{v}</strong></div>
-          ))}
-        </article>
-      </section>
-    );
-  }
-
-  function ChartsView() {
-    const series   = [...samples].reverse();
-    const tempData = series.map((s) => ({ t: s.timestamp, v: Number(s.temp) }));
-    const humData  = series.map((s) => ({ t: s.timestamp, v: Number(s.hum) }));
-    const co2Data  = series.map((s) => ({ t: s.timestamp, v: Number(s.co2) }));
-    const stats = (arr) => {
-      const vals = arr.map((d) => d.v).filter(Number.isFinite);
-      if (!vals.length) return { avg: 0, min: 0, max: 0, latest: 0, count: 0 };
-      return { avg: vals.reduce((a,b)=>a+b,0)/vals.length, min: Math.min(...vals), max: Math.max(...vals), latest: vals[vals.length-1], count: vals.length };
-    };
-    const tS = stats(tempData), hS = stats(humData), cS = stats(co2Data);
-    const fmt = (n, d) => Number(n).toFixed(d);
-    function ChartCard({ title, unit, s, data, decimals = 1 }) {
-      return (
-        <article className="card chart-card">
-          <div className="card-header">
-            <div><h3>{title}</h3><p className="muted">Avg / min / max over {s.count} samples</p></div>
-            <span className="tag">{fmt(s.avg, decimals)}{unit}</span>
-          </div>
-          <div className="chart-stats">
-            {[["Avg", s.avg], ["Min", s.min], ["Max", s.max], ["Latest", s.latest]].map(([label, val]) => (
-              <div key={label}><span className="muted">{label}</span><strong>{fmt(val, decimals)}{unit}</strong></div>
-            ))}
-          </div>
-          <LineChart data={data} unit={unit} />
-        </article>
-      );
-    }
-    return (
-      <section className="grid charts-grid">
-        <ChartCard title="Temperature trend" unit="Â°C"  s={tS} data={tempData} decimals={1} />
-        <ChartCard title="Humidity trend"    unit="%"   s={hS} data={humData}  decimals={1} />
-        <ChartCard title="CO2 trend"         unit=" ppm" s={cS} data={co2Data}  decimals={0} />
-        <article className="card chart-summary-card">
-          <div className="card-header"><div><h3>Averages over {series.length} samples</h3><p className="muted">Last 7 days</p></div><span className="tag">Live</span></div>
-          {[["Avg temperature", `${fmt(tS.avg,1)} Â°C`], ["Avg humidity", `${fmt(hS.avg,1)} %`], ["Avg CO2", `${fmt(cS.avg,0)} ppm`], ["Range CO2", `${fmt(cS.min,0)} â€“ ${fmt(cS.max,0)} ppm`]].map(([k,v]) => (
             <div className="summary-row" key={k}><span>{k}</span><strong>{v}</strong></div>
           ))}
         </article>
@@ -869,7 +899,6 @@ function Dashboard({ session, onLogout }) {
         {activeView === "Home"    && <HomeView />}
         {activeView === "Sensors" && <SensorsView />}
         {activeView === "Samples" && <SamplesView />}
-        {activeView === "Charts"  && <ChartsView />}
         {activeView === "Payload" && <PayloadView />}
         {activeView === "Rooms"   && <RoomsView />}
         {activeView === "Alerts"  && <AlertsView />}

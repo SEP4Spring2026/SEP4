@@ -264,6 +264,12 @@ p {
   gap: 16px;
 }
 
+.sensor-device-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .sensor-reading-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -516,14 +522,21 @@ p {
   margin-top: 0;
 }
 
-.charts-grid .chart-summary-card {
-  grid-column: 1 / -1;
+.sensor-charts-grid {
+  margin-top: 4px;
 }
 
 .chart-card {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.chart-panel {
+  padding: 18px;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.52);
+  border: 1px solid rgba(148, 163, 184, 0.14);
 }
 
 .alerts-summary-card {
