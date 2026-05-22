@@ -382,7 +382,7 @@ function Dashboard({ session, onLogout }) {
     const { tempData, humData, co2Data, tS, hS, cS } = buildTrendModel(deviceSamples);
     return (
       <div className="grid charts-grid sensor-charts-grid">
-        <TrendChartCard title="Temperature trend" unit="°C" s={tS} data={tempData} decimals={1} embedded />
+        <TrendChartCard title="Temperature trend" unit={"\u00b0C"} s={tS} data={tempData} decimals={1} embedded />
         <TrendChartCard title="Humidity trend" unit="%" s={hS} data={humData} decimals={1} embedded />
         <TrendChartCard title="CO2 trend" unit=" ppm" s={cS} data={co2Data} decimals={0} embedded />
       </div>
@@ -496,7 +496,7 @@ function Dashboard({ session, onLogout }) {
           const health = getDeviceHealth(device, nowMs);
           const isChartExpanded = String(expandedChartSensorId) === String(device.sensorId);
           const readings = latestForDevice ? [
-            { label: "Temperature", type: "temperature", value: latestForDevice.temp, unit: "°C" },
+            { label: "Temperature", type: "temperature", value: latestForDevice.temp, unit: "\u00b0C" },
             { label: "Humidity", type: "humidity", value: latestForDevice.hum, unit: "%" },
             { label: "CO2", type: "co2", value: latestForDevice.co2, unit: "ppm" },
             { label: "TVOC", type: "tvoc", value: latestForDevice.tvoc, unit: "ppb" },
@@ -632,7 +632,7 @@ function Dashboard({ session, onLogout }) {
       ["Device ID", latestSample.sensorId],
       ["Timestamp", latestSample.timestamp],
       ["Length", latestSample.payloadLength],
-      ["Temperature", `${latestSample.temp} °C`],
+      ["Temperature", `${latestSample.temp} \u00b0C`],
       ["Humidity", `${latestSample.hum} %`],
       ["CO2", `${latestSample.co2} ppm`],
       ["TVOC", `${latestSample.tvoc} ppb`],

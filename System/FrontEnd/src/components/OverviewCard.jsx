@@ -19,7 +19,7 @@ export function OverviewCard({ summary }) {
       <div className="hero-stats sensor-readings-grid">
         <div className="hero-stat">
           <span className="muted">Temperature</span>
-          <strong>{formatValue(summary.temp, " °C")}</strong>
+          <strong>{formatValue(summary.temp, " \u00b0C")}</strong>
         </div>
         <div className="hero-stat">
           <span className="muted">Humidity</span>
