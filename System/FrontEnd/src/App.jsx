@@ -31,13 +31,13 @@ const DISPLAY_TIMEZONE = "Europe/Rome";
 const SESSION_STORAGE_KEY = "sep4-session";
 
 // ---------------------------------------------------------------------------
-// Role config — drives nav tabs and feature flags
+// Role config â€” drives nav tabs and feature flags
 // ---------------------------------------------------------------------------
 const ROLE_CONFIG = {
   resident: {
     shortLabel: "Resident",
     initials: "RS",
-    views: ["Home", "Sensors", "Samples", "Charts", "Payload", "Alarm"],
+    views: ["Home", "Sensors", "Samples", "Payload", "Alarm"],
     canViewAllDevices: false,
     canViewAdminControls: false,
     canManageRooms: false,
@@ -49,7 +49,7 @@ const ROLE_CONFIG = {
   "building-administrator": {
     shortLabel: "Building Admin",
     initials: "BA",
-    views: ["Home", "Sensors", "Samples", "Charts", "Payload", "Rooms", "Alerts", "Alarm"],
+    views: ["Home", "Sensors", "Samples", "Payload", "Rooms", "Alerts", "Alarm"],
     canViewAllDevices: true,
     canViewAdminControls: true,
     canManageRooms: true,
@@ -61,7 +61,7 @@ const ROLE_CONFIG = {
   admin: {
     shortLabel: "System Admin",
     initials: "SA",
-    views: ["Home", "Sensors", "Samples", "Charts", "Payload", "Rooms", "Alerts", "Alarm", "Users", "Devices", "Logs"],
+    views: ["Home", "Sensors", "Samples", "Payload", "Rooms", "Alerts", "Alarm", "Users", "Devices", "Logs"],
     canViewAllDevices: true,
     canViewAdminControls: true,
     canManageRooms: true,
@@ -184,6 +184,46 @@ function getRecommendations(sample) {
   return recs;
 }
 
+function getReadingStatus(type, value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return { label: "unknown", className: "reading-unknown" };
+
+  if (type === "temperature") {
+    if (n > 35) return { label: "high", className: "reading-danger" };
+    if (n > 30) return { label: "watch", className: "reading-warning" };
+    return { label: "normal", className: "reading-success" };
+  }
+
+  if (type === "humidity") {
+    if (n > 70 || n < 25) return { label: "watch", className: "reading-warning" };
+    return { label: "normal", className: "reading-success" };
+  }
+
+  if (type === "co2") {
+    if (n > 2000) return { label: "critical", className: "reading-danger" };
+    if (n > 1000) return { label: "watch", className: "reading-warning" };
+    return { label: "normal", className: "reading-success" };
+  }
+
+  if (type === "tvoc") {
+    if (n > 500) return { label: "watch", className: "reading-warning" };
+    return { label: "normal", className: "reading-success" };
+  }
+
+  if (type === "eco2") {
+    if (n > 1500) return { label: "watch", className: "reading-warning" };
+    return { label: "normal", className: "reading-success" };
+  }
+
+  if (type === "aqi") {
+    if (n > 3) return { label: "high", className: "reading-danger" };
+    if (n >= 3) return { label: "watch", className: "reading-warning" };
+    return { label: "normal", className: "reading-success" };
+  }
+
+  return { label: "normal", className: "reading-success" };
+}
+
 // ---------------------------------------------------------------------------
 // Dashboard
 // ---------------------------------------------------------------------------
@@ -203,6 +243,7 @@ function Dashboard({ session, onLogout }) {
   const [nowMs, setNowMs]                 = useState(() => Date.now());
   const [alarmTestMessage, setAlarmTestMessage] = useState(null);
   const [alarmTestBusy, setAlarmTestBusy]       = useState(false);
+  const [expandedChartSensorId, setExpandedChartSensorId] = useState(null);
 
   useEffect(() => { const t = window.setInterval(() => setNowMs(Date.now()), 10000); return () => clearInterval(t); }, []);
 
@@ -271,12 +312,68 @@ function Dashboard({ session, onLogout }) {
 
   const pageTitles = {
     Home: "Home Overview", Sensors: "Sensor Details", Samples: "Sample History",
-    Charts: "Charts & Trends", Payload: "Payload Viewer", Rooms: "Room Management",
+    Payload: "Payload Viewer", Rooms: "Room Management",
     Alerts: "Alert History", Alarm: "Alarm Controls", Users: "User Management",
     Devices: "Device Management", Logs: "System Logs",
   };
 
-  // ── Sub-views ──────────────────────────────────────────────────────────────
+  // â”€â”€ Sub-views â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+  const stats = (arr) => {
+    const vals = arr.map((d) => d.v).filter(Number.isFinite);
+    if (!vals.length) return { avg: 0, min: 0, max: 0, latest: 0, count: 0 };
+    return {
+      avg: vals.reduce((a,b)=>a+b,0)/vals.length,
+      min: Math.min(...vals),
+      max: Math.max(...vals),
+      latest: vals[vals.length-1],
+      count: vals.length,
+    };
+  };
+  const fmt = (n, d) => Number(n).toFixed(d);
+  const buildTrendModel = (sourceSamples) => {
+    const series = [...sourceSamples].reverse();
+    const tempData = series.map((s) => ({ t: s.timestamp, v: Number(s.temp) }));
+    const humData = series.map((s) => ({ t: s.timestamp, v: Number(s.hum) }));
+    const co2Data = series.map((s) => ({ t: s.timestamp, v: Number(s.co2) }));
+    return {
+      series,
+      tempData,
+      humData,
+      co2Data,
+      tS: stats(tempData),
+      hS: stats(humData),
+      cS: stats(co2Data),
+    };
+  };
+
+  function TrendChartCard({ title, unit, s, data, decimals = 1, embedded = false }) {
+    return (
+      <article className={`${embedded ? "chart-panel" : "card"} chart-card`}>
+        <div className="card-header">
+          <div><h3>{title}</h3><p className="muted">Avg / min / max over {s.count} samples</p></div>
+          <span className="tag">{fmt(s.avg, decimals)}{unit}</span>
+        </div>
+        <div className="chart-stats">
+          {[["Avg", s.avg], ["Min", s.min], ["Max", s.max], ["Latest", s.latest]].map(([label, val]) => (
+            <div key={label}><span className="muted">{label}</span><strong>{fmt(val, decimals)}{unit}</strong></div>
+          ))}
+        </div>
+        <LineChart data={data} unit={unit} />
+      </article>
+    );
+  }
+
+  function DeviceCharts({ deviceSamples }) {
+    const { tempData, humData, co2Data, tS, hS, cS } = buildTrendModel(deviceSamples);
+    return (
+      <div className="grid charts-grid sensor-charts-grid">
+        <TrendChartCard title="Temperature trend" unit="C" s={tS} data={tempData} decimals={1} embedded />
+        <TrendChartCard title="Humidity trend" unit="%" s={hS} data={humData} decimals={1} embedded />
+        <TrendChartCard title="CO2 trend" unit=" ppm" s={cS} data={co2Data} decimals={0} embedded />
+      </div>
+    );
+  }
 
   function HomeView() {
     const recs = getRecommendations(latestSample);
@@ -287,7 +384,7 @@ function Dashboard({ session, onLogout }) {
           <OverviewCard summary={summary} />
         </section>
         <div className="section-spacer" />
-        {/* Classification + recommendations — relevant to all roles */}
+        {/* Classification + recommendations â€” relevant to all roles */}
         <section className="grid home-action-grid">
           <article className="card">
             <h3>Recommendations</h3>
@@ -327,7 +424,7 @@ function Dashboard({ session, onLogout }) {
         {isAdmin && offlineAlerts.length > 0 && (
           <>
             <article className="card" style={{ marginBottom: 24 }}>
-              <h3>⚠ Offline Devices ({offlineAlerts.length})</h3>
+              <h3>âš  Offline Devices ({offlineAlerts.length})</h3>
               <p className="muted">These devices have not reported within {OFFLINE_AFTER_SECONDS}s.</p>
               <div style={{ marginTop: 12 }}>
                 {offlineAlerts.map((a) => (
@@ -346,16 +443,88 @@ function Dashboard({ session, onLogout }) {
   }
 
   function SensorsView() {
+    const deviceMap = new Map(devices.map((device) => [String(device.sensorId), device]));
+    for (const sample of samples) {
+      const key = String(sample.sensorId);
+      if (!deviceMap.has(key)) {
+        deviceMap.set(key, {
+          sensorId: sample.sensorId,
+          status: "active",
+          readingCount: samples.filter((s) => String(s.sensorId) === String(sample.sensorId)).length,
+          firstTimestamp: sample.timestamp,
+          latestTimestamp: sample.timestamp,
+        });
+      }
+    }
+
+    const deviceList = [...deviceMap.values()].sort((a, b) => Number(a.sensorId) - Number(b.sensorId));
+
     return (
-      <section className="grid stats-grid">
-        <StatCard title="Device ID"   value={summary.sensorId} status="sensorId"   statusType="success" />
-        <StatCard title="Temperature" value={summary.temp}     status="DHT sensor" statusType="success" />
-        <StatCard title="Humidity"    value={summary.hum}      status="DHT sensor" statusType="success" />
-        <StatCard title="CO2"         value={summary.co2}      status="air quality" statusType="danger" />
+      <section className="grid sensors-device-list">
+        {deviceList.map((device) => {
+          const deviceSamples = samples.filter((sample) => String(sample.sensorId) === String(device.sensorId));
+          const latestForDevice = samples.find((sample) => String(sample.sensorId) === String(device.sensorId));
+          const health = getDeviceHealth(device, nowMs);
+          const isChartExpanded = String(expandedChartSensorId) === String(device.sensorId);
+          const readings = latestForDevice ? [
+            { label: "Temperature", type: "temperature", value: latestForDevice.temp, unit: "C" },
+            { label: "Humidity", type: "humidity", value: latestForDevice.hum, unit: "%" },
+            { label: "CO2", type: "co2", value: latestForDevice.co2, unit: "ppm" },
+            { label: "TVOC", type: "tvoc", value: latestForDevice.tvoc, unit: "ppb" },
+            { label: "eCO2", type: "eco2", value: latestForDevice.eco2, unit: "ppm" },
+            { label: "AQI", type: "aqi", value: latestForDevice.aqi ?? "-", unit: "" },
+          ] : [];
+
+          return (
+            <article className="card sensor-device-card" key={device.sensorId}>
+              <div className="card-header">
+                <div>
+                  <h3>Device {device.sensorId}</h3>
+                  <p className="muted">
+                    {latestForDevice
+                      ? `${device.readingCount ?? 0} readings. Last seen ${health.lastSeenLabel}.`
+                      : "No readings available for this device."}
+                  </p>
+                </div>
+                <div className="sensor-device-actions">
+                  <span className={health.statusType}>{health.statusLabel}</span>
+                  {latestForDevice && (
+                    <button
+                      type="button"
+                      className="menu-item inline-action"
+                      onClick={() => setExpandedChartSensorId(isChartExpanded ? null : device.sensorId)}
+                    >
+                      {isChartExpanded ? "Hide charts" : "Show charts"}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {latestForDevice ? (
+                <>
+                  <div className="sensor-reading-grid">
+                    {readings.map((reading) => {
+                      const status = getReadingStatus(reading.type, reading.value);
+                      return (
+                        <div className={`sensor-reading ${status.className}`} key={reading.type}>
+                          <span className="muted">{reading.label}</span>
+                          <strong>{reading.value} {reading.unit}</strong>
+                          <small>{status.label}</small>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {isChartExpanded && <DeviceCharts deviceSamples={deviceSamples} />}
+                </>
+              ) : (
+                <p className="muted sensor-empty-state">Waiting for the first reading from this device.</p>
+              )}
+            </article>
+          );
+        })}
       </section>
     );
   }
-
   function AlertsView() {
     return (
       <section className="grid alerts-grid">
@@ -419,7 +588,7 @@ function Dashboard({ session, onLogout }) {
         <PayloadCard payload={latestSample.payload} />
         <article className="card">
           <h3>Payload Details</h3>
-          {[["Device ID", latestSample.sensorId], ["Length", latestSample.payloadLength], ["CO2", `${latestSample.co2} ppm`], ["Temperature", `${latestSample.temp} °C`], ["Humidity", `${latestSample.hum} %`]].map(([k, v]) => (
+          {[["Device ID", latestSample.sensorId], ["Length", latestSample.payloadLength], ["CO2", `${latestSample.co2} ppm`], ["Temperature", `${latestSample.temp} Â°C`], ["Humidity", `${latestSample.hum} %`]].map(([k, v]) => (
             <div className="summary-row" key={k}><span>{k}</span><strong>{v}</strong></div>
           ))}
         </article>
@@ -427,50 +596,7 @@ function Dashboard({ session, onLogout }) {
     );
   }
 
-  function ChartsView() {
-    const series   = [...samples].reverse();
-    const tempData = series.map((s) => ({ t: s.timestamp, v: Number(s.temp) }));
-    const humData  = series.map((s) => ({ t: s.timestamp, v: Number(s.hum) }));
-    const co2Data  = series.map((s) => ({ t: s.timestamp, v: Number(s.co2) }));
-    const stats = (arr) => {
-      const vals = arr.map((d) => d.v).filter(Number.isFinite);
-      if (!vals.length) return { avg: 0, min: 0, max: 0, latest: 0, count: 0 };
-      return { avg: vals.reduce((a,b)=>a+b,0)/vals.length, min: Math.min(...vals), max: Math.max(...vals), latest: vals[vals.length-1], count: vals.length };
-    };
-    const tS = stats(tempData), hS = stats(humData), cS = stats(co2Data);
-    const fmt = (n, d) => Number(n).toFixed(d);
-    function ChartCard({ title, unit, s, data, decimals = 1 }) {
-      return (
-        <article className="card chart-card">
-          <div className="card-header">
-            <div><h3>{title}</h3><p className="muted">Avg / min / max over {s.count} samples</p></div>
-            <span className="tag">{fmt(s.avg, decimals)}{unit}</span>
-          </div>
-          <div className="chart-stats">
-            {[["Avg", s.avg], ["Min", s.min], ["Max", s.max], ["Latest", s.latest]].map(([label, val]) => (
-              <div key={label}><span className="muted">{label}</span><strong>{fmt(val, decimals)}{unit}</strong></div>
-            ))}
-          </div>
-          <LineChart data={data} unit={unit} />
-        </article>
-      );
-    }
-    return (
-      <section className="grid charts-grid">
-        <ChartCard title="Temperature trend" unit="°C"  s={tS} data={tempData} decimals={1} />
-        <ChartCard title="Humidity trend"    unit="%"   s={hS} data={humData}  decimals={1} />
-        <ChartCard title="CO2 trend"         unit=" ppm" s={cS} data={co2Data}  decimals={0} />
-        <article className="card chart-summary-card">
-          <div className="card-header"><div><h3>Averages over {series.length} samples</h3><p className="muted">Last 7 days</p></div><span className="tag">Live</span></div>
-          {[["Avg temperature", `${fmt(tS.avg,1)} °C`], ["Avg humidity", `${fmt(hS.avg,1)} %`], ["Avg CO2", `${fmt(cS.avg,0)} ppm`], ["Range CO2", `${fmt(cS.min,0)} – ${fmt(cS.max,0)} ppm`]].map(([k,v]) => (
-            <div className="summary-row" key={k}><span>{k}</span><strong>{v}</strong></div>
-          ))}
-        </article>
-      </section>
-    );
-  }
-
-  // ── Alarm view: available to ALL roles ─────────────────────────────────────
+  // â”€â”€ Alarm view: available to ALL roles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function AlarmView() {
     const canTest = permissions.canViewAdminControls;
     return (
@@ -483,7 +609,7 @@ function Dashboard({ session, onLogout }) {
             onAlarmTest={runAlarmTest}
           />
         ) : (
-          // Residents can only silence — send "off" to their assigned sensor
+          // Residents can only silence â€” send "off" to their assigned sensor
           <article className="card">
             <h3>Alarm controls</h3>
             <p className="muted">Silence or reset the alarm for your room.</p>
@@ -522,7 +648,7 @@ function Dashboard({ session, onLogout }) {
     );
   }
 
-  // ── Alerts view: building-admin + system-admin ─────────────────────────────
+  // â”€â”€ Alerts view: building-admin + system-admin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function AlertsView() {
     const [alerts, setAlerts]     = useState([]);
     const [alertsLoading, setAlertsLoading] = useState(true);
@@ -535,7 +661,7 @@ function Dashboard({ session, onLogout }) {
         .finally(() => setAlertsLoading(false));
     }, []);
 
-    if (alertsLoading) return <p className="muted">Loading alerts…</p>;
+    if (alertsLoading) return <p className="muted">Loading alertsâ€¦</p>;
     if (alertsError)   return <p className="danger">{alertsError}</p>;
 
     return (
@@ -563,7 +689,7 @@ function Dashboard({ session, onLogout }) {
     );
   }
 
-  // ── Users view: system-admin only ─────────────────────────────────────────
+  // â”€â”€ Users view: system-admin only â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function UsersView() {
     const [users, setUsers]       = useState([]);
     const [usersLoading, setUsersLoading] = useState(true);
@@ -594,7 +720,7 @@ function Dashboard({ session, onLogout }) {
       finally { setBusy((p) => ({ ...p, [userId]: false })); }
     }
 
-    if (usersLoading) return <p className="muted">Loading users…</p>;
+    if (usersLoading) return <p className="muted">Loading usersâ€¦</p>;
     if (usersError)   return <p className="danger">{usersError}</p>;
 
     return (
@@ -633,7 +759,7 @@ function Dashboard({ session, onLogout }) {
     );
   }
 
-  // ── Devices view: system-admin only ───────────────────────────────────────
+  // â”€â”€ Devices view: system-admin only â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function DevicesView() {
     return (
       <section className="grid stats-grid">
@@ -647,7 +773,7 @@ function Dashboard({ session, onLogout }) {
                 <div key={d.sensorId} className="summary-row" style={{ padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,.06)" }}>
                   <span>Device {d.sensorId}</span>
                   <span className="muted">{d.readingCount} readings</span>
-                  <span className="muted">First: {d.firstTimestamp ? new Date(d.firstTimestamp).toLocaleDateString() : "—"}</span>
+                  <span className="muted">First: {d.firstTimestamp ? new Date(d.firstTimestamp).toLocaleDateString() : "â€”"}</span>
                   <span className="muted">Last: {health.lastSeenLabel}</span>
                   <strong className={health.statusType}>{health.statusLabel}</strong>
                 </div>
@@ -670,7 +796,7 @@ function Dashboard({ session, onLogout }) {
     );
   }
 
-  // ── Logs view: system-admin only ──────────────────────────────────────────
+  // â”€â”€ Logs view: system-admin only â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function LogsView() {
     const [logs, setLogs]       = useState("");
     const [logsLoading, setLogsLoading] = useState(true);
@@ -680,7 +806,7 @@ function Dashboard({ session, onLogout }) {
       getLogs().then(setLogs).catch((e) => setLogsError(e.message)).finally(() => setLogsLoading(false));
     }, []);
 
-    if (logsLoading) return <p className="muted">Loading logs…</p>;
+    if (logsLoading) return <p className="muted">Loading logsâ€¦</p>;
     if (logsError)   return <p className="danger">{logsError}</p>;
 
     return (
@@ -700,7 +826,7 @@ function Dashboard({ session, onLogout }) {
     );
   }
 
-  // ── Alarm helpers ──────────────────────────────────────────────────────────
+  // â”€â”€ Alarm helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   async function runAlarmTest(level) {
     const targetSensor = permissions.canViewAllDevices ? selectedSensorId : session.assignedSensorId;
     if (!targetSensor || targetSensor === "all") {
@@ -717,7 +843,7 @@ function Dashboard({ session, onLogout }) {
     } finally { setAlarmTestBusy(false); }
   }
 
-  // ── Settings view (admin only — sensor health + offline alerts) ────────────
+  // â”€â”€ Settings view (admin only â€” sensor health + offline alerts) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function SettingsView() {
     if (!permissions.canViewAdminControls) return <RestrictedNotice message="Settings are available to building administrators and above." />;
     return (
@@ -742,7 +868,7 @@ function Dashboard({ session, onLogout }) {
     );
   }
 
-  // ── Layout ─────────────────────────────────────────────────────────────────
+  // â”€â”€ Layout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const sidebarSession = { role: session.role, assignedSensorId: session.assignedSensorId ?? null };
   const sidebarPermissions = {
     views: permissions.views,
@@ -773,7 +899,6 @@ function Dashboard({ session, onLogout }) {
         {activeView === "Home"    && <HomeView />}
         {activeView === "Sensors" && <SensorsView />}
         {activeView === "Samples" && <SamplesView />}
-        {activeView === "Charts"  && <ChartsView />}
         {activeView === "Payload" && <PayloadView />}
         {activeView === "Rooms"   && <RoomsView />}
         {activeView === "Alerts"  && <AlertsView />}
