@@ -1,5 +1,7 @@
 
 export function OverviewCard({ summary }) {
+  const formatValue = (value, unit = "") => value === "-" ? "-" : `${value}${unit}`;
+
   return (
     <article className="card large-card">
       <div className="card-header">
@@ -17,23 +19,23 @@ export function OverviewCard({ summary }) {
       <div className="hero-stats sensor-readings-grid">
         <div className="hero-stat">
           <span className="muted">Temperature</span>
-          <strong>{summary.temp} °C</strong>
+          <strong>{formatValue(summary.temp, " °C")}</strong>
         </div>
         <div className="hero-stat">
           <span className="muted">Humidity</span>
-          <strong>{summary.hum} %</strong>
+          <strong>{formatValue(summary.hum, " %")}</strong>
         </div>
         <div className="hero-stat">
           <span className="muted">CO2</span>
-          <strong>{summary.co2} ppm</strong>
+          <strong>{formatValue(summary.co2, " ppm")}</strong>
         </div>
         <div className="hero-stat">
           <span className="muted">TVOC</span>
-          <strong>{summary.tvoc} ppb</strong>
+          <strong>{formatValue(summary.tvoc, " ppb")}</strong>
         </div>
         <div className="hero-stat">
           <span className="muted">eCO2</span>
-          <strong>{summary.eco2} ppm</strong>
+          <strong>{formatValue(summary.eco2, " ppm")}</strong>
         </div>
         <div className="hero-stat">
           <span className="muted">AQI</span>
