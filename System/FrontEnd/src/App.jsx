@@ -293,22 +293,36 @@ function Dashboard({ session, onLogout }) {
 
   if (loading) return <StatusScreen title="Loading dashboard" message="Preparing sensor readings." />;
   if (error)   return <StatusScreen title="Dashboard offline" message="Backend API not reachable." actionLabel="Sign out" onAction={onLogout} />;
-  if (!samples.length) return <StatusScreen title="No readings found" message="No readings for this selection." actionLabel="Sign out" onAction={onLogout} />;
 
-  const latestSample = samples[0];
-  const latestDeviceHealth = getDeviceHealth(devices.find((d) => d.sensorId === latestSample.sensorId) ?? {}, nowMs);
+  const latestSample = samples[0] ?? null;
+  const selectedDevice = selectedSensorId === "all"
+    ? devices.find((d) => String(d.sensorId) === String(latestSample?.sensorId))
+    : devices.find((d) => String(d.sensorId) === String(selectedSensorId));
+  const latestDeviceHealth = getDeviceHealth(selectedDevice ?? {}, nowMs);
   const offlineAlerts = devices.map((d) => ({ sensorId: d.sensorId, health: getDeviceHealth(d, nowMs) })).filter((e) => e.health.missingData);
-  const summary = { 
-    sensorId: latestSample.sensorId, 
-    temp: latestSample.temp, 
-    hum: latestSample.hum, 
-    co2: latestSample.co2, 
-    tvoc: latestSample.tvoc, 
-    eco2: latestSample.eco2, 
-    aqi: latestSample.aqi,
-    classification: latestSample.classification,
-    selectedSensorId,
-  };
+  const summary = latestSample
+    ? {
+      sensorId: latestSample.sensorId,
+      temp: latestSample.temp,
+      hum: latestSample.hum,
+      co2: latestSample.co2,
+      tvoc: latestSample.tvoc,
+      eco2: latestSample.eco2,
+      aqi: latestSample.aqi,
+      classification: latestSample.classification,
+      selectedSensorId,
+    }
+    : {
+      sensorId: selectedSensorId === "all" ? "none" : selectedSensorId,
+      temp: "-",
+      hum: "-",
+      co2: "-",
+      tvoc: "-",
+      eco2: "-",
+      aqi: "-",
+      classification: "No data",
+      selectedSensorId,
+    };
 
   const pageTitles = {
     Home: "Home Overview", Sensors: "Sensor Details", Samples: "Sample History",
@@ -375,8 +389,20 @@ function Dashboard({ session, onLogout }) {
     );
   }
 
+  function NoReadingsCard() {
+    const deviceLabel = selectedSensorId === "all" ? "this selection" : `Device ${selectedSensorId}`;
+    return (
+      <article className="card" style={{ gridColumn: "1 / -1" }}>
+        <h3>No readings found</h3>
+        <p className="muted">No readings available for {deviceLabel}.</p>
+      </article>
+    );
+  }
+
   function HomeView() {
-    const recs = getRecommendations(latestSample);
+    const recs = latestSample
+      ? getRecommendations(latestSample)
+      : [{ level: "info", title: "No readings found", message: "No readings available for this device yet." }];
     const isAdmin = permissions.canViewAllDevices;
     return (
       <>
@@ -402,16 +428,16 @@ function Dashboard({ session, onLogout }) {
             <h3>Room Classification</h3>
             <p style={{ marginTop: 8 }}>
               Current status:{" "}
-              <strong className={latestSample.classification === "Normal" ? "success" : "danger"}>
-                {latestSample.classification ?? "Unknown"}
+              <strong className={latestSample?.classification === "Normal" ? "success" : latestSample ? "danger" : ""}>
+                {latestSample?.classification ?? "No data"}
               </strong>
             </p>
-            {latestSample.classification === "Cooking" && (
+            {latestSample?.classification === "Cooking" && (
               <p className="muted" style={{ marginTop: 8 }}>
                 Cooking activity detected. Ventilate if needed.
               </p>
             )}
-            {latestSample.classification === "Fire" && (
+            {latestSample?.classification === "Fire" && (
               <p className="danger" style={{ marginTop: 8, fontWeight: 600 }}>
                 Possible fire detected. Verify the room immediately and trigger the alarm if necessary.
               </p>
@@ -424,7 +450,7 @@ function Dashboard({ session, onLogout }) {
         {isAdmin && offlineAlerts.length > 0 && (
           <>
             <article className="card" style={{ marginBottom: 24 }}>
-              <h3>âš  Offline Devices ({offlineAlerts.length})</h3>
+              <h3>Offline Devices ({offlineAlerts.length})</h3>
               <p className="muted">These devices have not reported within {OFFLINE_AFTER_SECONDS}s.</p>
               <div style={{ marginTop: 12 }}>
                 {offlineAlerts.map((a) => (
@@ -457,10 +483,13 @@ function Dashboard({ session, onLogout }) {
       }
     }
 
-    const deviceList = [...deviceMap.values()].sort((a, b) => Number(a.sensorId) - Number(b.sensorId));
+    const deviceList = [...deviceMap.values()]
+      .filter((device) => selectedSensorId === "all" || String(device.sensorId) === String(selectedSensorId))
+      .sort((a, b) => Number(a.sensorId) - Number(b.sensorId));
 
     return (
       <section className="grid sensors-device-list">
+        {deviceList.length === 0 && <NoReadingsCard />}
         {deviceList.map((device) => {
           const deviceSamples = samples.filter((sample) => String(sample.sensorId) === String(device.sensorId));
           const latestForDevice = samples.find((sample) => String(sample.sensorId) === String(device.sensorId));
@@ -573,6 +602,14 @@ function Dashboard({ session, onLogout }) {
   }
 
   function SamplesView() {
+    if (!samples.length) {
+      return (
+        <section className="grid bottom-grid view-grid">
+          <NoReadingsCard />
+        </section>
+      );
+    }
+
     return (
       <section className="grid bottom-grid view-grid">
         {samples.map((sample) => (
@@ -583,6 +620,14 @@ function Dashboard({ session, onLogout }) {
   }
 
   function PayloadView() {
+    if (!latestSample) {
+      return (
+        <section className="grid payload-grid">
+          <NoReadingsCard />
+        </section>
+      );
+    }
+
     const payloadDetails = [
       ["Device ID", latestSample.sensorId],
       ["Timestamp", latestSample.timestamp],
@@ -646,11 +691,15 @@ function Dashboard({ session, onLogout }) {
 
         <article className="card">
           <h3>Current room status</h3>
-          <div className="summary-row"><span>Classification</span>
-            <strong className={latestSample.classification === "Normal" ? "success" : "danger"}>
-              {latestSample.classification ?? "Unknown"}
-            </strong>
-          </div>
+          {latestSample ? (
+            <div className="summary-row"><span>Classification</span>
+              <strong className={latestSample.classification === "Normal" ? "success" : "danger"}>
+                {latestSample.classification ?? "Unknown"}
+              </strong>
+            </div>
+          ) : (
+            <div className="summary-row"><span>Classification</span><strong>n/a</strong></div>
+          )}
           <div className="summary-row"><span>Device status</span>
             <strong className={latestDeviceHealth.statusType}>{latestDeviceHealth.statusLabel}</strong>
           </div>
