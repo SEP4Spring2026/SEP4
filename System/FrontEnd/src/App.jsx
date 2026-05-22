@@ -583,12 +583,25 @@ function Dashboard({ session, onLogout }) {
   }
 
   function PayloadView() {
+    const payloadDetails = [
+      ["Device ID", latestSample.sensorId],
+      ["Timestamp", latestSample.timestamp],
+      ["Length", latestSample.payloadLength],
+      ["Temperature", `${latestSample.temp} C`],
+      ["Humidity", `${latestSample.hum} %`],
+      ["CO2", `${latestSample.co2} ppm`],
+      ["TVOC", `${latestSample.tvoc} ppb`],
+      ["eCO2", `${latestSample.eco2} ppm`],
+      ["AQI", latestSample.aqi],
+      ["Classification", latestSample.classification],
+    ];
+
     return (
       <section className="grid payload-grid">
         <PayloadCard payload={latestSample.payload} />
         <article className="card">
           <h3>Payload Details</h3>
-          {[["Device ID", latestSample.sensorId], ["Length", latestSample.payloadLength], ["CO2", `${latestSample.co2} ppm`], ["Temperature", `${latestSample.temp} Â°C`], ["Humidity", `${latestSample.hum} %`]].map(([k, v]) => (
+          {payloadDetails.map(([k, v]) => (
             <div className="summary-row" key={k}><span>{k}</span><strong>{v}</strong></div>
           ))}
         </article>
