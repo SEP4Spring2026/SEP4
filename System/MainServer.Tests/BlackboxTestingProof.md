@@ -69,10 +69,22 @@ POST http://localhost:8080/api/readings
 Content-Type: application/json
 ```
 
-Sensor ID:
+Payload:
 
-```text
-9001
+```json
+{
+  "sensorId": 9001,
+  "timestamp": "2026-05-21T18:00:00Z",
+  "sensors": {
+    "temperature": 24.5,
+    "humidity": 45.2,
+    "co2Level": 503,
+    "tvoc": 28,
+    "eco2": 410,
+    "aqi": 1
+  },
+  "classification": "Blackbox-Normal"
+}
 ```
 
 Actual response:
@@ -98,10 +110,22 @@ POST http://localhost:8080/api/readings
 Content-Type: application/json
 ```
 
-Sensor ID:
+Payload:
 
-```text
-9002
+```json
+{
+  "sensorId": 9002,
+  "timestamp": "2026-05-21T18:01:00Z",
+  "sensors": {
+    "temperature": 28,
+    "humidity": 60,
+    "co2Level": 1200,
+    "tvoc": 800,
+    "eco2": 1200,
+    "aqi": 3
+  },
+  "classification": "Blackbox-Cooking"
+}
 ```
 
 Actual response:
@@ -127,10 +151,22 @@ POST http://localhost:8080/api/readings
 Content-Type: application/json
 ```
 
-Sensor ID:
+Payload:
 
-```text
-9003
+```json
+{
+  "sensorId": 9003,
+  "timestamp": "2026-05-21T18:02:00Z",
+  "sensors": {
+    "temperature": 38,
+    "humidity": 15,
+    "co2Level": 2500,
+    "tvoc": 1000,
+    "eco2": 8000,
+    "aqi": 5
+  },
+  "classification": "Blackbox-Fire"
+}
 ```
 
 Actual response:
@@ -150,6 +186,21 @@ Passed
 ## Database Verification
 
 After the HTTP tests, the persisted rows were verified in MySQL.
+
+Query:
+
+```sql
+SELECT
+  r.SensorId,
+  r.Classification,
+  p.PredictedCategory,
+  p.RiskLevel,
+  p.ConfidenceScore
+FROM Readings r
+JOIN Predictions p ON p.ReadingId = r.ReadingId
+WHERE r.SensorId IN (9001, 9002, 9003)
+ORDER BY r.SensorId;
+```
 
 Result:
 
@@ -174,4 +225,3 @@ The test confirms that:
 
 Black-box testing did not require new source code. This document records the
 manual test evidence so the result can be reviewed later in the repository.
-

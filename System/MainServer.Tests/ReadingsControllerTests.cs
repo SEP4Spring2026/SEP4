@@ -95,12 +95,22 @@ public class ReadingsControllerTests
 
     private static ReadingsController CreateController(AppDbContext db, FakeMlHttpHandler mlHandler)
     {
-        Environment.SetEnvironmentVariable("ALARM_MQTT_HOST", null);
         var mlClient = new MlClient(new HttpClient(mlHandler)
         {
             BaseAddress = new Uri("http://ml-server:8000")
         });
-        var alarm = new AlarmMqttPublisher(NullLogger<AlarmMqttPublisher>.Instance);
+        var oldAlarmMqttHost = Environment.GetEnvironmentVariable("ALARM_MQTT_HOST");
+        AlarmMqttPublisher alarm;
+        try
+        {
+            Environment.SetEnvironmentVariable("ALARM_MQTT_HOST", null);
+            alarm = new AlarmMqttPublisher(NullLogger<AlarmMqttPublisher>.Instance);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("ALARM_MQTT_HOST", oldAlarmMqttHost);
+        }
+
         return new ReadingsController(db, mlClient, new ReadingsStreamHub(), alarm);
     }
 
