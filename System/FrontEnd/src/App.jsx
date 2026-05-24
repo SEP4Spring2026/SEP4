@@ -23,7 +23,7 @@ import {
   getLogs,
 } from "./services/api.js";
 
-const SAMPLE_WINDOW_HOURS = 168;
+const SAMPLE_WINDOW_HOURS = 336;
 const SAMPLE_LIMIT_OPTIONS = [200, 500, 1000, 2500, 5000];
 const DEFAULT_SAMPLE_LIMIT = 1000;
 const OFFLINE_AFTER_SECONDS = 120;
