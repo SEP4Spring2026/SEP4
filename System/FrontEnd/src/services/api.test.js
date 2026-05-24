@@ -1,5 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getAlerts, getDevices, getReadings, postAlarmTest } from "./api.js";
+import {
+  assignSensorToRoom,
+  changeUserRole,
+  connectReadingsStream,
+  createRoom,
+  deleteUser,
+  getAlerts,
+  getDevices,
+  getLogs,
+  getReadings,
+  getRooms,
+  getUsers,
+  login,
+  postAlarmTest,
+  register,
+  unassignSensor,
+} from "./api.js";
 
 describe("api service", () => {
   beforeEach(() => {
@@ -89,5 +105,147 @@ describe("api service", () => {
     });
 
     await expect(postAlarmTest(101)).rejects.toThrow("Sensor is offline");
+  });
+
+  it("creates an EventSource stream URL with sensorId and token", () => {
+    localStorage.setItem("token", "stream-token");
+    const eventSource = vi.fn();
+    globalThis.EventSource = eventSource;
+
+    connectReadingsStream("101");
+
+    expect(eventSource).toHaveBeenCalledWith("/api/readings/stream?sensorId=101&token=stream-token");
+  });
+
+  it("loads rooms with auth headers", async () => {
+    localStorage.setItem("token", "room-token");
+    const rooms = [{ id: 1, name: "Kitchen" }];
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => rooms,
+    });
+
+    await expect(getRooms()).resolves.toEqual(rooms);
+    expect(fetch).toHaveBeenCalledWith("/api/room", { headers: { Authorization: "Bearer room-token" } });
+  });
+
+  it("creates a room with JSON body", async () => {
+    const room = { id: 1, name: "Kitchen" };
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => room,
+    });
+
+    await expect(createRoom("Kitchen")).resolves.toEqual(room);
+    expect(fetch).toHaveBeenCalledWith("/api/room", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Kitchen" }),
+    });
+  });
+
+  it("assigns and unassigns sensors through room endpoints", async () => {
+    fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 1, sensorId: 101 }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ sensorId: 101 }),
+      });
+
+    await expect(assignSensorToRoom(1, 101)).resolves.toEqual({ id: 1, sensorId: 101 });
+    await expect(unassignSensor(101)).resolves.toEqual({ sensorId: 101 });
+
+    expect(fetch).toHaveBeenNthCalledWith(1, "/api/room/1/assign-sensor", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sensorId: 101 }),
+    });
+    expect(fetch).toHaveBeenNthCalledWith(2, "/api/room/unassign-sensor/101", {
+      method: "PUT",
+      headers: {},
+    });
+  });
+
+  it("loads users and logs from admin endpoints", async () => {
+    fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ id: 1, username: "admin" }],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        text: async () => "system log",
+      });
+
+    await expect(getUsers()).resolves.toEqual([{ id: 1, username: "admin" }]);
+    await expect(getLogs()).resolves.toBe("system log");
+    expect(fetch).toHaveBeenNthCalledWith(1, "/api/users", { headers: {} });
+    expect(fetch).toHaveBeenNthCalledWith(2, "/api/logs", { headers: {} });
+  });
+
+  it("uses backend message when changing a user role fails", async () => {
+    fetch.mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+      json: async () => ({ message: "Only admins can change roles" }),
+    });
+
+    await expect(changeUserRole(7, "resident")).rejects.toThrow("Only admins can change roles");
+  });
+
+  it("uses fallback message when deleting a user fails without JSON body", async () => {
+    fetch.mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      json: async () => {
+        throw new Error("Invalid JSON");
+      },
+    });
+
+    await expect(deleteUser(7)).rejects.toThrow("Failed to delete user (404)");
+  });
+
+  it("logs in with username and password", async () => {
+    const authResponse = { token: "jwt-token", user: { username: "piotr" } };
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => authResponse,
+    });
+
+    await expect(login("piotr", "secret")).resolves.toEqual(authResponse);
+    expect(fetch).toHaveBeenCalledWith("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: "piotr", password: "secret" }),
+    });
+  });
+
+  it("uses backend message when login fails", async () => {
+    fetch.mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({ message: "Account is locked" }),
+    });
+
+    await expect(login("piotr", "wrong")).rejects.toThrow("Account is locked");
+  });
+
+  it("registers new users and handles fallback registration errors", async () => {
+    fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 1, username: "new-user" }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => {
+          throw new Error("Invalid JSON");
+        },
+      });
+
+    await expect(register("new-user", "secret")).resolves.toEqual({ id: 1, username: "new-user" });
+    await expect(register("new-user", "secret")).rejects.toThrow("Registration failed.");
   });
 });
