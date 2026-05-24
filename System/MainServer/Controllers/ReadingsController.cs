@@ -198,7 +198,7 @@ public class ReadingsController : ControllerBase
         const int defaultLimit        = 200;
         const int maxLimitNoWindow    = 1000;
         const int maxLimitWithHours   = 15000;
-        const double maxHours         = 168;
+        const double maxHours         = 336;
 
         var take = limit ?? defaultLimit;
         if (take < 1) take = 1;
