@@ -80,3 +80,24 @@ def test_predict_rejects_legacy_flat_payload():
         json={"temperature": 22.0, "humidity": 50.0, "co2Level": 400.0},
     )
     assert response.status_code == 422
+
+
+def test_predict_rejects_aqi_below_minimum():
+    payload = _payload(22.0, 40.0, 100.0, 400.0)
+    payload["sensors"]["aqi"] = 0
+    response = client.post("/predict", json=payload)
+    assert response.status_code == 422
+
+
+def test_predict_rejects_aqi_above_maximum():
+    payload = _payload(22.0, 40.0, 100.0, 400.0)
+    payload["sensors"]["aqi"] = 6
+    response = client.post("/predict", json=payload)
+    assert response.status_code == 422
+
+
+def test_predict_rejects_missing_required_sensor_field():
+    payload = _payload(22.0, 40.0, 100.0, 400.0)
+    del payload["sensors"]["humidity"]
+    response = client.post("/predict", json=payload)
+    assert response.status_code == 422

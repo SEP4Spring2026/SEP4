@@ -2,9 +2,9 @@ name: CI/CD
 
 on:
   push:
-    branches: [Dev, main]
+    branches: [Dev, main, ML-team]
   pull_request:
-    branches: [Dev, main]
+    branches: [Dev, main, ML-team]
   workflow_dispatch:
 
 jobs:
@@ -72,8 +72,11 @@ jobs:
       - name: Install deps
         run: pip install -r requirements.txt -r requirements-dev.txt
 
-      - name: Test + coverage (≥50% required)
-        run: pytest --cov --cov-report=xml --cov-report=term-missing --cov-fail-under=50
+      - name: Lint
+        run: ruff check .
+
+      - name: Test + coverage (≥70% required)
+        run: pytest --cov --cov-report=xml --cov-report=term-missing --cov-fail-under=70
 
       - name: Coverage summary
         if: always()

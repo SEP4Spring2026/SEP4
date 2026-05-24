@@ -13,3 +13,7 @@ omit = [
 
 [tool.coverage.report]
 show_missing = true
+fail_under = 70
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
