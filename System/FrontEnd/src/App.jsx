@@ -1012,7 +1012,7 @@ function Dashboard({ session, onLogout }) {
         {activeView === "Sensors" && <SensorsView />}
         {activeView === "Samples" && <SamplesView />}
         {activeView === "Payload" && <PayloadView />}
-        {activeView === "Rooms"   && <RoomsView />}
+        {activeView === "Rooms"   && <RoomsView devices={devices} />}
         {activeView === "Alerts"  && <AlertsView />}
         {activeView === "Alarm"   && <AlarmView />}
         {activeView === "Settings" && <SettingsView />}
