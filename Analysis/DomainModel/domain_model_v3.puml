@@ -1,6 +1,9 @@
 
 @startuml
-title Fire Risk Monitoring System - Domain Model
+title
+<color:#2F75B5><size:22><b>AeroSense</b></size></color>
+<size:14>Fire Risk Monitoring System - Domain Model</size>
+end title
 
 top to bottom direction
 
@@ -72,7 +75,7 @@ package "Users" as Users {
 ' TOP RIGHT: RESPONSE
 ' ============================================================
 
-package "Response" as Response {
+package "Alerts and Response" as Response {
 
   class Alert <<concept>> {
     createdAt
@@ -110,6 +113,7 @@ package "Administration" as Administration {
 
   class SystemLog <<concept>> {
     timestamp
+    eventType
     level
     description
   }
@@ -129,7 +133,7 @@ package "Analysis" as Analysis {
 
   class Prediction <<concept>> {
     predictionType
-    predictedFor
+    predictionTime
     riskLevel
     confidenceScore
   }
@@ -230,7 +234,7 @@ Room "1" -[#FA8C16]up- "0..*" RoomCondition : has
 Room "1" -[#FA8C16]up- "0..*" Prediction : has
 
 ' ============================================================
-' ANALYSIS ↔ RESPONSE (orange/red)
+' ANALYSIS ↔ RESPONSE (orange/purple)
 ' ============================================================
 
 RoomCondition "1" -[#9254DE]up- "0..*" Alert : may trigger
@@ -245,7 +249,7 @@ Alert "0..*" -[#9254DE]down- "0..1" Alarm : may activate
 Alarm "0..*" -[#595959]left- "1" IoTDevice : sounds on
 
 ' ============================================================
-' USERS ↔ RESPONSE (blue/red)
+' USERS ↔ RESPONSE (blue/purple)
 ' ============================================================
 
 User "1" -[#5B8FF9]right- "0..*" Notification : receives
@@ -261,11 +265,26 @@ SystemAdministrator "1" -[#7A7A7A]left- "0..*" SystemLog : reviews
 
 IoTDevice "1" -[#7A7A7A]left- "0..*" SystemLog : generates
 Alert "1" -[#7A7A7A]left- "0..*" SystemLog : documented in
+
+' ============================================================
+' RIGHT SIDE SPACER
+' Adds visual white space after the Response package
+' ============================================================
+
+class " " as RightSpacer <<spacer>>
+Response -[hidden]right- RightSpacer
+
+skinparam class<<spacer>> {
+  BackgroundColor White
+  BorderColor White
+  FontColor White
+}
+
 ' ============================================================
 ' NOTES
 ' ============================================================
 
-note right of RoomCondition
+note top of RoomCondition
 Examples of room condition categories:
 - Normal
 - Cooking smoke
@@ -274,7 +293,7 @@ Examples of room condition categories:
 - Unhealthy air quality
 end note
 
-note right of Prediction
+note bottom of Prediction
 Examples of prediction types:
 - Fire risk prediction
 - Air-quality risk prediction
