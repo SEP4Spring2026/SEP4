@@ -224,8 +224,8 @@ public class ReadingsController : ControllerBase
             var sensorClaim = User.FindFirst("SensorId")?.Value;
             if (int.TryParse(sensorClaim, out var assignedId))
                 query = query.Where(r => r.SensorId == assignedId);
-            else if (sensorId.HasValue)
-                query = query.Where(r => r.SensorId == sensorId.Value);
+            else
+                return Forbid();
         }
         else if (sensorId.HasValue)
         {
