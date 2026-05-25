@@ -1,4 +1,5 @@
 using MainServer.Data;
+using MainServer.Dtos;
 using MainServer.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -28,7 +29,7 @@ public class UsersController : ControllerBase
     {
         var users = await _db.Users
             .OrderBy(u => u.Id)
-            .Select(u => new { u.Id, u.Username, u.Role })
+            .Select(u => new { u.Id, u.Username, u.Role, u.AssignedSensorId })
             .ToListAsync();
 
         return Ok(users);
@@ -40,7 +41,7 @@ public class UsersController : ControllerBase
     {
         var user = await _db.Users.FindAsync(id);
         if (user == null) return NotFound(new { message = "User not found." });
-        return Ok(new { user.Id, user.Username, user.Role });
+        return Ok(new { user.Id, user.Username, user.Role, user.AssignedSensorId });
     }
 
     // PUT /api/users/{id}/role   body: { "role": "building-administrator" }
@@ -61,7 +62,29 @@ public class UsersController : ControllerBase
         user.Role = req.Role.ToLowerInvariant();
         await _db.SaveChangesAsync();
 
-        return Ok(new { user.Id, user.Username, user.Role });
+        return Ok(new { user.Id, user.Username, user.Role, user.AssignedSensorId });
+    }
+
+    // PUT /api/users/{id}/assign-sensor   body: { "sensorId": 101 }
+    [HttpPut("{id:int}/assign-sensor")]
+    public async Task<IActionResult> AssignSensor(int id, [FromBody] AssignSensorDto req)
+    {
+        if (req.SensorId < 1)
+            return BadRequest(new { message = "sensorId must be a positive device id." });
+
+        var user = await _db.Users.FindAsync(id);
+        if (user == null) return NotFound(new { message = "User not found." });
+
+        if (!string.Equals(user.Role, "resident", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { message = "Sensors can only be assigned to residents." });
+
+        var sensorExists = await _db.Sensors.AnyAsync(s => s.SensorId == req.SensorId);
+        if (!sensorExists) return NotFound(new { message = "Sensor not found." });
+
+        user.AssignedSensorId = req.SensorId;
+        await _db.SaveChangesAsync();
+
+        return Ok(new { user.Id, user.Username, user.Role, user.AssignedSensorId });
     }
 
     // DELETE /api/users/{id}
