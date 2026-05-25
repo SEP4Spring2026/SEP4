@@ -48,18 +48,28 @@ public class UsersController : ControllerBase
     [HttpPut("{id:int}/role")]
     public async Task<IActionResult> ChangeRole(int id, [FromBody] ChangeRoleRequest req)
     {
-        if (string.IsNullOrWhiteSpace(req.Role) || !ValidRoles.Contains(req.Role))
+        var newRole = req.Role?.ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(newRole) || !ValidRoles.Contains(newRole))
             return BadRequest(new { message = $"Invalid role. Must be one of: {string.Join(", ", ValidRoles)}." });
 
         var user = await _db.Users.FindAsync(id);
         if (user == null) return NotFound(new { message = "User not found." });
 
-        // Prevent a system admin from demoting themselves
         var callerId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-        if (int.TryParse(callerId, out var callerIdInt) && callerIdInt == id && req.Role != "admin")
-            return BadRequest(new { message = "You cannot demote your own account." });
+        var isSelf = int.TryParse(callerId, out var callerIdInt) && callerIdInt == id;
+        var userIsAdmin = string.Equals(user.Role, "admin", StringComparison.OrdinalIgnoreCase);
 
-        user.Role = req.Role.ToLowerInvariant();
+        if (userIsAdmin && !isSelf)
+            return BadRequest(new { message = "You cannot change another admin's role." });
+
+        if (userIsAdmin && isSelf && newRole != "admin")
+        {
+            var adminCount = await _db.Users.CountAsync(u => u.Role == "admin");
+            if (adminCount <= 1)
+                return BadRequest(new { message = "You cannot remove the only admin. Assign admin role to another user first." });
+        }
+
+        user.Role = newRole;
         await _db.SaveChangesAsync();
 
         return Ok(new { user.Id, user.Username, user.Role, user.AssignedSensorId });

@@ -748,10 +748,31 @@ function Dashboard({ session, onLogout }) {
     }, []);
 
     async function handleRoleChange(userId, newRole) {
+      const targetUser = users.find((u) => u.id === userId);
+      const isSelf = userId === session.userId;
+      const isAdminDemotion = targetUser?.role === "admin" && newRole !== "admin";
+
+      if (isAdminDemotion && isSelf) {
+        const adminCount = users.filter((u) => u.role === "admin").length;
+        if (adminCount <= 1) {
+          alert("You cannot remove the only admin. Assign admin role to another user first.");
+          return;
+        }
+
+        const confirmed = window.confirm(
+          "You are changing your own admin role. You will be signed out and must sign in again with the new permissions. Continue?"
+        );
+        if (!confirmed) return;
+      }
+
       setBusy((p) => ({ ...p, [userId]: true }));
       try {
         const updated = await changeUserRole(userId, newRole);
         setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, role: updated.role } : u));
+        if (isSelf && updated.role !== session.role) {
+          alert("Your role has changed. Sign in again to refresh permissions.");
+          onLogout();
+        }
       } catch (e) { alert(e.message); }
       finally { setBusy((p) => ({ ...p, [userId]: false })); }
     }
@@ -809,7 +830,7 @@ function Dashboard({ session, onLogout }) {
                 <select
                   className="device-select"
                   value={u.role}
-                  disabled={busy[u.id] || u.id === session.userId}
+                  disabled={busy[u.id] || (u.role === "admin" && u.id !== session.userId)}
                   onChange={(e) => handleRoleChange(u.id, e.target.value)}
                 >
                   {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
