@@ -9,7 +9,7 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-DotNetEnv.Env.Load();
+LoadEnvironmentFile();
 
 // -------------------- LOGGING --------------------
 var liveLogBuffer = new InMemoryLogBuffer(maxLines: 800);
@@ -20,11 +20,11 @@ builder.Logging.AddProvider(new InMemoryLoggerProvider(liveLogBuffer));
 builder.Services.AddControllers();
 
 // -------------------- DB --------------------
-var dbHost = Environment.GetEnvironmentVariable("DB_HOST");
-var dbPort = Environment.GetEnvironmentVariable("DB_PORT");
-var dbName = Environment.GetEnvironmentVariable("DB_NAME");
-var dbUser = Environment.GetEnvironmentVariable("DB_USER");
-var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD");
+var dbHost = GetRequiredEnv("DB_HOST");
+var dbPort = GetRequiredEnv("DB_PORT");
+var dbName = GetRequiredEnv("DB_NAME");
+var dbUser = GetRequiredEnv("DB_USER");
+var dbPassword = GetRequiredEnv("DB_PASSWORD");
 
 var connectionString =
     $"Server={dbHost};Port={dbPort};Database={dbName};User={dbUser};Password={dbPassword};";
@@ -39,8 +39,9 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 );
 
 // -------------------- JWT CONFIG --------------------
-var jwtKey = builder.Configuration["Jwt:Key"]
-             ?? Environment.GetEnvironmentVariable("JWT_KEY");
+var jwtKey = Environment.GetEnvironmentVariable("JWT_KEY");
+if (string.IsNullOrWhiteSpace(jwtKey))
+    jwtKey = builder.Configuration["Jwt:Key"];
 
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "MainServer";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "MainClient";
@@ -172,4 +173,40 @@ static async Task ApplyMigrationsWithRepairAsync(WebApplication application, ILo
             startupLog.LogError(ex2, "EnsureCreated also failed");
         }
     }
+}
+
+static void LoadEnvironmentFile()
+{
+    foreach (var startPath in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })
+    {
+        var directory = new DirectoryInfo(startPath);
+        while (directory != null)
+        {
+            var looksLikeSystemDirectory =
+                File.Exists(Path.Combine(directory.FullName, ".env.example")) &&
+                Directory.Exists(Path.Combine(directory.FullName, "MainServer")) &&
+                Directory.Exists(Path.Combine(directory.FullName, "FrontEnd"));
+
+            if (looksLikeSystemDirectory)
+            {
+                var envPath = Path.Combine(directory.FullName, ".env");
+                if (!File.Exists(envPath))
+                    return;
+
+                DotNetEnv.Env.Load(envPath);
+                return;
+            }
+
+            directory = directory.Parent;
+        }
+    }
+}
+
+static string GetRequiredEnv(string name)
+{
+    var value = Environment.GetEnvironmentVariable(name);
+    if (string.IsNullOrWhiteSpace(value))
+        throw new InvalidOperationException($"{name} is missing. Check System/.env.");
+
+    return value;
 }
