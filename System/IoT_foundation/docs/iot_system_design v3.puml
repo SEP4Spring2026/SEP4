@@ -1,0 +1,230 @@
+@startuml
+
+title
+<color:#2F75B5><size:22><b>AeroSense</b></size></color>
+<size:14>IoT Firmware System Design - Layered Interface View</size>
+end title
+
+top to bottom direction
+
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam roundcorner 0
+skinparam nodesep 55
+skinparam ranksep 60
+skinparam ArrowThickness 1
+skinparam packageTitleAlignment center
+
+skinparam component {
+  BackgroundColor #FFF2CC
+  BorderColor Black
+  FontColor Black
+  FontSize 12
+}
+
+skinparam package {
+  BackgroundColor #EAF3FF
+  BorderColor #BFD7EA
+  FontColor Black
+  FontSize 13
+}
+
+skinparam interface {
+  BackgroundColor White
+  BorderColor #2F75B5
+  FontColor Black
+  FontSize 11
+}
+
+skinparam note {
+  BackgroundColor #F8CECC
+  BorderColor #B85450
+  FontColor Black
+  FontSize 11
+}
+
+' ============================================================
+' APPLICATION LAYER
+' ============================================================
+
+package "Application Layer" as AppLayer {
+  component "main.c\nApplication Controller / Runtime Logic\n\n- initializes hardware and services\n- runs main loop\n- coordinates sensor sampling\n- builds JSON payload\n- builds MQTT packets\n- publishes sensor data\n- handles MQTT alarm callback\n- controls buzzer state" as Main
+
+  note right of Main
+Current implementation:
+main.c contains the runtime loop and
+application logic, including MQTT packet
+handling and alarm handling.
+
+Future improvement:
+move more logic into separate modules
+to improve unit testability.
+  end note
+}
+
+' ============================================================
+' REQUIRED INTERFACES USED BY main.c
+' ============================================================
+
+package "Required Interfaces Used by main.c" as MainInterfaces {
+  interface "uart_stdio.h\nDebug Interface" as IDebug
+  interface "wifi.h\nWiFi / TCP Interface" as IWifi
+  interface "buzzer.h\nAlarm Output Interface" as IBuzzer
+  interface "sensors.h\nSensor Interface" as ISensors
+
+  IDebug -[hidden]right- IWifi
+  IWifi -[hidden]right- IBuzzer
+  IBuzzer -[hidden]right- ISensors
+}
+
+Main ..> IDebug
+Main ..> IWifi
+Main ..> IBuzzer
+Main ..> ISensors
+
+' ============================================================
+' MODULE / SERVICE LAYER
+' ============================================================
+
+package "Module / Service Layer" as ModuleLayer {
+  component "uart_stdio.c\nSerial Debug Service\n\nRedirects stdio to\nUART debug output" as DebugService
+  component "wifi.c\nESP8266 WiFi Service\n\nSends AT commands\nOpens TCP connection\nTransmits MQTT packets" as WifiService
+  component "buzzer.c\nBuzzer Service\n\nInitializes buzzer\nPerforms beep output" as BuzzerService
+  component "sensors.c\nSensor Facade\n\nProvides one sensor API\nfor main.c" as SensorsFacade
+
+  DebugService -[hidden]right- WifiService
+  WifiService -[hidden]right- BuzzerService
+  BuzzerService -[hidden]right- SensorsFacade
+}
+
+IDebug <.. DebugService
+IWifi <.. WifiService
+IBuzzer <.. BuzzerService
+ISensors <.. SensorsFacade
+
+' ============================================================
+' REQUIRED SENSOR DRIVER INTERFACES
+' ============================================================
+
+package "Required Sensor Driver Interfaces" as SensorInterfaces {
+  interface "dht11.h\nTemperature / Humidity Interface" as IDHT11
+  interface "ens160.h\nAir Quality Interface" as IENS160
+  interface "co2.h\nCO2 Sensor Interface" as ICO2
+
+  IDHT11 -[hidden]right- IENS160
+  IENS160 -[hidden]right- ICO2
+}
+
+SensorsFacade ..> IDHT11
+SensorsFacade ..> IENS160
+SensorsFacade ..> ICO2
+
+' ============================================================
+' SENSOR DRIVER LAYER
+' ============================================================
+
+package "Sensor Driver Layer" as SensorDriverLayer {
+  component "dht11.c\nDHT11 Driver" as DHT11Driver
+  component "ens160.c\nENS160 Driver" as ENS160Driver
+  component "co2.c\nMH-Z19B Driver" as CO2Driver
+
+  DHT11Driver -[hidden]right- ENS160Driver
+  ENS160Driver -[hidden]right- CO2Driver
+}
+
+IDHT11 <.. DHT11Driver
+IENS160 <.. ENS160Driver
+ICO2 <.. CO2Driver
+
+' ============================================================
+' LOWER RUNTIME LAYERS
+' ============================================================
+
+package "Hardware Abstraction Layer / Low-Level Drivers" as HALLayer {
+  component "button.h / led.c / led.h\nGPIO Support" as GPIO
+  component "i2c.c / i2c.h\nI2C Driver" as I2C
+  component "timer.c / timer.h\nTimer Driver" as Timer
+  component "uart.c / uart.h\nUART Driver" as UART
+  component "ringbuffer.c / ringbuffer.h\nRX Buffer Utility" as RingBuffer
+
+  GPIO -[hidden]right- I2C
+  I2C -[hidden]right- Timer
+  Timer -[hidden]right- UART
+  UART -[hidden]right- RingBuffer
+}
+
+package "Hardware and External Systems" as HardwareLayer {
+  component "DHT11\nTemperature / Humidity Sensor" as DHT11HW
+  component "ENS160\nAir Quality Sensor" as ENS160HW
+  component "MH-Z19B\nCO2 Sensor" as CO2HW
+  component "Buzzer\nSound Alarm" as BuzzerHW
+  component "ATmega2560\nMicrocontroller" as MCU
+  component "ESP8266\nWiFi Module" as ESP8266
+  component "MQTT Broker / VPS" as Broker
+
+  DHT11HW -[hidden]right- ENS160HW
+  ENS160HW -[hidden]right- CO2HW
+  CO2HW -[hidden]right- BuzzerHW
+  BuzzerHW -[hidden]right- MCU
+  MCU -[hidden]right- ESP8266
+  ESP8266 -[hidden]down- Broker
+}
+
+package "Unity Test Support (Non-Runtime)" as TestSupport {
+  component "Unity Native Test Suites\nPlatformIO env:native" as UnityTests
+
+  component "Test-only utility modules\nlib/Utilities\n\n- payload_builder\n- alarm_logic\n- sensor_validation\n- sensor_fallback\n- buzzer_behavior\n- mqtt_message_format" as TestUtilities
+
+  UnityTests ..> TestUtilities : tests
+}
+
+note right of TestUtilities
+These modules support native Unity tests.
+
+They are not part of the current runtime
+firmware flow unless integrated later.
+end note
+
+' ============================================================
+' RELATIONSHIPS BETWEEN RUNTIME MODULES
+' ============================================================
+
+WifiService --> UART : AT over UART
+DebugService --> UART : debug output
+UART --> RingBuffer : RX buffering
+
+ENS160Driver --> I2C : I2C
+DHT11Driver --> GPIO : GPIO / timing
+BuzzerService --> GPIO : output control
+CO2Driver --> UART : UART
+
+UART --> MCU : UART registers
+I2C --> MCU : I2C registers
+GPIO --> MCU : GPIO pins
+Timer --> MCU : timing
+
+UART --> ESP8266 : AT commands\nover UART
+ESP8266 --> Broker : network connection
+
+DHT11Driver --> DHT11HW : reads temp / humidity
+ENS160Driver --> ENS160HW : reads TVOC / eCO2 / AQI
+CO2Driver --> CO2HW : reads CO2
+GPIO --> BuzzerHW : output pin /\nsound activation
+
+' ============================================================
+' ROW / CENTERING HELPERS
+' ============================================================
+
+AppLayer -[hidden]down- MainInterfaces
+MainInterfaces -[hidden]down- ModuleLayer
+ModuleLayer -[hidden]down- SensorInterfaces
+SensorInterfaces -[hidden]down- SensorDriverLayer
+SensorDriverLayer -[hidden]down- HALLayer
+SensorDriverLayer -[hidden]down- HardwareLayer
+
+HALLayer -[hidden]right- HardwareLayer
+HardwareLayer -[hidden]right- TestSupport
+
+@enduml
