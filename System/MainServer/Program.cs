@@ -146,10 +146,22 @@ var startupLogger = app.Services.GetRequiredService<ILoggerFactory>()
     .CreateLogger("Startup");
 
 startupLogger.LogInformation("MainServer starting...");
-await ApplyMigrationsWithRepairAsync(app, startupLogger);
-startupLogger.LogInformation("MainServer ready.");
 
-app.Run();
+// Start Kestrel before migrations so /health passes while the DB schema is updating.
+await app.StartAsync();
+startupLogger.LogInformation("MainServer listening on {Urls}", string.Join(", ", app.Urls));
+
+try
+{
+    await ApplyMigrationsWithRepairAsync(app, startupLogger);
+    startupLogger.LogInformation("Database migrations complete.");
+}
+catch (Exception ex)
+{
+    startupLogger.LogError(ex, "Database migration failed; API may be degraded until schema is fixed.");
+}
+
+await app.WaitForShutdownAsync();
 
 // -------------------- DB MIGRATION --------------------
 static async Task ApplyMigrationsWithRepairAsync(WebApplication application, ILogger startupLog)
