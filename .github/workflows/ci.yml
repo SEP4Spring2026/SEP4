@@ -116,7 +116,36 @@ jobs:
         
       - name: Run IoT Unity tests
         run: platformio test -e native
-  
+
+  frontend:
+    name: FrontEnd (React)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: System/FrontEnd
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: System/FrontEnd/package-lock.json
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Run unit/component/API tests
+        run: npm run test:run
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run black-box browser tests
+        run: npm run test:e2e
 
   docker:
     name: Build images
@@ -148,7 +177,7 @@ jobs:
 
   deploy:
     name: Deploy to VPS
-    needs: [mainserver, mlserver, docker]
+    needs: [mainserver, mlserver, frontend, docker]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/Dev' || github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     steps:
