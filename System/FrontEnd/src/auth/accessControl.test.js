@@ -25,7 +25,9 @@ describe("accessControl", () => {
 
     expect(permissions.canViewAllDevices).toBe(false);
     expect(permissions.canViewAdminControls).toBe(false);
-    expect(canAccessView("resident", "Settings")).toBe(false);
+    expect(permissions.canUseAlarmControls).toBe(true);
+    expect(canAccessView("resident", "Settings")).toBe(true);
+    expect(canAccessView("resident", "Alarm")).toBe(true);
     expect(canAccessView("resident", "Payload")).toBe(true);
   });
 

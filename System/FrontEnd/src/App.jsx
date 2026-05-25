@@ -9,7 +9,6 @@ import { LineChart } from "./components/LineChart.jsx";
 import { LoginPage } from "./components/Login/index.js";
 import { StatusScreen } from "./components/StatusScreen/index.js";
 import { AdminControls } from "./components/Dashboard/AdminControls.jsx";
-import { RestrictedNotice } from "./components/Dashboard/RestrictedNotice.jsx";
 import { RoomsView } from "./components/Dashboard/RoomsView.jsx";
 import {
   connectReadingsStream,
@@ -37,8 +36,9 @@ const ROLE_CONFIG = {
   resident: {
     shortLabel: "Resident",
     initials: "RS",
-    views: ["Home", "Sensors", "Samples", "Payload", "Alarm"],
+    views: ["Home", "Sensors", "Samples", "Payload", "Alarm", "Settings"],
     canViewAllDevices: false,
+    canUseAlarmControls: true,
     canViewAdminControls: false,
     canManageRooms: false,
     canViewAlerts: false,
@@ -49,8 +49,9 @@ const ROLE_CONFIG = {
   "building-administrator": {
     shortLabel: "Building Admin",
     initials: "BA",
-    views: ["Home", "Sensors", "Samples", "Payload", "Rooms", "Alerts", "Alarm"],
+    views: ["Home", "Sensors", "Samples", "Payload", "Rooms", "Alerts", "Alarm", "Settings"],
     canViewAllDevices: true,
+    canUseAlarmControls: true,
     canViewAdminControls: true,
     canManageRooms: true,
     canViewAlerts: true,
@@ -61,8 +62,9 @@ const ROLE_CONFIG = {
   admin: {
     shortLabel: "System Admin",
     initials: "SA",
-    views: ["Home", "Sensors", "Samples", "Payload", "Rooms", "Alerts", "Alarm", "Users", "Devices", "Logs"],
+    views: ["Home", "Sensors", "Samples", "Payload", "Rooms", "Alerts", "Alarm", "Settings", "Users", "Devices", "Logs"],
     canViewAllDevices: true,
+    canUseAlarmControls: true,
     canViewAdminControls: true,
     canManageRooms: true,
     canViewAlerts: true,
@@ -75,6 +77,7 @@ const ROLE_CONFIG = {
     initials: "U",
     views: ["Home"],
     canViewAllDevices: false,
+    canUseAlarmControls: false,
     canViewAdminControls: false,
     canManageRooms: false,
     canViewAlerts: false,
@@ -327,7 +330,8 @@ function Dashboard({ session, onLogout }) {
   const pageTitles = {
     Home: "Home Overview", Sensors: "Sensor Details", Samples: "Sample History",
     Payload: "Payload Viewer", Rooms: "Room Management",
-    Alerts: "Alert History", Alarm: "Alarm Controls", Users: "User Management",
+    Alerts: "Alert History", Alarm: "Alarm Controls", Settings: "Settings",
+    Users: "User Management",
     Devices: "Device Management", Logs: "System Logs",
   };
 
@@ -656,38 +660,16 @@ function Dashboard({ session, onLogout }) {
 
   // â”€â”€ Alarm view: available to ALL roles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function AlarmView() {
-    const canTest = permissions.canViewAdminControls;
     return (
       <section className="grid settings-grid">
-        {canTest ? (
+        {permissions.canUseAlarmControls ? (
           <AdminControls
             selectedSensorId={selectedSensorId}
             alarmTestBusy={alarmTestBusy}
             alarmTestMessage={alarmTestMessage}
             onAlarmTest={runAlarmTest}
           />
-        ) : (
-          // Residents can only silence â€” send "off" to their assigned sensor
-          <article className="card">
-            <h3>Alarm controls</h3>
-            <p className="muted">Silence or reset the alarm for your room.</p>
-            <div className="button-row" style={{ marginTop: 12 }}>
-              <button
-                type="button"
-                className="menu-item inline-action"
-                disabled={alarmTestBusy}
-                onClick={() => runAlarmTest("off")}
-              >
-                Silence alarm
-              </button>
-            </div>
-            {alarmTestMessage && (
-              <p className={alarmTestMessage.type === "error" ? "danger action-hint" : "muted action-hint"}>
-                {alarmTestMessage.text}
-              </p>
-            )}
-          </article>
-        )}
+        ) : null}
 
         <article className="card">
           <h3>Current room status</h3>
@@ -899,17 +881,23 @@ function Dashboard({ session, onLogout }) {
     setAlarmTestMessage(null);
     try {
       await postAlarmTest(Number(targetSensor), level);
-      setAlarmTestMessage({ type: "ok", text: "MQTT command sent." });
+      setAlarmTestMessage({ type: "ok", text: "MQTT command sent to the board." });
     } catch (e) {
       setAlarmTestMessage({ type: "error", text: e instanceof Error ? e.message : String(e) });
     } finally { setAlarmTestBusy(false); }
   }
 
-  // â”€â”€ Settings view (admin only â€” sensor health + offline alerts) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function SettingsView() {
-    if (!permissions.canViewAdminControls) return <RestrictedNotice message="Settings are available to building administrators and above." />;
     return (
       <section className="grid settings-grid">
+        {permissions.canUseAlarmControls ? (
+          <AdminControls
+            selectedSensorId={selectedSensorId}
+            alarmTestBusy={alarmTestBusy}
+            alarmTestMessage={alarmTestMessage}
+            onAlarmTest={runAlarmTest}
+          />
+        ) : null}
         <article className="card">
           <h3>Sensor Health</h3>
           {[["Status", <strong className={latestDeviceHealth.statusType}>{latestDeviceHealth.statusLabel}</strong>],
@@ -965,6 +953,7 @@ function Dashboard({ session, onLogout }) {
         {activeView === "Rooms"   && <RoomsView />}
         {activeView === "Alerts"  && <AlertsView />}
         {activeView === "Alarm"   && <AlarmView />}
+        {activeView === "Settings" && <SettingsView />}
         {activeView === "Users"   && <UsersView />}
         {activeView === "Devices" && <DevicesView />}
         {activeView === "Logs"    && <LogsView />}

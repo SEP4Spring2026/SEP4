@@ -17,6 +17,7 @@ describe("AdminControls", () => {
     expect(screen.getByRole("button", { name: "Critical pattern" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Short warn" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Silence" })).toBeDisabled();
+    expect(screen.getByText(/iot\/alarm/)).toBeInTheDocument();
     expect(screen.getByText("Alarm controls require one selected device.")).toBeInTheDocument();
   });
 

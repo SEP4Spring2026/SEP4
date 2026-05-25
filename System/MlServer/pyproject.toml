@@ -15,5 +15,20 @@ omit = [
 show_missing = true
 fail_under = 70
 
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+# Lint deployable service code only; notebooks and team model trees are not in the Docker image.
+exclude = [
+    ".venv",
+    "__pycache__",
+    "**/*.ipynb",
+    "Felipe's model",
+    "Guillermo's model",
+    "Waqar's model",
+    "ImprovedModels",
+    "dataGenerator.py",
+]
+
 [tool.ruff.lint]
 select = ["E", "F", "W"]

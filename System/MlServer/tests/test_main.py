@@ -5,7 +5,15 @@ from main import app
 client = TestClient(app)
 
 
-def _payload(temperature, humidity, tvoc, eco2, co2Level=400.0, aqi=1, classification="Normal"):
+def _payload(
+    temperature,
+    humidity,
+    tvoc,
+    eco2,
+    co2Level=400.0,
+    aqi=1,
+    classification="Normal",
+):
     return {
         "sensorId": 102,
         "timestamp": "2026-04-08T12:15:00Z",

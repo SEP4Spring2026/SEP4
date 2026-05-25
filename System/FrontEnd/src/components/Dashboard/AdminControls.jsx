@@ -3,7 +3,8 @@ export function AdminControls({ selectedSensorId, alarmTestBusy, alarmTestMessag
     <article className="card">
       <h3>Buzzer test</h3>
       <p className="muted">
-        Sends MQTT alarm payloads for the selected device. Choose one device in the sidebar first.
+        Sends the same MQTT payloads as ML alarms (<code>iot/alarm/</code> + device id). Pick a device in the
+        sidebar.
       </p>
       <div className="button-row">
         <button
