@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   assignSensorToRoom,
+  assignSensorToUser,
   changeUserRole,
   connectReadingsStream,
   createRoom,
@@ -194,6 +195,34 @@ describe("api service", () => {
     });
 
     await expect(changeUserRole(7, "resident")).rejects.toThrow("Only admins can change roles");
+  });
+
+  it("assigns a sensor to a user", async () => {
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ id: 7, username: "resident1", assignedSensorId: 101 }),
+    });
+
+    await expect(assignSensorToUser(7, 101)).resolves.toEqual({ id: 7, username: "resident1", assignedSensorId: 101 });
+    expect(fetch).toHaveBeenCalledWith("/api/users/7/assign-sensor", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sensorId: 101 }),
+    });
+  });
+
+  it("clears an assigned sensor from a user", async () => {
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ id: 7, username: "resident1", assignedSensorId: null }),
+    });
+
+    await expect(assignSensorToUser(7, null)).resolves.toEqual({ id: 7, username: "resident1", assignedSensorId: null });
+    expect(fetch).toHaveBeenCalledWith("/api/users/7/assign-sensor", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sensorId: null }),
+    });
   });
 
   it("uses fallback message when deleting a user fails without JSON body", async () => {

@@ -65,21 +65,24 @@ public class UsersController : ControllerBase
         return Ok(new { user.Id, user.Username, user.Role, user.AssignedSensorId });
     }
 
-    // PUT /api/users/{id}/assign-sensor   body: { "sensorId": 101 }
+    // PUT /api/users/{id}/assign-sensor   body: { "sensorId": 101 } or { "sensorId": null }
     [HttpPut("{id:int}/assign-sensor")]
     public async Task<IActionResult> AssignSensor(int id, [FromBody] AssignSensorDto req)
     {
-        if (req.SensorId < 1)
-            return BadRequest(new { message = "sensorId must be a positive device id." });
-
         var user = await _db.Users.FindAsync(id);
         if (user == null) return NotFound(new { message = "User not found." });
 
         if (!string.Equals(user.Role, "resident", StringComparison.OrdinalIgnoreCase))
             return BadRequest(new { message = "Sensors can only be assigned to residents." });
 
-        var sensorExists = await _db.Sensors.AnyAsync(s => s.SensorId == req.SensorId);
-        if (!sensorExists) return NotFound(new { message = "Sensor not found." });
+        if (req.SensorId.HasValue && req.SensorId.Value < 1)
+            return BadRequest(new { message = "sensorId must be a positive device id or null." });
+
+        if (req.SensorId.HasValue)
+        {
+            var sensorExists = await _db.Sensors.AnyAsync(s => s.SensorId == req.SensorId.Value);
+            if (!sensorExists) return NotFound(new { message = "Sensor not found." });
+        }
 
         user.AssignedSensorId = req.SensorId;
         await _db.SaveChangesAsync();
