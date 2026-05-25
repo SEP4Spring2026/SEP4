@@ -46,10 +46,13 @@ public class RoomController : ControllerBase
     [HttpPut("{roomId}/assign-sensor")]
     public async Task<IActionResult> AssignSensor(int roomId, [FromBody] AssignSensorDto dto)
     {
+        if (!dto.SensorId.HasValue || dto.SensorId.Value < 1)
+            return BadRequest(new { message = "sensorId must be a positive device id." });
+
         var room = await _db.Rooms.FindAsync(roomId);
         if (room == null) return NotFound(new { message = "Room not found." });
 
-        var sensor = await _db.Sensors.FindAsync(dto.SensorId);
+        var sensor = await _db.Sensors.FindAsync(dto.SensorId.Value);
         if (sensor == null) return NotFound(new { message = "Sensor not found." });
 
         sensor.RoomId = roomId;

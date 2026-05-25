@@ -18,6 +18,7 @@ import {
   getAlerts,
   getUsers,
   changeUserRole,
+  assignSensorToUser,
   deleteUser,
   getLogs,
 } from "./services/api.js";
@@ -238,7 +239,7 @@ function Dashboard({ session, onLogout }) {
   const [samples, setSamples]             = useState([]);
   const [devices, setDevices]             = useState([]);
   const [selectedSensorId, setSelectedSensorId] = useState(
-    () => permissions.canViewAllDevices ? "all" : (session.assignedSensorId ?? "all")
+    () => permissions.canViewAllDevices ? "all" : (session.assignedSensorId ?? "")
   );
   const [selectedLimit, setSelectedLimit] = useState(DEFAULT_SAMPLE_LIMIT);
   const [loading, setLoading]             = useState(true);
@@ -247,6 +248,7 @@ function Dashboard({ session, onLogout }) {
   const [alarmTestMessage, setAlarmTestMessage] = useState(null);
   const [alarmTestBusy, setAlarmTestBusy]       = useState(false);
   const [expandedChartSensorId, setExpandedChartSensorId] = useState(null);
+  const hasSensorAccess = permissions.canViewAllDevices || session.assignedSensorId != null;
 
   useEffect(() => { const t = window.setInterval(() => setNowMs(Date.now()), 10000); return () => clearInterval(t); }, []);
 
@@ -256,7 +258,7 @@ function Dashboard({ session, onLogout }) {
 
   useEffect(() => {
     if (!permissions.canViewAllDevices && selectedSensorId !== session.assignedSensorId)
-      setSelectedSensorId(session.assignedSensorId ?? "all");
+      setSelectedSensorId(session.assignedSensorId ?? "");
   }, [permissions.canViewAllDevices, selectedSensorId, session.assignedSensorId]);
 
   useEffect(() => {
@@ -266,15 +268,25 @@ function Dashboard({ session, onLogout }) {
 
   useEffect(() => {
     async function load() {
+      if (!hasSensorAccess) {
+        setSamples([]);
+        setDevices([]);
+        setError(null);
+        setLoading(false);
+        return;
+      }
+
       try { setLoading(true); setError(null);
         const data = await getReadings(selectedSensorId, selectedLimit, SAMPLE_WINDOW_HOURS);
         setSamples(data.map(toSample));
       } catch (e) { setError(e); } finally { setLoading(false); }
     }
     load();
-  }, [selectedSensorId, selectedLimit]);
+  }, [hasSensorAccess, selectedSensorId, selectedLimit]);
 
   useEffect(() => {
+    if (!hasSensorAccess) return;
+
     const stream = connectReadingsStream(selectedSensorId);
     const onReading = (event) => {
       try {
@@ -292,7 +304,7 @@ function Dashboard({ session, onLogout }) {
     stream.addEventListener("reading", onReading);
     stream.onerror = () => console.error("SSE disconnected, will retry.");
     return () => { stream.removeEventListener("reading", onReading); stream.close(); };
-  }, [selectedSensorId, selectedLimit]);
+  }, [hasSensorAccess, selectedSensorId, selectedLimit]);
 
   if (loading) return <StatusScreen title="Loading dashboard" message="Preparing sensor readings." />;
   if (error)   return <StatusScreen title="Dashboard offline" message="Backend API not reachable." actionLabel="Sign out" onAction={onLogout} />;
@@ -739,6 +751,7 @@ function Dashboard({ session, onLogout }) {
     const [usersLoading, setUsersLoading] = useState(true);
     const [usersError, setUsersError]     = useState(null);
     const [busy, setBusy]         = useState({});
+    const [sensorInputs, setSensorInputs] = useState({});
     const ROLES = ["resident", "building-administrator", "admin"];
 
     useEffect(() => {
@@ -746,10 +759,52 @@ function Dashboard({ session, onLogout }) {
     }, []);
 
     async function handleRoleChange(userId, newRole) {
+      const targetUser = users.find((u) => u.id === userId);
+      const isSelf = userId === session.userId;
+      const isAdminDemotion = targetUser?.role === "admin" && newRole !== "admin";
+
+      if (isAdminDemotion && isSelf) {
+        const adminCount = users.filter((u) => u.role === "admin").length;
+        if (adminCount <= 1) {
+          alert("You cannot remove the only admin. Assign admin role to another user first.");
+          return;
+        }
+
+        const confirmed = window.confirm(
+          "You are changing your own admin role. You will be signed out and must sign in again with the new permissions. Continue?"
+        );
+        if (!confirmed) return;
+      }
+
       setBusy((p) => ({ ...p, [userId]: true }));
       try {
         const updated = await changeUserRole(userId, newRole);
         setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, role: updated.role } : u));
+        if (isSelf && updated.role !== session.role) {
+          alert("Your role has changed. Sign in again to refresh permissions.");
+          onLogout();
+        }
+      } catch (e) { alert(e.message); }
+      finally { setBusy((p) => ({ ...p, [userId]: false })); }
+    }
+
+    async function handleSensorAssign(userId) {
+      const raw = sensorInputs[userId] ?? "";
+      if (!raw) {
+        alert("Select a sensor.");
+        return;
+      }
+      const sensorId = raw === "none" ? null : parseInt(raw, 10);
+      if (sensorId !== null && (Number.isNaN(sensorId) || sensorId < 1)) {
+        alert("Select a valid sensor.");
+        return;
+      }
+
+      setBusy((p) => ({ ...p, [userId]: true }));
+      try {
+        const updated = await assignSensorToUser(userId, sensorId);
+        setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, assignedSensorId: updated.assignedSensorId } : u));
+        setSensorInputs((prev) => ({ ...prev, [userId]: "" }));
       } catch (e) { alert(e.message); }
       finally { setBusy((p) => ({ ...p, [userId]: false })); }
     }
@@ -772,29 +827,68 @@ function Dashboard({ session, onLogout }) {
         <article className="card" style={{ gridColumn: "1 / -1" }}>
           <h3>User Accounts ({users.length})</h3>
           <p className="muted">Change roles or remove accounts. New registrations default to Resident.</p>
-          <div style={{ marginTop: 16 }}>
+          <div className="users-table">
+            <div className="users-row users-row-header">
+              <span>User</span>
+              <span>Role</span>
+              <span>Assigned sensor</span>
+              <span>New sensor</span>
+              <span>Actions</span>
+            </div>
             {users.map((u) => (
-              <div key={u.id} className="summary-row" style={{ padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,.06)", alignItems: "center", gap: 12 }}>
-                <span style={{ minWidth: 140 }}><strong>{u.username}</strong></span>
+              <div key={u.id} className="users-row">
+                <span className="users-name"><strong>{u.username}</strong></span>
                 <select
                   className="device-select"
-                  style={{ flex: 1, maxWidth: 220 }}
                   value={u.role}
-                  disabled={busy[u.id] || u.id === session.userId}
+                  disabled={busy[u.id] || (u.role === "admin" && u.id !== session.userId)}
                   onChange={(e) => handleRoleChange(u.id, e.target.value)}
                 >
                   {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
                 </select>
-                <button
-                  className="menu-item inline-action"
-                  type="button"
-                  disabled={busy[u.id] || u.id === session.userId}
-                  onClick={() => handleDelete(u.id, u.username)}
-                  style={{ background: "rgba(239,68,68,.15)", color: "#f87171", borderColor: "rgba(239,68,68,.3)" }}
-                >
-                  Delete
-                </button>
-                {u.id === session.userId && <span className="muted" style={{ fontSize: 12 }}>(you)</span>}
+                <span className="muted users-sensor">
+                  {u.role === "resident" ? `Sensor: ${u.assignedSensorId ?? "none"}` : "-"}
+                </span>
+                <div className="users-assign">
+                  {u.role === "resident" && (
+                    <>
+                      <select
+                        className="device-select"
+                        value={sensorInputs[u.id] ?? ""}
+                        disabled={busy[u.id]}
+                        onChange={(e) => setSensorInputs((prev) => ({ ...prev, [u.id]: e.target.value }))}
+                      >
+                        <option value="">Select sensor</option>
+                        <option value="none">No sensor</option>
+                        {devices.map((device) => (
+                          <option key={device.sensorId} value={device.sensorId}>
+                            Sensor {device.sensorId}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        className="menu-item inline-action"
+                        type="button"
+                        disabled={busy[u.id]}
+                        onClick={() => handleSensorAssign(u.id)}
+                      >
+                        Assign
+                      </button>
+                    </>
+                  )}
+                </div>
+                <div className="users-actions">
+                  <button
+                    className="menu-item inline-action"
+                    type="button"
+                    disabled={busy[u.id] || u.id === session.userId}
+                    onClick={() => handleDelete(u.id, u.username)}
+                    style={{ background: "rgba(239,68,68,.15)", color: "#f87171", borderColor: "rgba(239,68,68,.3)" }}
+                  >
+                    Delete
+                  </button>
+                  {u.id === session.userId && <span className="muted">(you)</span>}
+                </div>
               </div>
             ))}
           </div>
@@ -950,7 +1044,7 @@ function Dashboard({ session, onLogout }) {
         {activeView === "Sensors" && <SensorsView />}
         {activeView === "Samples" && <SamplesView />}
         {activeView === "Payload" && <PayloadView />}
-        {activeView === "Rooms"   && <RoomsView />}
+        {activeView === "Rooms"   && <RoomsView devices={devices} />}
         {activeView === "Alerts"  && <AlertsView />}
         {activeView === "Alarm"   && <AlarmView />}
         {activeView === "Settings" && <SettingsView />}

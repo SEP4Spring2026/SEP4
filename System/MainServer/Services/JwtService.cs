@@ -18,8 +18,15 @@ public class JwtService
 
     public string GenerateToken(User user)
     {
+        var jwtKey = Environment.GetEnvironmentVariable("JWT_KEY");
+        if (string.IsNullOrWhiteSpace(jwtKey))
+            jwtKey = _config["Jwt:Key"];
+
+        if (string.IsNullOrWhiteSpace(jwtKey))
+            throw new InvalidOperationException("JWT key is missing. Set JWT_KEY.");
+
         var key = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(_config["Jwt:Key"]!)
+            Encoding.UTF8.GetBytes(jwtKey)
         );
 
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -32,6 +39,9 @@ public class JwtService
             new Claim(ClaimTypes.Name, user.Username),
             new Claim(ClaimTypes.Role, user.Role)
         };
+
+        if (user.AssignedSensorId.HasValue)
+            claims.Add(new Claim("SensorId", user.AssignedSensorId.Value.ToString()));
 
         var expiryMinutes = int.TryParse(
             _config["Jwt:ExpiryMinutes"],

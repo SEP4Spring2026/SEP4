@@ -6,13 +6,13 @@ import {
   unassignSensor,
 } from "../../services/api.js";
 
-export function RoomsView() {
+export function RoomsView({ devices = [] }) {
   const [rooms, setRooms] = useState([]);
   const [roomName, setRoomName] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState(null);
 
-  // Per-room sensor ID input: { [roomId]: string }
+  // Per-room selected sensor: { [roomId]: string }
   const [sensorInputs, setSensorInputs] = useState({});
   const [assignErrors, setAssignErrors] = useState({});
   const [assignBusy, setAssignBusy] = useState({});
@@ -52,8 +52,8 @@ export function RoomsView() {
     const raw = sensorInputs[roomId] ?? "";
     const sensorId = parseInt(raw, 10);
 
-    if (!raw.trim() || isNaN(sensorId) || sensorId < 1) {
-      setAssignErrors((prev) => ({ ...prev, [roomId]: "Enter a valid sensor ID." }));
+    if (!raw || isNaN(sensorId) || sensorId < 1) {
+      setAssignErrors((prev) => ({ ...prev, [roomId]: "Select a sensor." }));
       return;
     }
 
@@ -70,6 +70,11 @@ export function RoomsView() {
       setAssignBusy((prev) => ({ ...prev, [roomId]: false }));
     }
   }
+
+  const assignedSensorIds = new Set(
+    rooms.flatMap((room) => room.sensors?.map((sensor) => sensor.sensorId) ?? [])
+  );
+  const availableDevices = devices.filter((device) => !assignedSensorIds.has(device.sensorId));
 
   async function handleUnassign(sensorId) {
     try {
@@ -146,21 +151,28 @@ export function RoomsView() {
 
                 {/* Assign a new sensor */}
                 <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
-                  <input
+                  <select
                     className="device-select"
                     style={{ flex: 1 }}
-                    placeholder="Sensor ID"
-                    type="number"
-                    min="1"
                     value={sensorInputs[room.roomId] ?? ""}
                     onChange={(e) =>
                       setSensorInputs((prev) => ({ ...prev, [room.roomId]: e.target.value }))
                     }
-                  />
+                    disabled={assignBusy[room.roomId] || availableDevices.length === 0}
+                  >
+                    <option value="">
+                      {availableDevices.length === 0 ? "No sensors available" : "Select sensor"}
+                    </option>
+                    {availableDevices.map((device) => (
+                      <option key={device.sensorId} value={device.sensorId}>
+                        Sensor {device.sensorId}
+                      </option>
+                    ))}
+                  </select>
                   <button
                     className="menu-item inline-action"
                     type="button"
-                    disabled={assignBusy[room.roomId]}
+                    disabled={assignBusy[room.roomId] || !sensorInputs[room.roomId]}
                     onClick={() => handleAssign(room.roomId)}
                   >
                     {assignBusy[room.roomId] ? "…" : "Assign"}

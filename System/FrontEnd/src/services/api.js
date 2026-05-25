@@ -127,6 +127,20 @@ export async function changeUserRole(userId, role) {
   return res.json();
 }
 
+export async function assignSensorToUser(userId, sensorId) {
+  const res = await fetch(`/api/users/${userId}/assign-sensor`, {
+    method: "PUT",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ sensorId }),
+  });
+  if (!res.ok) {
+    let msg = `Failed to assign sensor (${res.status})`;
+    try { const b = await res.json(); if (b?.message) msg = b.message; } catch {}
+    throw new Error(msg);
+  }
+  return res.json();
+}
+
 export async function deleteUser(userId) {
   const res = await fetch(`/api/users/${userId}`, {
     method: "DELETE",

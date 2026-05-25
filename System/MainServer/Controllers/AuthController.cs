@@ -44,7 +44,7 @@ public class AuthController : ControllerBase
         return Ok(new
         {
             token,
-            user = new { user.Id, user.Username, user.Role }
+            user = new { user.Id, user.Username, user.Role, user.AssignedSensorId }
         });
     }
 
@@ -85,7 +85,7 @@ public class AuthController : ControllerBase
         return Ok(new
         {
             token,
-            user = new { user.Id, user.Username, user.Role }
+            user = new { user.Id, user.Username, user.Role, user.AssignedSensorId }
         });
     }
 
@@ -101,6 +101,6 @@ public class AuthController : ControllerBase
         var user = await _db.Users.FindAsync(userId);
         if (user == null) return NotFound();
 
-        return Ok(new { user.Id, user.Username, user.Role });
+        return Ok(new { user.Id, user.Username, user.Role, user.AssignedSensorId });
     }
 }
