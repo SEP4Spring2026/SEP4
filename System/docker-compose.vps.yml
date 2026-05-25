@@ -47,8 +47,8 @@ services:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health >/dev/null || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 12
-      start_period: 60s
+      retries: 18
+      start_period: 90s
     ports:
       - "${MAIN_SERVER_PORT:-8080}:8080"
     environment:
@@ -68,6 +68,9 @@ services:
       ALARM_PUBLISH_MEDIUM: "false"
       # Settings UI buzzer test → POST /api/readings/alarm-test
       ALLOW_ALARM_TEST: "true"
+      JWT_KEY: ${JWT_KEY}
+      Jwt__Issuer: ${JWT_ISSUER:-MainServer}
+      Jwt__Audience: ${JWT_AUDIENCE:-MainClient}
 
   frontend:
     build: ./FrontEnd
