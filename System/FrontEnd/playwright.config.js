@@ -1,5 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+
 export default defineConfig({
   testDir: "./e2e",
   outputDir: "./reports/playwright-results",
@@ -19,7 +21,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm.cmd run dev -- --host 127.0.0.1 --port 4173",
+    command: `${npmCommand} run dev -- --host 127.0.0.1 --port 4173`,
     url: "http://127.0.0.1:4173",
     reuseExistingServer: true,
     timeout: 120000,
