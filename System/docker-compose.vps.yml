@@ -68,7 +68,7 @@ services:
       ALARM_PUBLISH_MEDIUM: "false"
       # Settings UI buzzer test → POST /api/readings/alarm-test
       ALLOW_ALARM_TEST: "true"
-      JWT_KEY: ${JWT_KEY}
+      # Optional: set JWT_KEY in .env to override appsettings Jwt:Key (do not set empty).
       Jwt__Issuer: ${JWT_ISSUER:-MainServer}
       Jwt__Audience: ${JWT_AUDIENCE:-MainClient}
 
