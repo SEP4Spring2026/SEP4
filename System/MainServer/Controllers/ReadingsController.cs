@@ -155,6 +155,18 @@ public class ReadingsController : ControllerBase
     [Authorize(Policy = "ResidentOrAbove")]
     public async Task Stream([FromQuery] int? sensorId, CancellationToken ct)
     {
+        if (User.IsInRole("resident"))
+        {
+            var sensorClaim = User.FindFirst("SensorId")?.Value;
+            if (!int.TryParse(sensorClaim, out var assignedId))
+            {
+                Response.StatusCode = StatusCodes.Status403Forbidden;
+                return;
+            }
+
+            sensorId = assignedId;
+        }
+
         Response.Headers.CacheControl = "no-cache";
         Response.Headers.Append("Content-Type", "text/event-stream");
 

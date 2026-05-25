@@ -239,7 +239,7 @@ function Dashboard({ session, onLogout }) {
   const [samples, setSamples]             = useState([]);
   const [devices, setDevices]             = useState([]);
   const [selectedSensorId, setSelectedSensorId] = useState(
-    () => permissions.canViewAllDevices ? "all" : (session.assignedSensorId ?? "all")
+    () => permissions.canViewAllDevices ? "all" : (session.assignedSensorId ?? "")
   );
   const [selectedLimit, setSelectedLimit] = useState(DEFAULT_SAMPLE_LIMIT);
   const [loading, setLoading]             = useState(true);
@@ -248,6 +248,7 @@ function Dashboard({ session, onLogout }) {
   const [alarmTestMessage, setAlarmTestMessage] = useState(null);
   const [alarmTestBusy, setAlarmTestBusy]       = useState(false);
   const [expandedChartSensorId, setExpandedChartSensorId] = useState(null);
+  const hasSensorAccess = permissions.canViewAllDevices || session.assignedSensorId != null;
 
   useEffect(() => { const t = window.setInterval(() => setNowMs(Date.now()), 10000); return () => clearInterval(t); }, []);
 
@@ -257,7 +258,7 @@ function Dashboard({ session, onLogout }) {
 
   useEffect(() => {
     if (!permissions.canViewAllDevices && selectedSensorId !== session.assignedSensorId)
-      setSelectedSensorId(session.assignedSensorId ?? "all");
+      setSelectedSensorId(session.assignedSensorId ?? "");
   }, [permissions.canViewAllDevices, selectedSensorId, session.assignedSensorId]);
 
   useEffect(() => {
@@ -267,15 +268,25 @@ function Dashboard({ session, onLogout }) {
 
   useEffect(() => {
     async function load() {
+      if (!hasSensorAccess) {
+        setSamples([]);
+        setDevices([]);
+        setError(null);
+        setLoading(false);
+        return;
+      }
+
       try { setLoading(true); setError(null);
         const data = await getReadings(selectedSensorId, selectedLimit, SAMPLE_WINDOW_HOURS);
         setSamples(data.map(toSample));
       } catch (e) { setError(e); } finally { setLoading(false); }
     }
     load();
-  }, [selectedSensorId, selectedLimit]);
+  }, [hasSensorAccess, selectedSensorId, selectedLimit]);
 
   useEffect(() => {
+    if (!hasSensorAccess) return;
+
     const stream = connectReadingsStream(selectedSensorId);
     const onReading = (event) => {
       try {
@@ -293,7 +304,7 @@ function Dashboard({ session, onLogout }) {
     stream.addEventListener("reading", onReading);
     stream.onerror = () => console.error("SSE disconnected, will retry.");
     return () => { stream.removeEventListener("reading", onReading); stream.close(); };
-  }, [selectedSensorId, selectedLimit]);
+  }, [hasSensorAccess, selectedSensorId, selectedLimit]);
 
   if (loading) return <StatusScreen title="Loading dashboard" message="Preparing sensor readings." />;
   if (error)   return <StatusScreen title="Dashboard offline" message="Backend API not reachable." actionLabel="Sign out" onAction={onLogout} />;
