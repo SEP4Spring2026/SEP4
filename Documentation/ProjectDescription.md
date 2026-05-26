@@ -1,3 +1,61 @@
+---
+title: ""
+header-includes:
+  - \usepackage{graphicx}
+  - \usepackage[a4paper,margin=1in]{geometry}
+---
+
+\begin{titlepage}
+\centering
+
+\includegraphics[width=0.18\textwidth]{Figures/via-image.png}
+
+\vspace{0.5cm}
+
+{\small Software Technology Engineering\par}
+{\small VIA University College\par}
+
+\vspace{4cm}
+
+{\Huge AeroSense\par}
+
+\vspace{0.3cm}
+
+{\Large Project Description\par}
+
+\vspace{0.5cm}
+
+{\large Semester 4\par}
+
+\vspace{0.3cm}
+
+{\large 27/05/2026\par}
+
+\vfill
+
+\begin{tabular}{ll}
+Hamsa Sheikhdon & 354974 \\
+Rebeca Proskovcova & 355484 \\
+Soma Bence Nagy & 355465 \\
+Waqar Ahmed Khan & 355425 \\
+Eliza Manciu & 204590 \\
+Felipe Figueiredo & 355463 \\
+Guillermo Sánchez Martínez & 355442 \\
+Matteo De Filippis & 355438 \\
+Matteo Saccucci & 355400 \\
+Piotr Gala & 355451 \\
+\end{tabular}
+
+\vspace{1cm}
+
+Supervisor: Erland Ketil Larsen, Marketa Tranberg, Joseph Chukwudi Okika, Jakob Trigger Knop
+
+\end{titlepage}
+
+\tableofcontents
+
+\newpage
+
 # Problem Domain
 
 A study in 2024 done by the Fire Safety Journal found out that after three false alarms, residants' average evacuation time increase by 3.5 minutes. It might seem harmless, but these extra minutes are often fatal in real fires. This is a long lasting problem in the industry that even though with all the new modern technoloy available it seems to never go away. (https://www.phscompliance.co.uk/news/how-to-prevent-false-alarms-from-fire-alarm-systems-in-homes-and-offices/)
