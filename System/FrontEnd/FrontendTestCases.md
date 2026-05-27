@@ -12,7 +12,7 @@ Frontend testing covers unit logic, React components, API integration behavior, 
 - Component library: React Testing Library
 - Black-box runner: Playwright
 - Browser target: Chromium desktop and mobile viewport
-- Date: 2026-05-24
+- Date: 2026-05-26
 
 ## Commands
 
@@ -71,7 +71,7 @@ These test cases describe the frontend from the user's point of view. The intern
 ```text
 Vitest:
 Test Files  7 passed (7)
-Tests       34 passed (34)
+Tests       36 passed (36)
 
 Playwright:
 6 passed (3 automated black-box scenarios across 2 browser projects)
