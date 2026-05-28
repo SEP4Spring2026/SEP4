@@ -90,7 +90,12 @@ class Sensors(BaseModel):
     co2Level: float = Field(..., description="CO2 concentration, ppm")
     tvoc: float = Field(..., description="Total Volatile Organic Compounds, ppb")
     eco2: float = Field(..., description="Estimated CO2, ppm")
-    aqi: int = Field(..., ge=1, le=5, description="Air Quality Index, 1=Excellent..5=Unhealthy")
+    aqi: int = Field(
+        ...,
+        ge=1,
+        le=5,
+        description="Air Quality Index, 1=Excellent..5=Unhealthy",
+    )
 
 
 class Reading(BaseModel):

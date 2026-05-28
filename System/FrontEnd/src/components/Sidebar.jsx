@@ -1,7 +1,7 @@
-const menuItems = ["Home", "Sensors", "Samples", "Charts", "Payload", "Settings"];
-
 export function Sidebar({
   activeView,
+  session,
+  permissions,
   devices,
   selectedSensorId,
   sampleLimit,
@@ -13,6 +13,12 @@ export function Sidebar({
   onSensorChange,
   onSampleLimitChange,
 }) {
+  const roleLabel = permissions.shortLabel ?? session.role ?? "User";
+  const menuItems = permissions.views;
+  const selectableDevices = permissions.canViewAllDevices
+    ? devices
+    : devices.filter((device) => String(device.sensorId) === String(session.assignedSensorId));
+
   return (
     <aside className="sidebar">
       <div className="logo">
@@ -30,6 +36,14 @@ export function Sidebar({
           </button>
         ))}
       </nav>
+
+      <div className="status-card">
+        <p className="muted">Current role</p>
+        <strong>{roleLabel}</strong>
+        <p className="device-meta">
+          {permissions.canViewAllDevices ? "all devices allowed" : `assigned device ${session.assignedSensorId}`}
+        </p>
+      </div>
 
       <div className="status-card">
         <p className="muted">Sensor health</p>
@@ -62,16 +76,19 @@ export function Sidebar({
           className="device-select"
           value={selectedSensorId}
           onChange={(event) => onSensorChange(event.target.value)}
+          disabled={!permissions.canViewAllDevices}
         >
-          <option value="all">All devices</option>
-          {devices.map((device) => (
+          {permissions.canViewAllDevices ? <option value="all">All devices</option> : null}
+          {selectableDevices.map((device) => (
             <option key={device.sensorId} value={device.sensorId}>
               Device {device.sensorId}
             </option>
           ))}
         </select>
         <p className="device-meta">
-          {selectedSensorId === "all"
+          {!permissions.canViewAllDevices
+            ? `resident view: sensorId ${session.assignedSensorId}`
+            : selectedSensorId === "all"
             ? `${devices.length} device${devices.length === 1 ? "" : "s"} available`
             : `sensorId ${selectedSensorId}`}
         </p>
@@ -80,7 +97,7 @@ export function Sidebar({
       <div className="status-card device-card">
         <p className="muted">Sample window</p>
         <label className="device-select-label" htmlFor="sample-limit-select">
-          Max samples (last 24 h)
+          Max samples (last 14 days)
         </label>
         <select
           id="sample-limit-select"

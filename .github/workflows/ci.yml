@@ -2,9 +2,9 @@ name: CI/CD
 
 on:
   push:
-    branches: [Dev, main]
+    branches: [Dev, main, ML-team]
   pull_request:
-    branches: [Dev, main]
+    branches: [Dev, main, ML-team]
   workflow_dispatch:
 
 jobs:
@@ -72,8 +72,11 @@ jobs:
       - name: Install deps
         run: pip install -r requirements.txt -r requirements-dev.txt
 
-      - name: Test + coverage (≥50% required)
-        run: pytest --cov --cov-report=xml --cov-report=term-missing --cov-fail-under=50
+      - name: Lint
+        run: ruff check main.py tests/
+
+      - name: Test + coverage (≥70% required)
+        run: pytest --cov --cov-report=xml --cov-report=term-missing --cov-fail-under=70
 
       - name: Coverage summary
         if: always()
@@ -113,7 +116,36 @@ jobs:
         
       - name: Run IoT Unity tests
         run: platformio test -e native
-  
+
+  frontend:
+    name: FrontEnd (React)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: System/FrontEnd
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: System/FrontEnd/package-lock.json
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Run unit/component/API tests
+        run: npm run test:run
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run black-box browser tests
+        run: npm run test:e2e
 
   docker:
     name: Build images
@@ -145,7 +177,7 @@ jobs:
 
   deploy:
     name: Deploy to VPS
-    needs: [mainserver, mlserver, docker]
+    needs: [mainserver, mlserver, frontend, docker]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/Dev' || github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     steps:
@@ -162,4 +194,4 @@ jobs:
         env:
           BRANCH: ${{ github.ref_name }}
         run: |
-          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "set -euo pipefail; cd ~/SEP4; git fetch origin; git checkout \"${BRANCH}\"; git reset --hard \"origin/${BRANCH}\"; cd System; docker compose -f docker-compose.vps.yml stop ml-server main-server frontend mqtt-http-bridge || true; docker compose -f docker-compose.vps.yml rm -f ml-server main-server frontend mqtt-http-bridge || true; for n in kamtjatka-ml kamtjatka-main kamtjatka-frontend kamtjatka-mqtt-http-bridge; do docker ps -aq --filter name=\$n | xargs -r docker rm -f || true; done; docker compose -f docker-compose.vps.yml up -d --build --remove-orphans; docker image prune -f"
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "set -euo pipefail; cd ~/SEP4; git fetch origin; git checkout \"${BRANCH}\"; git reset --hard \"origin/${BRANCH}\"; cd System; docker compose -f docker-compose.vps.yml stop ml-server main-server frontend mqtt-http-bridge || true; docker compose -f docker-compose.vps.yml rm -f ml-server main-server frontend mqtt-http-bridge || true; for n in kamtjatka-ml kamtjatka-main kamtjatka-frontend kamtjatka-mqtt-http-bridge; do docker ps -aq --filter name=\$n | xargs -r docker rm -f || true; done; docker compose -f docker-compose.vps.yml up -d --build --remove-orphans || { echo '--- kamtjatka-main logs ---'; docker logs kamtjatka-main --tail 120 2>&1 || true; exit 1; }; docker image prune -f"
