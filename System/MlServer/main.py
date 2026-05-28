@@ -20,7 +20,9 @@ SCALER_FILE = "scaler.joblib"
 # only — deepchecks must NEVER be imported here (it needs numpy<2 / sklearn 1.7.x,
 # which conflicts with this server's runtime). The monitor runs in .venv-ml instead.
 DRIFT_LOG_ENABLED = os.getenv("DRIFT_LOG_ENABLED", "1") != "0"
-DRIFT_LOG_PATH = Path(os.getenv("DRIFT_LOG_PATH", str(BASE_DIR / "drift_data" / "incoming.csv")))
+DRIFT_LOG_PATH = Path(
+    os.getenv("DRIFT_LOG_PATH", str(BASE_DIR / "drift_data" / "incoming.csv"))
+)
 # tvoc/eco2 use the production payload spelling; the monitor aliases them to
 # tvoc_ppb/eco2_ppm to match the model's training feature names.
 DRIFT_LOG_COLUMNS = (
