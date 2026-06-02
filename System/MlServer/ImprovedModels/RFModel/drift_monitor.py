@@ -103,6 +103,78 @@ def build_suite(pred_threshold: float) -> Suite:
     )
 
 
+_ANYWIDGET_POLYFILL = """
+<script>
+/* anywidget polyfill — Deepchecks embeds Plotly charts as anywidget/AnyModel widgets,
+   but the bundled html-manager only knows about @jupyter-widgets/{base,controls,output}.
+   This defines the missing AMD module so the widget state renders in a plain browser. */
+define("anywidget", ["@jupyter-widgets/base"], function (base) {
+  var _plotlyLoaded = typeof window.Plotly !== "undefined";
+  var _plotlyPromise = null;
+
+  function ensurePlotly() {
+    if (typeof window.Plotly !== "undefined") return Promise.resolve(window.Plotly);
+    if (_plotlyPromise) return _plotlyPromise;
+    _plotlyPromise = new Promise(function (resolve) {
+      var s = document.createElement("script");
+      s.src = "https://cdn.plot.ly/plotly-2.26.0.min.js";
+      s.onload = function () { resolve(window.Plotly); };
+      document.head.appendChild(s);
+    });
+    return _plotlyPromise;
+  }
+
+  var AnyModel = base.DOMWidgetModel.extend({
+    defaults: function () {
+      return Object.assign({}, base.DOMWidgetModel.prototype.defaults.call(this), {
+        _model_module: "anywidget",
+        _model_module_version: "~0.11.*",
+        _view_module: "anywidget",
+        _view_module_version: "~0.11.*",
+        _view_name: "AnyView",
+        _model_name: "AnyModel",
+        _widget_data: [],
+        _widget_layout: {},
+        _config: {}
+      });
+    }
+  });
+
+  var AnyView = base.DOMWidgetView.extend({
+    render: function () {
+      var el = this.el;
+      el.style.minHeight = "350px";
+      var data   = this.model.get("_widget_data")   || [];
+      var layout = this.model.get("_widget_layout") || {};
+      var config = Object.assign({ responsive: true },
+                                 this.model.get("_config") || {});
+      ensurePlotly().then(function (Plotly) {
+        Plotly.newPlot(el, data, layout, config);
+      });
+    }
+  });
+
+  return { AnyModel: AnyModel, AnyView: AnyView };
+});
+</script>
+"""
+
+
+def patch_html_report(path: Path) -> None:
+    """Inject the anywidget AMD polyfill so Deepchecks reports open in any browser.
+
+    Deepchecks saves Plotly charts as anywidget/AnyModel widgets. The bundled
+    @jupyter-widgets/html-manager (0.20.x) doesn't include anywidget, so the
+    html-manager throws "Could not load module anywidget" and renders a blank page.
+    This polyfill defines the missing AMD module and renders charts via Plotly CDN.
+    """
+    html = path.read_text(encoding="utf-8")
+    if "define(\"anywidget\"" in html:
+        return  # already patched
+    html = html.replace("</body>", _ANYWIDGET_POLYFILL + "\n</body>", 1)
+    path.write_text(html, encoding="utf-8")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument(
@@ -154,6 +226,7 @@ def main() -> int:
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     report_path = args.out / f"drift_report_{stamp}.html"
     result.save_as_html(str(report_path))
+    patch_html_report(report_path)
 
     passed = result.passed(fail_if_warning=False)
     print(f"\nReference : {args.reference}  ({len(reference):,} rows)")
