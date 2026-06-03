@@ -55,9 +55,29 @@ namespace MainServer.Migrations
                     b.ToTable("Predictions");
                 });
 
+            modelBuilder.Entity("MainServer.Models.Room", b =>
+                {
+                    b.Property<int>("RoomId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("RoomId"));
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.HasKey("RoomId");
+
+                    b.ToTable("Rooms");
+                });
+
             modelBuilder.Entity("MainServer.Models.SensorDevice", b =>
                 {
                     b.Property<int>("SensorId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("RoomId")
                         .HasColumnType("int");
 
                     b.Property<string>("Status")
@@ -65,6 +85,8 @@ namespace MainServer.Migrations
                         .HasColumnType("longtext");
 
                     b.HasKey("SensorId");
+
+                    b.HasIndex("RoomId");
 
                     b.ToTable("Sensors");
                 });
@@ -114,6 +136,34 @@ namespace MainServer.Migrations
                     b.ToTable("Readings");
                 });
 
+            modelBuilder.Entity("MainServer.Models.User", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AssignedSensorId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Users");
+                });
+
             modelBuilder.Entity("MainServer.Models.Prediction", b =>
                 {
                     b.HasOne("MainServer.Models.SensorReading", "Reading")
@@ -125,6 +175,16 @@ namespace MainServer.Migrations
                     b.Navigation("Reading");
                 });
 
+            modelBuilder.Entity("MainServer.Models.SensorDevice", b =>
+                {
+                    b.HasOne("MainServer.Models.Room", "Room")
+                        .WithMany("Sensors")
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Room");
+                });
+
             modelBuilder.Entity("MainServer.Models.SensorReading", b =>
                 {
                     b.HasOne("MainServer.Models.SensorDevice", "Sensor")
@@ -134,6 +194,11 @@ namespace MainServer.Migrations
                         .IsRequired();
 
                     b.Navigation("Sensor");
+                });
+
+            modelBuilder.Entity("MainServer.Models.Room", b =>
+                {
+                    b.Navigation("Sensors");
                 });
 
             modelBuilder.Entity("MainServer.Models.SensorDevice", b =>

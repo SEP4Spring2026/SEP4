@@ -1,0 +1,207 @@
+@startuml
+title IoT System Design Diagram (Runtime Firmware + Unity Test Support)
+
+left to right direction
+
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam roundcorner 0
+
+skinparam class {
+  BackgroundColor #FFF2CC
+  BorderColor Black
+  FontColor Black
+  FontSize 12
+}
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontSize 13
+}
+
+skinparam note {
+  BackgroundColor #F8CECC
+  BorderColor #B85450
+  FontColor Black
+  FontSize 11
+}
+
+' ============================================================
+' RUNTIME FIRMWARE
+' ============================================================
+
+package "Runtime Firmware" as RuntimeFirmware {
+
+  package "Application Controller\nsrc/IoT_sensor_readings_feature" {
+
+    class "main.c\nApplication Controller" as Main {
+      + main()
+      --
+      + app_enable_global_interrupts()
+      + app_delay_ms()
+      + app_serial_debug_flush()
+      + app_log_wifi_step()
+      --
+      + mqtt_build_alarm_topic()
+      + mqtt_build_client_id()
+      + mqtt_rx_callback()
+      + mqtt_subscribe_over_tcp()
+      + mqtt_connect_over_tcp()
+      + mqtt_publish_over_tcp()
+      + mqtt_encode_remaining_length()
+    }
+  }
+
+
+  package "Sensor Driver Facade\nlib/Drivers" {
+
+    class "sensors.c / sensors.h\nSensor Driver Facade" as Sensors {
+      + sensors_init()
+      + read_co2()
+      + read_temperature()
+      + read_humidity()
+      + read_air_quality()
+      + build_payload(buffer, sensor_id)
+      --
+      + get cached DHT values
+      + get cached ENS160 values
+    }
+  }
+
+  package "Sensor Drivers and Bus Support\nlib/Drivers" {
+
+    class "co2.c / co2.h\nMH-Z19B CO2 Driver" as CO2
+    class "dht11.c / dht11.h\nDHT11 Driver" as DHT11
+    class "ens160.c / ens160.h\nENS160 Air Quality Driver" as ENS160
+    class "i2c.c / i2c.h\nI2C Driver" as I2C
+  }
+
+  package "Communication Drivers\nlib/Drivers" {
+
+    class "wifi.c / wifi.h\nESP8266 WiFi Interface" as WiFi {
+      + wifi_init()
+      + wifi_send()
+      + wifi_command_AT()
+      + wifi_command_join_AP()
+      + wifi_command_create_TCP_connection()
+      + wifi_command_TCP_transmit()
+      + wifi_command_close_TCP_connection()
+    }
+
+    class "uart.c / uart.h\nUART Driver" as UART
+    class "uart_stdio.c / uart_stdio.h\nSerial Debug Interface" as UartStdio
+  }
+
+  package "Output and Runtime Utilities" {
+
+    class "buzzer.c / buzzer.h\nBuzzer Driver" as Buzzer {
+      + buzzer_init_silent()
+      + buzzer_beep()
+    }
+
+    class "ringbuffer.c / ringbuffer.h\nRing Buffer Utility" as RingBuffer
+  }
+
+  package "Other Available Drivers\nlib/Drivers" {
+
+    class "button.h\nButton Interface" as Button
+    class "led.c / led.h\nLED Driver" as LED
+    class "timer.c / timer.h\nTimer Driver" as Timer
+  }
+}
+
+' ============================================================
+' EXTERNAL RUNTIME SYSTEM
+' ============================================================
+
+package "External Runtime System" as ExternalRuntime {
+
+  class "ESP8266 WiFi Module" as ESP8266
+
+  class "MQTT Broker / VPS" as Broker {
+    topic: iot/readings
+    alarm messages
+  }
+}
+
+' ============================================================
+' UNITY TEST SUPPORT
+' ============================================================
+
+package "Unity Test Support (Non-Runtime)" as UnitySupport {
+
+  package "Unity Native Test Environment\nPlatformIO env:native" {
+
+    class "test_payload_builder" as TestPayload
+    class "test_alarm_logic" as TestAlarm
+    class "test_sensor_validation" as TestValidation
+    class "test_sensor_fallback" as TestFallback
+    class "test_buzzer_behavior" as TestBuzzer
+    class "test_mqtt_message_format" as TestMqtt
+  }
+
+  package "Unity Test-Only Utilities\nlib/Utilities" {
+
+    class "payload_builder.c / .h" as PayloadBuilder
+    class "alarm_logic.c / .h" as AlarmLogic
+    class "sensor_validation.c / .h" as SensorValidation
+    class "sensor_fallback.c / .h" as SensorFallback
+    class "buzzer_behavior.c / .h" as BuzzerBehavior
+    class "mqtt_message_format.c / .h" as MqttFormat
+  }
+
+  note right of PayloadBuilder
+These modules support native Unity tests.
+
+They are not shown as part of the current
+runtime firmware flow because main.c does
+not call them directly.
+  end note
+}
+
+' ============================================================
+' RUNTIME RELATIONSHIPS
+' ============================================================
+
+Main --> Sensors : reads sensors /\nbuilds payload
+Main ---> WiFi : TCP transport for MQTT packets
+Main --> UartStdio : debug output
+Main --> Buzzer : alarm output
+
+Sensors --> CO2
+Sensors --> DHT11
+Sensors --> ENS160
+ENS160 --> I2C
+
+WiFi --> UART
+UartStdio --> UART
+UART --> RingBuffer : RX buffering
+
+WiFi --> ESP8266 : AT commands over UART
+ESP8266 ---> Broker : network connection
+Main ..> Broker : logical MQTT\npublish / subscribe
+
+' ============================================================
+' TEST-ONLY RELATIONSHIPS
+' ============================================================
+
+TestPayload ..> PayloadBuilder : tests
+TestAlarm ..> AlarmLogic : tests
+TestValidation ..> SensorValidation : tests
+TestFallback ..> SensorFallback : tests
+TestBuzzer ..> BuzzerBehavior : tests
+TestMqtt ..> MqttFormat : tests
+
+' ============================================================
+' LAYOUT ONLY
+' Try to place Unity test support under the left side of runtime
+' ============================================================
+
+Main -[hidden]down-> UnitySupport
+UnitySupport -[hidden]right-> ExternalRuntime
+UnitySupport -[hidden]right-> WiFi
+@enduml

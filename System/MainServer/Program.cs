@@ -3,62 +3,110 @@ using MainServer.Logging;
 using MainServer.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-DotNetEnv.Env.Load();
+LoadEnvironmentFile();
 
+// -------------------- LOGGING --------------------
 var liveLogBuffer = new InMemoryLogBuffer(maxLines: 800);
 builder.Services.AddSingleton(liveLogBuffer);
 builder.Logging.AddProvider(new InMemoryLoggerProvider(liveLogBuffer));
 
+// -------------------- CONTROLLERS --------------------
 builder.Services.AddControllers();
 
-var dbHost = Environment.GetEnvironmentVariable("DB_HOST");
-var dbPort = Environment.GetEnvironmentVariable("DB_PORT");
-var dbName = Environment.GetEnvironmentVariable("DB_NAME");
-var dbUser = Environment.GetEnvironmentVariable("DB_USER");
-var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD");
-
-var mlUrlRaw = Environment.GetEnvironmentVariable("ML_SERVER_URL");
-var mlUrl = string.IsNullOrWhiteSpace(mlUrlRaw) ? "http://ml-server:8000" : mlUrlRaw.Trim();
-if (!Uri.TryCreate(mlUrl, UriKind.Absolute, out var mlUri)
-    || (mlUri.Scheme != Uri.UriSchemeHttp && mlUri.Scheme != Uri.UriSchemeHttps))
-{
-    Console.WriteLine($"[startup] Invalid ML_SERVER_URL '{mlUrl}', using http://ml-server:8000");
-    mlUrl = "http://ml-server:8000";
-}
+// -------------------- DB --------------------
+var dbHost = GetRequiredEnv("DB_HOST");
+var dbPort = GetRequiredEnv("DB_PORT");
+var dbName = GetRequiredEnv("DB_NAME");
+var dbUser = GetRequiredEnv("DB_USER");
+var dbPassword = GetRequiredEnv("DB_PASSWORD");
 
 var connectionString =
     $"Server={dbHost};Port={dbPort};Database={dbName};User={dbUser};Password={dbPassword};";
 
 if (string.Equals(Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER"), "true", StringComparison.OrdinalIgnoreCase))
 {
-    if (string.IsNullOrWhiteSpace(dbHost)
-        || string.IsNullOrWhiteSpace(dbPort)
-        || string.IsNullOrWhiteSpace(dbName)
-        || string.IsNullOrWhiteSpace(dbUser)
-        || string.IsNullOrWhiteSpace(dbPassword))
-    {
-        Console.WriteLine("[startup] Missing DB_HOST, DB_PORT, DB_NAME, DB_USER, or DB_PASSWORD.");
-        Environment.Exit(1);
-    }
-
     connectionString += ";SslMode=None;AllowPublicKeyRetrieval=true";
 }
-
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 36)))
 );
 
+// -------------------- JWT CONFIG --------------------
+var jwtKey = Environment.GetEnvironmentVariable("JWT_KEY");
+if (string.IsNullOrWhiteSpace(jwtKey))
+    jwtKey = builder.Configuration["Jwt:Key"];
+
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "MainServer";
+var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "MainClient";
+
+if (string.IsNullOrWhiteSpace(jwtKey))
+    throw new Exception("JWT key is missing. Set Jwt:Key or JWT_KEY.");
+
+var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
+var signingKey = new SymmetricSecurityKey(keyBytes);
+
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
+            IssuerSigningKey = signingKey,
+            ClockSkew = TimeSpan.Zero
+        };
+    });
+
+// -------------------- AUTHORIZATION POLICIES --------------------
+// Role values must match exactly what JwtService puts in the Role claim
+// and what AuthController stores in User.Role (all lowercase).
+builder.Services.AddAuthorization(options =>
+{
+    // Any authenticated user
+    options.AddPolicy("AnyRole", policy =>
+        policy.RequireAuthenticatedUser());
+
+    // Residents and above (all roles)
+    options.AddPolicy("ResidentOrAbove", policy =>
+        policy.RequireRole("resident", "building-administrator", "admin"));
+
+    // Building admins and system admins only
+    options.AddPolicy("AdminOrAbove", policy =>
+        policy.RequireRole("building-administrator", "admin"));
+
+    // System admin only
+    options.AddPolicy("SystemAdmin", policy =>
+        policy.RequireRole("admin"));
+});
+
+// -------------------- SERVICES --------------------
+builder.Services.AddScoped<JwtService>();
+
 builder.Services.AddHttpClient<MlClient>(client =>
 {
+    var mlUrlRaw = Environment.GetEnvironmentVariable("ML_SERVER_URL");
+    var mlUrl = string.IsNullOrWhiteSpace(mlUrlRaw) ? "http://ml-server:8000" : mlUrlRaw.Trim();
     client.BaseAddress = new Uri(mlUrl);
     client.Timeout = TimeSpan.FromSeconds(5);
 });
-builder.Services.AddSingleton<ReadingsStreamHub>();
 
+builder.Services.AddSingleton<ReadingsStreamHub>();
+builder.Services.AddSingleton<AlarmMqttPublisher>();
+builder.Services.AddHostedService<AlarmMqttShutdownHostedService>();
+
+// -------------------- CORS --------------------
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
@@ -69,53 +117,108 @@ builder.Services.AddCors(options =>
         policy.AllowAnyHeader().AllowAnyMethod();
 
         if (allowedOrigins.Length > 0)
-        {
             policy.WithOrigins(allowedOrigins);
-            return;
-        }
-
-        if (builder.Environment.IsDevelopment())
-        {
+        else if (builder.Environment.IsDevelopment())
             policy.SetIsOriginAllowed(_ => true);
-            return;
-        }
-
-        policy.AllowAnyOrigin();
+        else
+            policy.AllowAnyOrigin();
     });
 });
 
 var app = builder.Build();
 
-var startupLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
-startupLogger.LogInformation("DB host: {DbHost}; ML URL: {MlUrl}", dbHost ?? "(null)", mlUrl);
-
-await ApplyMigrationsWithRepairAsync(app, startupLogger);
-
+// -------------------- MIDDLEWARE ORDER --------------------
 app.UseCors("AllowFrontend");
+app.UseAuthentication();
+app.UseAuthorization();
 
+// -------------------- ROUTES --------------------
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 app.MapGet("/api/logs", (InMemoryLogBuffer logs) =>
-    Results.Text(string.Join(Environment.NewLine, logs.Snapshot()), "text/plain; charset=utf-8"));
+    Results.Text(string.Join(Environment.NewLine, logs.Snapshot()), "text/plain; charset=utf-8"))
+    .RequireAuthorization("SystemAdmin");
 
 app.MapControllers();
 
-startupLogger.LogInformation("MainServer ready; buffered diagnostics at GET /api/logs.");
+// -------------------- STARTUP --------------------
+var startupLogger = app.Services.GetRequiredService<ILoggerFactory>()
+    .CreateLogger("Startup");
 
-app.Run();
+startupLogger.LogInformation("MainServer starting...");
 
+// Start Kestrel before migrations so /health passes while the DB schema is updating.
+await app.StartAsync();
+startupLogger.LogInformation("MainServer listening on {Urls}", string.Join(", ", app.Urls));
+
+try
+{
+    await ApplyMigrationsWithRepairAsync(app, startupLogger);
+    startupLogger.LogInformation("Database migrations complete.");
+}
+catch (Exception ex)
+{
+    startupLogger.LogError(ex, "Database migration failed; API may be degraded until schema is fixed.");
+}
+
+await app.WaitForShutdownAsync();
+
+// -------------------- DB MIGRATION --------------------
 static async Task ApplyMigrationsWithRepairAsync(WebApplication application, ILogger startupLog)
 {
     await using var scope = application.Services.CreateAsyncScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
     try
     {
-        await db.Database.MigrateAsync().ConfigureAwait(false);
+        await db.Database.MigrateAsync();
     }
     catch (Exception ex)
     {
-        startupLog.LogWarning(ex, "Database.MigrateAsync failed; attempting legacy schema repair");
-        await DbSchemaRepair.RepairAfterMigrateFailureAsync(db, startupLog).ConfigureAwait(false);
-        await db.Database.MigrateAsync().ConfigureAwait(false);
+        startupLog.LogWarning(ex, "Migration failed, falling back to EnsureCreated");
+        try
+        {
+            db.Database.EnsureCreated();
+        }
+        catch (Exception ex2)
+        {
+            startupLog.LogError(ex2, "EnsureCreated also failed");
+        }
     }
+}
+
+static void LoadEnvironmentFile()
+{
+    foreach (var startPath in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })
+    {
+        var directory = new DirectoryInfo(startPath);
+        while (directory != null)
+        {
+            var looksLikeSystemDirectory =
+                File.Exists(Path.Combine(directory.FullName, ".env.example")) &&
+                Directory.Exists(Path.Combine(directory.FullName, "MainServer")) &&
+                Directory.Exists(Path.Combine(directory.FullName, "FrontEnd"));
+
+            if (looksLikeSystemDirectory)
+            {
+                var envPath = Path.Combine(directory.FullName, ".env");
+                if (!File.Exists(envPath))
+                    return;
+
+                DotNetEnv.Env.Load(envPath);
+                return;
+            }
+
+            directory = directory.Parent;
+        }
+    }
+}
+
+static string GetRequiredEnv(string name)
+{
+    var value = Environment.GetEnvironmentVariable(name);
+    if (string.IsNullOrWhiteSpace(value))
+        throw new InvalidOperationException($"{name} is missing. Check System/.env.");
+
+    return value;
 }

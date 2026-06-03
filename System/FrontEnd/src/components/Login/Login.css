@@ -1,0 +1,122 @@
+.login-page {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.login-page .login-card {
+    width: 420px !important;
+    background: #111827 !important;
+    border: 1px solid #2b3648 !important;
+    padding: 32px !important;
+    border-radius: 18px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.45);
+}
+
+.login-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.logo-badge {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    background: #3b82f6;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    font-size: 22px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.login-header h1 {
+    margin: 0;
+    color: white;
+}
+
+.login-copy h2 {
+    margin: 8px 0;
+    color: white;
+}
+
+.muted {
+    color: #9ca3af;
+}
+
+.login-field {
+    display: flex;
+    flex-direction: column;
+}
+
+.device-select-label {
+    margin-bottom: 8px;
+    color: #d1d5db;
+    font-size: 14px;
+}
+
+.login-page .device-select {
+    padding: 12px !important;
+    border-radius: 10px !important;
+    border: 1px solid #334155 !important;
+    background: #1e293b !important;
+    color: white !important;
+    font-size: 15px !important;
+}
+
+.login-page .device-select:focus {
+    outline: none;
+    border-color: #3b82f6 !important;
+}
+
+.login-button {
+    height: 48px;
+    border: none;
+    border-radius: 10px;
+    background: #2563eb;
+    color: white;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .2s;
+}
+
+.login-button:hover:not(:disabled) {
+    background: #1d4ed8;
+}
+
+.login-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.login-error {
+    color: #f87171;
+    font-size: 14px;
+    margin: 0;
+    padding: 10px 14px;
+    background: rgba(239,68,68,.1);
+    border: 1px solid rgba(239,68,68,.3);
+    border-radius: 8px;
+}
+
+.login-switch {
+    text-align: center;
+    color: #60a5fa;
+    font-size: 14px;
+    cursor: pointer;
+    margin: 0;
+    transition: color .2s;
+}
+
+.login-switch:hover {
+    color: #93c5fd;
+    text-decoration: underline;
+}

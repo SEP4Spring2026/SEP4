@@ -1,0 +1,4 @@
+dataset,score,wass_temp,wass_hum,overlap_temp,overlap_hum,n
+Blattmann,56.3,9.01,19.25,55.2,95.6,62630
+Environmental Sensor Telemetry,62.6,1.79,33.47,75.9,94.1,132000
+Algerian Forest Fires,57.6,8.06,20.66,43.4,91.4,244

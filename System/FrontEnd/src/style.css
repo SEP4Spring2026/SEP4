@@ -41,6 +41,45 @@ body {
   font-weight: bold;
 }
 
+.user-menu {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-menu-copy {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(34, 211, 238, 0.14);
+  color: #67e8f9;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.logout-button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+}
+
+.logout-button:hover {
+  color: #f8fafc;
+}
+
 .muted {
   margin: 0;
   color: #94a3b8;
@@ -80,6 +119,12 @@ p {
 
 .menu-item:hover {
   background: rgba(255, 255, 255, 0.07);
+}
+
+.menu-item:disabled,
+.device-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.56;
 }
 
 .status-card,
@@ -131,6 +176,59 @@ p {
   padding: 24px;
 }
 
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: #111827;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  display: grid;
+  gap: 28px;
+}
+
+.login-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.login-copy {
+  display: grid;
+  gap: 8px;
+}
+
+.login-field {
+  display: grid;
+  gap: 8px;
+}
+
+.login-copy h2 {
+  margin: 0;
+  font-size: 30px;
+}
+
+.login-button {
+  width: 100%;
+  border: 0;
+  border-radius: 10px;
+  padding: 14px 18px;
+  background: #22d3ee;
+  color: #082f49;
+  font: inherit;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.login-button:hover {
+  background: #67e8f9;
+}
+
 .topbar {
   display: flex;
   align-items: center;
@@ -145,12 +243,87 @@ p {
 }
 
 .top-grid {
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 1fr;
+}
+
+.home-action-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .stats-grid {
   grid-template-columns: repeat(4, 1fr);
   margin-top: 16px;
+}
+
+.sensors-device-list {
+  grid-template-columns: 1fr;
+}
+
+.sensor-device-card {
+  display: grid;
+  gap: 16px;
+}
+
+.sensor-device-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sensor-reading-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.sensor-reading {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 14px;
+  background: #0f172a;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.sensor-reading-grid strong {
+  font-size: 24px;
+}
+
+.sensor-reading small {
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.sensor-reading.reading-success {
+  border-color: rgba(74, 222, 128, 0.22);
+}
+
+.sensor-reading.reading-success small {
+  color: #4ade80;
+}
+
+.sensor-reading.reading-warning {
+  border-color: rgba(250, 204, 21, 0.28);
+}
+
+.sensor-reading.reading-warning small {
+  color: #facc15;
+}
+
+.sensor-reading.reading-danger {
+  border-color: rgba(248, 113, 113, 0.32);
+}
+
+.sensor-reading.reading-danger small {
+  color: #f87171;
+}
+
+.sensor-reading.reading-unknown small {
+  color: #94a3b8;
+}
+
+.sensor-empty-state {
+  margin: 0;
 }
 
 .bottom-grid {
@@ -160,13 +333,18 @@ p {
 
 .view-grid,
 .payload-grid,
-.settings-grid {
+.settings-grid,
+.alerts-grid {
   margin-top: 0;
 }
 
 .payload-grid,
 .settings-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.alerts-grid {
+  grid-template-columns: 1fr;
 }
 
 .card {
@@ -178,6 +356,10 @@ p {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
   margin-top: 20px;
+}
+
+.sensor-readings-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .hero-stat {
@@ -208,6 +390,19 @@ p {
 
 .tag {
   color: #67e8f9;
+}
+
+.reading-device-badge {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  text-align: right;
+}
+
+.reading-device-badge strong {
+  color: #67e8f9;
+  font-size: 22px;
+  line-height: 1.1;
 }
 
 .success {
@@ -284,6 +479,83 @@ p {
   border-bottom: 0;
 }
 
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.inline-action {
+  width: auto;
+  display: inline-block;
+  text-align: center;
+}
+
+.users-table {
+  display: grid;
+  margin-top: 16px;
+}
+
+.users-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(190px, 220px) minmax(110px, 140px) minmax(240px, 320px) minmax(140px, auto);
+  gap: 12px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.users-row:last-child {
+  border-bottom: 0;
+}
+
+.users-row-header {
+  padding-top: 0;
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.users-name,
+.users-sensor {
+  min-width: 0;
+}
+
+.users-name {
+  word-break: break-word;
+}
+
+.users-sensor,
+.users-actions .muted {
+  font-size: 12px;
+}
+
+.users-assign,
+.users-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.users-actions {
+  justify-content: flex-end;
+}
+
+.users-assign:empty {
+  min-height: 42px;
+}
+
+.action-hint {
+  margin-top: 12px;
+}
+
+.restricted-card {
+  border-color: rgba(248, 113, 113, 0.28);
+}
+
 .payload-row {
   display: block;
 }
@@ -306,14 +578,92 @@ p {
   margin-top: 0;
 }
 
-.charts-grid .chart-summary-card {
-  grid-column: 1 / -1;
+.sensor-charts-grid {
+  margin-top: 4px;
 }
 
 .chart-card {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.chart-panel {
+  padding: 18px;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.52);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.alerts-summary-card {
+  border-color: rgba(248, 113, 113, 0.22);
+}
+
+.alert-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  border-left: 4px solid #94a3b8;
+}
+
+.alert-card.critical {
+  border-left-color: #f87171;
+}
+
+.alert-card.warning {
+  border-left-color: #facc15;
+}
+
+.alert-card.info {
+  border-left-color: #67e8f9;
+}
+
+.alert-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.alert-severity {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.alert-severity.critical {
+  background: rgba(248, 113, 113, 0.16);
+  color: #fca5a5;
+}
+
+.alert-severity.warning {
+  background: rgba(250, 204, 21, 0.14);
+  color: #fde68a;
+}
+
+.alert-severity.info {
+  background: rgba(103, 232, 249, 0.14);
+  color: #67e8f9;
+}
+
+.alert-dismiss {
+  border: 1px solid rgba(148, 163, 184, 0.34);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.alert-dismiss:hover {
+  border-color: #67e8f9;
+  color: #67e8f9;
 }
 
 .chart-stats {
@@ -373,12 +723,23 @@ p {
 @media (max-width: 900px) {
   .page,
   .top-grid,
+  .home-action-grid,
   .stats-grid,
   .bottom-grid,
   .payload-grid,
   .settings-grid,
+  .alerts-grid,
   .charts-grid {
     grid-template-columns: 1fr;
+  }
+
+  .alert-card {
+    flex-direction: column;
+  }
+
+  .reading-device-badge {
+    justify-items: start;
+    text-align: left;
   }
 
   .chart-stats {
@@ -393,4 +754,208 @@ p {
   .hero-stats {
     grid-template-columns: 1fr;
   }
+
+  .sensor-reading-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .users-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    align-items: stretch;
+  }
+
+  .users-row-header {
+    display: none;
+  }
+
+  .users-assign,
+  .users-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+}
+
+.top-grid,
+.home-action-grid,
+.stats-grid,
+.bottom-grid,
+.payload-grid,
+.charts-grid,
+.settings-grid,
+.card {
+  gap: 16px;
+}
+
+.section-spacer {
+  height: 16px;
+}
+
+.recommendation-item {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.recommendation-item .bullet {
+  flex-shrink: 0;
+}
+
+.room-card {
+  border: 1px solid #ddd;
+  padding: 12px;
+  margin-bottom: 12px;
+  border-radius: 8px;
+}
+
+.sensor-item {
+  display: flex;
+  justify-content: space-between;
+  margin: 4px 0;
+}
+
+.assign-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.input {
+  width: 100%;
+  padding: 6px;
+  margin-bottom: 8px;
+}
+
+.btn {
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+/* Page background */
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0b1220;
+  padding: 24px;
+}
+
+/* Main card */
+.login-card.card {
+  width: 100%;
+  max-width: 420px;
+  padding: 28px;
+  border-radius: 14px;
+  background: #111827;
+  border: 1px solid #1f2937;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+
+/* Header */
+.login-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+/* Logo circle */
+.logo-badge {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: #3b82f6;
+  color: white;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+/* Title text */
+.login-header h1 {
+  font-size: 18px;
+  color: #f9fafb;
+  margin: 0;
+}
+
+.login-header .muted {
+  font-size: 12px;
+  margin: 0;
+}
+
+/* Copy section */
+.login-copy {
+  margin: 18px 0 22px;
+}
+
+.login-copy h2 {
+  font-size: 20px;
+  color: #f9fafb;
+  margin: 6px 0;
+}
+
+.login-copy .muted {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* Field wrapper */
+.login-field {
+  margin-bottom: 18px;
+}
+
+/* Label */
+.device-select-label {
+  display: block;
+  font-size: 12px;
+  color: #9ca3af;
+  margin-bottom: 6px;
+}
+
+/* Select input */
+.device-select {
+  width: 100%;
+  padding: 12px 12px;
+  border-radius: 10px;
+  border: 1px solid #374151;
+  background: #0b1220;
+  color: #e5e7eb;
+  outline: none;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.device-select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+/* Button */
+.login-button {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  background: #3b82f6;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.login-button:hover {
+  background: #2563eb;
+}
+
+.login-button:active {
+  transform: scale(0.98);
+}
+
+/* Muted helper text reuse */
+.muted {
+  color: #9ca3af;
 }

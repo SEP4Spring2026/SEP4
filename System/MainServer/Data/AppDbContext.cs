@@ -10,6 +10,9 @@ public class AppDbContext : DbContext
     public DbSet<SensorDevice> Sensors => Set<SensorDevice>();
     public DbSet<SensorReading> Readings => Set<SensorReading>();
     public DbSet<Prediction> Predictions => Set<Prediction>();
+    
+    public DbSet<User> Users => Set<User>();
+    public DbSet<Room> Rooms { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -28,5 +31,11 @@ public class AppDbContext : DbContext
             .HasOne(p => p.Reading)
             .WithOne(r => r.Prediction!)
             .HasForeignKey<Prediction>(p => p.ReadingId);
+        
+        modelBuilder.Entity<SensorDevice>()
+            .HasOne(s => s.Room)
+            .WithMany(r => r.Sensors)
+            .HasForeignKey(s => s.RoomId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

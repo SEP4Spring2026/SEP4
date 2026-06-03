@@ -1,0 +1,88 @@
+@startuml
+
+title <size:20><b>Activity Diagram - Receive Fire Warning and Fire Prediction</b></size>
+
+skinparam backgroundColor white
+
+skinparam activity {
+  BackgroundColor #FFFDF7
+  BorderColor #555555
+  FontSize 13
+}
+
+skinparam arrow {
+  Color #555555
+}
+
+skinparam note {
+  BackgroundColor #FFF8DC
+  BorderColor #999999
+}
+
+|#EAF4FF|<b><color:#1F4E79>AeroSense System</color></b>|
+start
+
+:Collect room sensor data from IoT device;
+note right
+  Sensor data includes temperature,
+  humidity, CO2, TVOC and smoke /
+  air-quality indicators.
+end note
+
+:Evaluate room condition;
+:Classify room condition;
+
+if (Room condition normal?) then (Yes)
+  :Store sensor reading;
+  :Continue monitoring;
+  stop
+else (No)
+endif
+
+if (Unhealthy air quality or cooking smoke?) then (Yes)
+  :Create air-quality notification;
+  :Generate recommendation;
+
+  |#FDECEF|<b><color:#8A3A4A>User</color></b>|
+  :Receive air-quality notification;
+  :View recommendation;
+
+  |#EAF4FF|<b><color:#1F4E79>AeroSense System</color></b>|
+  :Continue monitoring;
+  stop
+else (No)
+endif
+
+if (Possible fire detected or high fire risk predicted?) then (Yes)
+  #F4B6B6:Create fire risk alert;
+  #F4B6B6:Store alert in system log;
+  #F4B6B6:Send fire warning notification;
+  #F4B6B6:Activate buzzer alarm on IoT device;
+
+  |#FDECEF|<b><color:#8A3A4A>User</color></b>|
+  #F4B6B6:Receive fire warning;
+  #F4B6B6:Check the situation;
+
+  if (Danger resolved?) then (Yes)
+    :Dismiss notification or reset alarm;
+
+    |#EAF4FF|<b><color:#1F4E79>AeroSense System</color></b>|
+    :Update alert status;
+    :Stop or reset buzzer alarm;
+    :Continue monitoring;
+    stop
+  else (No)
+    #F4B6B6:Take further safety action;
+
+    |#EAF4FF|<b><color:#1F4E79>AeroSense System</color></b>|
+    #F4B6B6:Keep alert active;
+    #F4B6B6:Continue monitoring;
+    stop
+  endif
+
+else (No)
+  :Continue monitoring;
+  stop
+endif
+
+@enduml

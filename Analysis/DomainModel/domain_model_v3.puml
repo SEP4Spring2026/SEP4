@@ -1,0 +1,302 @@
+
+@startuml
+title
+<color:#2F75B5><size:22><b>AeroSense</b></size></color>
+<size:14>Fire Risk Monitoring System - Domain Model</size>
+end title
+
+top to bottom direction
+
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam linetype ortho
+skinparam packageStyle rectangle
+skinparam roundcorner 0
+skinparam nodesep 55
+skinparam ranksep 55
+
+skinparam class {
+  BackgroundColor #FFF2CC
+  BorderColor Black
+  FontColor Black
+  FontSize 12
+}
+
+skinparam package {
+  BackgroundColor #EAF3FF
+  BorderColor #BFD7EA
+  FontColor Black
+  FontSize 13
+}
+
+skinparam note {
+  BackgroundColor #F8CECC
+  BorderColor #B85450
+  FontColor Black
+  FontSize 11
+}
+
+' ============================================================
+' COLOR LEGEND FOR RELATIONSHIPS
+' Users            = #5B8FF9
+' Administration   = #7A7A7A
+' Location         = #52C41A
+' Monitoring       = #13C2C2
+' Analysis         = #FA8C16
+' Response         = #F5222D
+' Cross-domain     = #595959
+' ============================================================
+
+' ============================================================
+' TOP LEFT: USERS
+' ============================================================
+
+package "Users" as Users {
+
+  abstract class User <<concept>> {
+    fullName
+    email
+  }
+
+  class Resident <<concept>>
+  class BuildingAdministrator <<concept>>
+  class SystemAdministrator <<concept>>
+
+  User <|-- Resident
+  User <|-- BuildingAdministrator
+  User <|-- SystemAdministrator
+
+  User -[hidden]down- Resident
+  Resident -[hidden]down- BuildingAdministrator
+  BuildingAdministrator -[hidden]down- SystemAdministrator
+}
+
+' ============================================================
+' TOP RIGHT: RESPONSE
+' ============================================================
+
+package "Alerts and Response" as Response {
+
+  class Alert <<concept>> {
+    createdAt
+    alertType
+    message
+    priority
+    status
+  }
+
+  class Notification <<concept>> {
+    sentAt
+    status
+  }
+
+  class Alarm <<concept>> {
+    startedAt
+    status
+  }
+
+  class Recommendation <<concept>> {
+    recommendationType
+    message
+  }
+
+  Alert -[hidden]down- Notification
+  Notification -[hidden]down- Alarm
+  Alarm -[hidden]down- Recommendation
+}
+
+' ============================================================
+' MIDDLE LEFT: ADMINISTRATION
+' ============================================================
+
+package "Administration" as Administration {
+
+  class SystemLog <<concept>> {
+    timestamp
+    eventType
+    level
+    description
+  }
+}
+
+' ============================================================
+' MIDDLE CENTER: ANALYSIS
+' ============================================================
+
+package "Analysis" as Analysis {
+
+  class RoomCondition <<concept>> {
+    assessmentTime
+    category
+    severity
+  }
+
+  class Prediction <<concept>> {
+    predictionType
+    predictionTime
+    riskLevel
+    confidenceScore
+  }
+
+  RoomCondition -[hidden]down- Prediction
+}
+
+' ============================================================
+' BOTTOM LEFT: LOCATION
+' ============================================================
+
+package "Location" as Location {
+
+  class Building <<concept>> {
+    name
+    address
+  }
+
+  class Room <<concept>> {
+    roomNumber
+    floor
+    roomType
+  }
+
+  Building -[hidden]right- Room
+}
+
+' ============================================================
+' BOTTOM RIGHT: MONITORING
+' ============================================================
+
+package "Monitoring" as Monitoring {
+
+  class IoTDevice <<concept>> {
+    serialNumber
+    status
+    installedAt
+  }
+
+  class SensorReading <<concept>> {
+    timestamp
+    temperature
+    humidity
+    co2
+    tvoc
+    smokeLevel
+  }
+
+  IoTDevice -[hidden]down- SensorReading
+}
+
+' ============================================================
+' PACKAGE LAYOUT HELPERS
+' Keeps the Astah-like arrangement
+' ============================================================
+
+Users -[hidden]right- Response
+Users -[hidden]down- Administration
+Response -[hidden]down- Analysis
+Administration -[hidden]right- Analysis
+Administration -[hidden]down- Location
+Analysis -[hidden]down- Monitoring
+Location -[hidden]right- Monitoring
+
+' ============================================================
+' LOCATION RELATIONSHIPS (green)
+' ============================================================
+
+Building "1" *-[#52C41A]right- "1..*" Room : contains
+
+' ============================================================
+' USERS ↔ LOCATION (blue/green)
+' ============================================================
+
+Room "1" -[#5B8FF9]up- "0..*" Resident : occupied by
+BuildingAdministrator "0..*" -[#5B8FF9]down- "1..*" Building : monitors
+
+' ============================================================
+' LOCATION ↔ MONITORING (green/teal)
+' ============================================================
+
+Room "1" -[#13C2C2]right- "1..*" IoTDevice : equipped with
+
+' ============================================================
+' MONITORING FLOW (teal)
+' ============================================================
+
+IoTDevice "1" -[#13C2C2]down- "0..*" SensorReading : produces
+
+' ============================================================
+' MONITORING ↔ ANALYSIS (teal/orange)
+' ============================================================
+
+SensorReading "1..*" -[#FA8C16]left- "0..*" RoomCondition : evaluated as
+SensorReading "0..*" -[#FA8C16]left- "0..*" Prediction : used for
+
+Room "1" -[#FA8C16]up- "0..*" RoomCondition : has
+Room "1" -[#FA8C16]up- "0..*" Prediction : has
+
+' ============================================================
+' ANALYSIS ↔ RESPONSE (orange/purple)
+' ============================================================
+
+RoomCondition "1" -[#9254DE]up- "0..*" Alert : may trigger
+Prediction "1" -[#9254DE]right- "0..*" Alert : may trigger
+
+RoomCondition "1" -[#9254DE]right- "0..*" Recommendation : may generate
+Prediction "1" -[#9254DE]right- "0..*" Recommendation : may generate
+
+Alert "1" -[#9254DE]down- "0..*" Notification : creates
+Alert "0..*" -[#9254DE]down- "0..1" Alarm : may activate
+
+Alarm "0..*" -[#595959]left- "1" IoTDevice : sounds on
+
+' ============================================================
+' USERS ↔ RESPONSE (blue/purple)
+' ============================================================
+
+User "1" -[#5B8FF9]right- "0..*" Notification : receives
+User "1" -[#5B8FF9]right- "0..*" Recommendation : receives
+
+' ============================================================
+' SYSTEM ADMINISTRATION (gray)
+' ============================================================
+
+SystemAdministrator "1" -[#7A7A7A]left- "0..*" User : manages
+SystemAdministrator "1" -[#7A7A7A]down- "0..*" IoTDevice : configures
+SystemAdministrator "1" -[#7A7A7A]left- "0..*" SystemLog : reviews
+
+IoTDevice "1" -[#7A7A7A]left- "0..*" SystemLog : generates
+Alert "1" -[#7A7A7A]left- "0..*" SystemLog : documented in
+
+' ============================================================
+' RIGHT SIDE SPACER
+' Adds visual white space after the Response package
+' ============================================================
+
+class " " as RightSpacer <<spacer>>
+Response -[hidden]right- RightSpacer
+
+skinparam class<<spacer>> {
+  BackgroundColor White
+  BorderColor White
+  FontColor White
+}
+
+' ============================================================
+' NOTES
+' ============================================================
+
+note top of RoomCondition
+Examples of room condition categories:
+- Normal
+- Cooking smoke
+- Steam / false alarm
+- Possible fire
+- Unhealthy air quality
+end note
+
+note bottom of Prediction
+Examples of prediction types:
+- Fire risk prediction
+- Air-quality risk prediction
+end note
+
+@enduml
