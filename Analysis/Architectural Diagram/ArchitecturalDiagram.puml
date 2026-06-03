@@ -1,0 +1,89 @@
+@startsalt
+{
+{T
+ + System/
+ ++ FrontEnd/
+ +++ e2e/
+ +++ public/
+ +++ src/
+ ++++ assets/
+ ++++ auth/
+ ++++ components/
+ +++++ Auth/
+ +++++ Dashboard/
+ +++++ Login/
+ +++++ StatusScreen/
+ ++++ data/
+ ++++ services/
+ ++++ test/
+ ++ IoT_foundation/
+ +++ .vscode/
+ +++ devops/
+ ++++ mosquitto/
+ ++++ mqtt_http_bridge/
+ +++ docs/
+ +++ include/
+ +++ lib/
+ ++++ Drivers/
+ ++++ Utilities/
+ +++ src/
+ ++++ IoT_sensor_readings_feature/
+ +++ test/
+ ++++ test_alarm_logic/
+ ++++ test_buzzer_behavior/
+ ++++ test_mqtt_message_format/
+ ++++ test_payload_builder/
+ ++++ test_sensor_fallback/
+ ++++ test_sensor_validation/
+ ++ MainServer/
+ +++ bin/
+ ++++ Debug/
+ +++++ net10.0/
+ +++ Controllers/
+ +++ Data/
+ +++ Dtos/
+ +++ Logging/
+ +++ Migrations/
+ +++ Models/
+ +++ obj/
+ ++++ Debug/
+ +++++ net10.0/
+ ++++++ ref/
+ ++++++ refint/
+ +++ Properties/
+ +++ Services/
+ ++ MainServer.Tests/
+ +++ bin/
+ ++++ Debug/
+ +++++ net10.0/
+ +++ obj/
+ ++++ Debug/
+ +++++ net10.0/
+ ++++++ ref/
+ ++++++ refint/
+ ++ MlServer/
+ +++ Felipe's model/
+ ++++ Raw_Datasets/
+ +++ Guillermo's model/
+ ++++ Processed Data/
+ ++++ Raw_Datasets/
+ +++++ Indoor Laboratory Fire Dataset/
+ +++++ NIST_Cooking_Dataset/
+ +++ ImprovedModels/
+ ++++ data_processing/
+ +++++ preprocessed/
+ +++++ processed/
+ +++++ raw/
+ ++++ GB_model/
+ ++++ KNN Model/
+ ++++ RFModel/
+ +++++ reports/
+ ++++ SVM Model/
+ +++ model/
+ +++ tests/
+ +++ Waqar's model/
+ +++ __pycache__/
+ ++ mosquitto/
+}
+}
+@endsalt

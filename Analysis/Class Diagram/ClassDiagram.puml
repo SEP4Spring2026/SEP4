@@ -1,0 +1,307 @@
+@startuml
+!include https://raw.githubusercontent.com/fredoslav2004/MinimalThemePUML/refs/heads/main/minimal-theme.puml
+
+title SEP4_ClassDiagram
+
+package "MlServer" {
+  class Sensors {
+    + temperature : float
+    + humidity : float
+    + co2Level : float
+    + tvoc : float
+    + eco2 : float
+    + aqi : int
+  }
+  class Reading {
+    + sensorId : int
+    + timestamp : datetime
+    + sensors : Sensors
+    + classification : Optional[str]
+  }
+  class Prediction {
+    + predictedCategory : str
+    + confidenceScore : float
+    + riskLevel : str
+  }
+  class MlServerApp {
+    - _model : RandomForestClassifier
+    - _scaler : StandardScaler
+    - FEATURE_ORDER : tuple
+    - CATEGORY_BY_CLASS : dict
+    - RISK_BY_CLASS : dict
+    + _load_artifacts()
+    + health()
+    + predict()
+  }
+  class DataGenerator {
+    - NUM_SAMPLES : int
+    - SAMPLE_INTERVAL_SECONDS : int
+    + generate_kitchen_data()
+  }
+}
+
+package "MainServer.Models" {
+  class User {
+    + Id : int
+    + Username : string
+    + PasswordHash : string
+    + Role : string
+    + AssignedSensorId : int?
+  }
+  class SensorDevice {
+    + SensorId : int
+    + Status : string
+    + RoomId : int?
+    + Room : Room?
+    + Readings : List<SensorReading>
+  }
+  class SensorReading {
+    + ReadingId : int
+    + Timestamp : DateTime
+    + Temperature : double
+    + Humidity : double
+    + Co2Level : double
+    + SmokeLevel : double?
+    + Tvoc : double?
+    + Eco2 : double?
+    + Aqi : int?
+    + Classification : string?
+    + SensorId : int
+    + Sensor : SensorDevice?
+    + Prediction : Prediction?
+  }
+  class PredictionModel {
+    + PredictionId : int
+    + PredictionTime : DateTime
+    + PredictedCategory : string
+    + ConfidenceScore : double
+    + RiskLevel : string
+    + ReadingId : int
+    + Reading : SensorReading?
+  }
+  class Room {
+    + RoomId : int
+    + Name : string
+    + Sensors : ICollection<SensorDevice>
+  }
+}
+
+package "MainServer.Dtos" {
+  class SensorReadingDto {
+    + SensorId : int
+    + Timestamp : DateTime
+    + Sensors : SensorPayloadDto?
+    + Temperature : double?
+    + Humidity : double?
+    + Co2Level : double?
+    + Tvoc : double?
+    + Eco2 : double?
+    + Aqi : int?
+    + Classification : string?
+  }
+  class SensorPayloadDto {
+    + Temperature : double
+    + Humidity : double
+    + Co2Level : double
+    + Tvoc : double
+    + Eco2 : double
+    + Aqi : int
+  }
+  class PredictionDto {
+    + PredictedCategory : string
+    + ConfidenceScore : double
+    + RiskLevel : string
+  }
+  class AssignSensorDto {
+    + SensorId : int?
+  }
+  class CreateRoomDto {
+    + Name : string
+  }
+  class LoginDto {
+    + Email : string
+    + Password : string
+  }
+}
+
+package "MainServer.Data" {
+  class AppDbContext {
+    + Sensors : DbSet<SensorDevice>
+    + Readings : DbSet<SensorReading>
+    + Predictions : DbSet<Prediction>
+    + Users : DbSet<User>
+    + Rooms : DbSet<Room>
+    + AppDbContext()
+    # OnModelCreating()
+  }
+  class DbSchemaRepair {
+    + RepairAfterMigrateFailureAsync()
+    - EnsureReadingsPayloadColumnsAsync()
+    - InsertBaselineRowAsync()
+    - TableExistsAsync()
+    - ColumnExistsAsync()
+    - MigrationAppliedAsync()
+  }
+}
+
+package "MainServer.Services" {
+  class JwtService {
+    - _config : IConfiguration
+    + JwtService()
+    + GenerateToken()
+    + GetRoleFromClaims()
+    + GetUserIdFromClaims()
+  }
+  class MlClient {
+    - _http : HttpClient
+    - MaxAttempts : int
+    + MlClient()
+    + PredictAsync()
+  }
+  class ReadingsStreamHub {
+    - _subscriptions : ConcurrentDictionary<Guid, Subscription>
+    + Subscribe()
+    + Unsubscribe()
+    + Publish()
+  }
+  class AlarmMqttPublisher {
+    - _logger : ILogger
+    - _brokerHost : string
+    - _brokerPort : int
+    - _client : IMqttClient
+    - _mutex : SemaphoreSlim
+    + IsEnabled : bool
+    + AllowAlarmTest : bool
+    + MapRiskToPayload()
+    + MapPredictedCategoryToAlarmPayload()
+    + PublishForPredictedCategoryAsync()
+    + PublishRiskLevelAsync()
+    + PublishAlarmTestAsync()
+    - PublishPayloadCoreAsync()
+    + DisposeAsync()
+  }
+  class AlarmMqttShutdownHostedService {
+    - _publisher : AlarmMqttPublisher
+    + StartAsync()
+    + StopAsync()
+  }
+}
+
+package "MainServer.Controllers" {
+  class AuthController {
+    - _db : AppDbContext
+    - _jwt : JwtService
+    + Login()
+    + Register()
+    + Me()
+  }
+  class ReadingsController {
+    - _db : AppDbContext
+    - _ml : MlClient
+    - _streamHub : ReadingsStreamHub
+    - _alarmMqtt : AlarmMqttPublisher
+    + Post()
+    + PostAlarmTest()
+    + Stream()
+    + GetLatest()
+    + GetDevices()
+    + GetAlerts()
+  }
+  class RoomController {
+    - _db : AppDbContext
+    + GetRooms()
+    + CreateRoom()
+    + AssignSensor()
+    + UnassignSensor()
+  }
+  class UsersController {
+    - _db : AppDbContext
+    + GetAll()
+    + GetById()
+    + ChangeRole()
+    + AssignSensor()
+    + Delete()
+  }
+}
+
+package "MainServer.Logging" {
+  class InMemoryLogBuffer {
+    - _gate : object
+    - _lines : List<string>
+    - _maxLines : int
+    + InMemoryLogBuffer()
+    + Append()
+    + Snapshot()
+  }
+  class InMemoryLoggerProvider {
+    - _buffer : InMemoryLogBuffer
+    + CreateLogger()
+    + Dispose()
+  }
+}
+
+package "MainServer.Tests" {
+  class AlarmMqttPublisherTests
+  class JwtServiceTests
+  class MlClientTests
+  class SensorDeviceTests
+  class SensorReadingTests
+  class ReadingsControllerTests
+  class ReadingsStreamHubTests
+  class InMemoryLogBufferTests
+}
+
+package "FrontEnd" {
+  class App
+  class LoginPage
+  class Sidebar
+  class Topbar
+  class LineChart
+  class OverviewCard
+  class StatCard
+  class api
+  class apiClient
+  class accessControl
+}
+
+package "IoT_Foundation" {
+  class MainApp
+  class sensors
+  class dht11
+  class ens160
+  class co2
+  class wifi
+  class uart
+  class alarm_logic
+  class buzzer_behavior
+  class payload_builder
+  class sensor_validation
+  class ringbuffer
+}
+
+' Associations
+Reading -- Sensors
+AppDbContext -- SensorDevice
+AppDbContext -- SensorReading
+AppDbContext -- PredictionModel
+AppDbContext -- User
+AppDbContext -- Room
+SensorReading -- SensorDevice
+PredictionModel -- SensorReading
+SensorDevice -- Room
+InMemoryLoggerProvider -- InMemoryLogBuffer
+
+' Dependencies
+ReadingsController ..> AppDbContext
+ReadingsController ..> MlClient
+ReadingsController ..> ReadingsStreamHub
+ReadingsController ..> AlarmMqttPublisher
+AuthController ..> AppDbContext
+AuthController ..> JwtService
+RoomController ..> AppDbContext
+UsersController ..> AppDbContext
+MlClient ..> MlServerApp
+MlClient ..> PredictionDto
+AlarmMqttShutdownHostedService ..> AlarmMqttPublisher
+
+@enduml
